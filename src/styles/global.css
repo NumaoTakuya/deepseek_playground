@@ -1,0 +1,112 @@
+/* src/styles/global.css */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
+
+/* カラーパレット（ダークだけど少し彩度を入れたモダンな配色） */
+:root {
+  --color-bg: #1f2023; /* 背景 */
+  --color-sidebar: #2c2d31; /* サイドバー背景 */
+  --color-panel: #3a3b40; /* パネル系 */
+  --color-border: #4a4b52; /* ボーダー */
+  --color-primary: #00b8d9; /* アクセント (ティール系) */
+  --color-hover: #00a0bd; /* ホバー時 */
+  --color-text: #f5f5f5; /* メイン文字 */
+  --color-subtext: #aaaaaa; /* サブ文字 */
+}
+
+/* 全体 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Inter", sans-serif, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  font-size: 16px;
+}
+
+/* 継承 */
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+/* スクロールバー カスタム (細くダークに) */
+::-webkit-scrollbar {
+  width: 8px;
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-hover);
+}
+
+/* MUI ボタンなどをアクセント色に (必要に応じて!important追加) */
+button,
+.MuiButton-root,
+.MuiIconButton-root {
+  background-color: var(--color-primary);
+  color: #fff;
+  text-transform: none;
+}
+button:hover,
+.MuiButton-root:hover,
+.MuiIconButton-root:hover {
+  background-color: var(--color-hover);
+}
+
+/* カード/パネル系 */
+.MuiPaper-root {
+  background-color: var(--color-panel) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+/* サイドバー用 */
+.sidebar {
+  background-color: var(--color-sidebar) !important;
+  border-right: 1px solid var(--color-border) !important;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+/* 小さめテキスト */
+.small-text {
+  color: var(--color-subtext);
+  font-size: 0.875rem;
+}
+
+/* --- 吹き出しっぽいメッセージ用クラスを追加 --- */
+.bubble-container {
+  display: flex;
+  margin-bottom: 8px;
+}
+.bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.bubble.user {
+  margin-left: auto; /* 右寄せ */
+  background-color: var(--color-primary);
+  color: #fff;
+}
+.bubble.assistant {
+  margin-right: auto; /* 左寄せ */
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+/* ラベル「user」「assistant」も小さめ文字でグレーに */
+.bubble-label {
+  font-size: 0.75rem;
+  color: var(--color-subtext);
+  margin-bottom: 2px;
+}
