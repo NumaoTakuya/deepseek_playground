@@ -5,8 +5,11 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  Typography,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { useRouter } from "next/router";
 import { useAuth } from "../../contexts/AuthContext";
 import { useApiKey } from "../../contexts/ApiKeyContext";
@@ -18,49 +21,53 @@ import { db } from "../../services/firebase";
 
 /**
  * 新規チャット開始ページ
- * ユーザーの初回入力を元に:
- * 1) 新規スレッド作成
- * 2) 短いスレッドタイトル生成 (Deepseek)
- * 3) アシスタント応答生成 (Deepseek)
- * 4) メッセージに保存
- * 5) /chat/[threadId] に遷移
+ * - 上部バーで System Prompt (折り畳み式)
+ * - 下部に "Your First Message" 入力欄 + 送信ボタン
  */
 export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { apiKey } = useApiKey();
 
-  const [input, setInput] = useState("");
+  // system prompt
+  const [systemInput, setSystemInput] = useState(
+    "You are a helpful assistant."
+  );
+  const [showSystemBox, setShowSystemBox] = useState(false);
+
+  // user's first message
+  const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  if (!user) return null; // ログイン前は何もしない
+  if (!user) return null;
 
   const handleSend = async () => {
     setError("");
 
-    // APIキー未入力チェック
     if (!apiKey.trim()) {
       setError(
-        "API Key is not input. Please enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
+        "API Key is not input. Please enter it in the sidebar. (Deepseek API)"
       );
       return;
     }
-    // 入力メッセージが空
-    if (!input.trim()) return;
+    if (!userInput.trim()) return;
 
-    const userInput = input.trim();
-    setInput("");
+    const inputValue = userInput.trim();
+    setUserInput("");
     setLoading(true);
 
     try {
-      // 1) 新規スレッド (仮タイトル: "New Thread")
+      // 1) Create thread with "New Thread"
       const newThreadId = await createThread(user.uid, "New Thread");
 
-      // 2) ユーザーの初回メッセージを保存
-      await createMessage(newThreadId, "user", userInput);
+      // 2) Save system message
+      await createMessage(newThreadId, "system", systemInput);
 
-      // 3) Deepseekに「短いタイトル」生成を依頼
+      // 3) Save user message
+      await createMessage(newThreadId, "user", inputValue);
+
+      // 4) Generate short title
       const promptForTitle = [
         {
           role: "system" as const,
@@ -69,47 +76,37 @@ export default function ChatHomePage() {
         },
         {
           role: "user" as const,
-          content: `User's first message: ${userInput}\nPlease create a short, concise title. Just say the title without quotation.`,
+          content: `User's first message: ${inputValue}\nPlease create a short, concise title. Just say the title without quotation.`,
         },
       ];
-      const generatedTitle = await callDeepseek(apiKey, promptForTitle);
-      const finalTitle = (generatedTitle || "").trim();
+      const rawTitle = await callDeepseek(apiKey, promptForTitle);
+      const finalTitle = (rawTitle || "").trim();
       const titleToUse =
-        finalTitle.length > 0 ? finalTitle : userInput.slice(0, 10);
+        finalTitle.length > 0 ? finalTitle : inputValue.slice(0, 10);
 
-      // 4) Firestoreにタイトル反映
-      await updateDoc(doc(db, "threads", newThreadId), {
-        title: titleToUse,
-      });
+      await updateDoc(doc(db, "threads", newThreadId), { title: titleToUse });
 
-      // 5) Deepseekに「最初のアシスタント応答」を生成してもらう
-      //    例: system で「You are a helpful assistant.」を指定
-      const conversationForAssistant = [
-        { role: "system" as const, content: "You are a helpful assistant." },
-        { role: "user" as const, content: userInput },
+      // 5) Generate assistant's first response
+      const conversation = [
+        { role: "system" as const, content: systemInput },
+        { role: "user" as const, content: inputValue },
       ];
-      const assistantContent = await callDeepseek(
-        apiKey,
-        conversationForAssistant
-      );
+      const assistantContent = await callDeepseek(apiKey, conversation);
 
-      // 6) アシスタントのメッセージを保存
+      // 6) Save assistant message
       await createMessage(newThreadId, "assistant", assistantContent);
 
-      // 7) 画面遷移 -> /chat/[threadId]
+      // 7) Go to /chat/[threadId]
       router.push(`/chat/${newThreadId}`);
     } catch (err) {
       console.error("Error in handleSend:", err);
-      setError(
-        "An error occurred while creating the thread or generating a title/assistant response."
-      );
+      setError("Error occurred while creating the thread or calling Deepseek.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Shift+Enterで改行, Enterで送信
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDownUser = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -120,7 +117,7 @@ export default function ChatHomePage() {
     <Box
       display="flex"
       flexDirection="column"
-      height="100%"
+      minHeight="100vh"
       justifyContent="center"
       alignItems="center"
       p={2}
@@ -138,6 +135,70 @@ export default function ChatHomePage() {
         </Box>
       ) : (
         <Box width="100%" maxWidth="600px">
+          {/* --- System Prompt Bar --- */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              backgroundColor: "#333",
+              color: "#fff",
+              p: 1,
+              mb: 2,
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              System Prompt
+            </Typography>
+            <IconButton
+              onClick={() => setShowSystemBox(!showSystemBox)}
+              sx={{ color: "#fff", ml: "auto" }}
+            >
+              {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
+
+          {showSystemBox && (
+            <Box
+              sx={{
+                backgroundColor: "#2e2e2e",
+                p: 2,
+                borderRadius: 1,
+                mb: 3,
+              }}
+            >
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                value={systemInput}
+                onChange={(e) => setSystemInput(e.target.value)}
+                label="Edit your system prompt"
+                variant="outlined"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "#555",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#888",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#aaa",
+                    },
+                  },
+                  "& .MuiInputLabel-root": { color: "#ddd" },
+                  "& .MuiOutlinedInput-input": { color: "#fff" },
+                }}
+              />
+            </Box>
+          )}
+
+          {/* "Your First Message" section */}
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Your First Message
+          </Typography>
+
           <Box display="flex" alignItems="center" gap={1}>
             <TextField
               multiline
@@ -146,9 +207,9 @@ export default function ChatHomePage() {
               fullWidth
               label="Type your first message (Shift+Enter for newline)"
               variant="outlined"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={handleKeyDownUser}
               sx={{
                 backgroundColor: "#2e2e2e",
                 "& .MuiOutlinedInput-root": {
@@ -175,23 +236,20 @@ export default function ChatHomePage() {
                 },
               }}
             />
+
+            {/* 送信ボタン */}
             <IconButton
               onClick={handleSend}
               sx={{
                 borderRadius: "50%",
                 backgroundColor: "var(--color-primary)",
                 color: "#fff",
-                border: "none",
-                outline: "none",
-                boxShadow: "none",
+                width: 48,
+                height: 48,
                 "&:hover": {
                   backgroundColor: "var(--color-hover)",
                 },
                 "&:focus": {
-                  outline: "none",
-                  boxShadow: "none",
-                },
-                "&:focus-visible": {
                   outline: "none",
                   boxShadow: "none",
                 },

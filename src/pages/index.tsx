@@ -67,7 +67,7 @@ export default function LandingPage() {
         sx={{
           position: "relative",
           height: "70vh", // 画面いっぱいではなく70%程度
-          background: `url("https://picsum.photos/1600/900?grayscale&blur=2") center/cover no-repeat`,
+          background: `url("/images/hero-bg.jpeg") center/cover no-repeat`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

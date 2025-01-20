@@ -9,6 +9,8 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
 import { useState, useEffect } from "react";
 
@@ -31,14 +33,13 @@ export async function createMessage(
   content: string
 ) {
   const messagesRef = collection(db, "threads", threadId, "messages");
-
-  // Firestoreセキュリティルール上、親スレッドが自分のuserIdであればOK
-  await addDoc(messagesRef, {
-    threadId, // 必要に応じて保存
+  const docRef = await addDoc(messagesRef, {
+    threadId,
     role,
     content,
     createdAt: serverTimestamp(),
   });
+  return docRef.id; // Return the new document ID
 }
 
 /**
@@ -88,4 +89,13 @@ export function listenMessages(
     }));
     callback(data);
   });
+}
+
+export function updateMessage(
+  threadId: string,
+  messageId: string,
+  content: string
+) {
+  const messageRef = doc(db, "threads", threadId, "messages", messageId);
+  return updateDoc(messageRef, { content });
 }

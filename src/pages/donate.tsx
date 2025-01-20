@@ -24,18 +24,44 @@ export default function DonatePage() {
       }}
     >
       {/* Hero-ish Top Section */}
-      <Box sx={{ textAlign: "center", py: 10, backgroundColor: "#2C2D31" }}>
-        <Typography variant="h3" sx={{ fontWeight: 700, mb: 2 }}>
-          Support Our Unofficial Project
-        </Typography>
-        <Typography
-          variant="body1"
-          sx={{ maxWidth: 600, mx: "auto", opacity: 0.9 }}
+      <Box
+        sx={{
+          position: "relative",
+          height: "30vh",
+          background: `url("/images/donate-bg.jpeg") center/cover no-repeat`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Overlay */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        />
+        <Container
+          sx={{
+            position: "relative",
+            textAlign: "center",
+            zIndex: 1,
+            color: "#fff", // 文字色を白に
+          }}
         >
-          This project is non-profit and open-source. Your donation helps cover
-          server costs and keeps our Deepseek Playground running freely for
-          everyone.
-        </Typography>
+          <Typography variant="h3" sx={{ fontWeight: 700, mb: 2 }}>
+            Support Our Unofficial Project
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{ maxWidth: 600, mx: "auto", opacity: 0.9 }}
+          >
+            This project is non-profit and open-source. Your donation helps
+            cover server costs and keeps our Deepseek Playground running freely
+            for everyone.
+          </Typography>
+        </Container>
       </Box>
 
       <Container maxWidth="md" sx={{ py: 8 }}>
