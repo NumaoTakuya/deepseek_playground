@@ -1,6 +1,6 @@
 # Deepseek Playground (Unofficial)
 
-Deployed at [https://deepseek-playground.vercel.app/](https://deepseek-playground.vercel.app/)
+🎉Deployed at [https://deepseek-playground.vercel.app/](https://deepseek-playground.vercel.app/)
 
 An **unofficial** AI chat playground using [Deepseek](https://platform.deepseek.com/) via an OpenAI-like API, built with **Next.js** / **TypeScript** / **Firebase** / **MUI**.
 
