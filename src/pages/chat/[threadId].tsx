@@ -1,6 +1,7 @@
 import React from "react";
 import { useRouter } from "next/router";
 import ChatWindow from "../../components/chat/ChatWindow";
+import Head from "next/head";
 
 /**
  * 既存スレッドのチャットページ
@@ -14,5 +15,39 @@ export default function ThreadPage() {
     return <div>Invalid thread ID</div>;
   }
 
-  return <ChatWindow threadId={threadId} />;
+  return (
+    <>
+      <Head>
+        <title>Chat Thread - Deepseek Playground</title>
+        <meta
+          name="description"
+          content="Continue your AI chat conversation powered by Deepseek. Save messages in Firestore, adjust system prompts."
+        />
+
+        <meta property="og:title" content="Chat Thread - Deepseek Playground" />
+        <meta
+          property="og:description"
+          content="Keep your conversation with a custom system prompt. Non-official Deepseek integration."
+        />
+        <meta property="og:image" content="/images/screenshot.png" />
+        <meta
+          property="og:url"
+          content="https://deepseek-playground.vercel.app/chat/[threadId]"
+        />
+        <meta property="og:type" content="article" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Chat Thread - Deepseek Playground"
+        />
+        <meta
+          name="twitter:description"
+          content="Edit your system prompt on the fly, send messages to Deepseek, and store them in Firestore."
+        />
+        <meta name="twitter:image" content="/images/screenshot.png" />
+      </Head>
+      <ChatWindow threadId={threadId} />
+    </>
+  );
 }

@@ -18,6 +18,7 @@ import { createMessage } from "../../services/message";
 import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
+import Head from "next/head";
 
 /**
  * 新規チャット開始ページ
@@ -114,152 +115,189 @@ export default function ChatHomePage() {
   };
 
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      minHeight="100vh"
-      justifyContent="center"
-      alignItems="center"
-      p={2}
-    >
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+    <>
+      <Head>
+        <title>Create a New Chat - Deepseek Playground</title>
+        <meta
+          name="description"
+          content="Start a new conversation with a custom system prompt and first user message. Powered by Deepseek (unofficial)."
+        />
 
-      {loading ? (
-        <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-          <CircularProgress />
-          <div>Creating new thread...</div>
-        </Box>
-      ) : (
-        <Box width="100%" maxWidth="600px">
-          {/* --- System Prompt Bar --- */}
+        <meta
+          property="og:title"
+          content="Create a New Chat - Deepseek Playground"
+        />
+        <meta
+          property="og:description"
+          content="Set your first message and system prompt. This unofficial AI chat saves threads in Firestore."
+        />
+        <meta property="og:image" content="/images/screenshot.png" />
+        <meta
+          property="og:url"
+          content="https://deepseek-playground.vercel.app/chat"
+        />
+        <meta property="og:type" content="website" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="New Chat - Deepseek Playground" />
+        <meta
+          name="twitter:description"
+          content="Define your system prompt & first message, then get AI responses from Deepseek."
+        />
+        <meta name="twitter:image" content="/images/screenshot.png" />
+      </Head>
+      <Box
+        display="flex"
+        flexDirection="column"
+        minHeight="100vh"
+        justifyContent="center"
+        alignItems="center"
+        p={2}
+      >
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {loading ? (
           <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              backgroundColor: "#333",
-              color: "#fff",
-              p: 1,
-              mb: 2,
-              borderRadius: 1,
-            }}
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            gap={2}
           >
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              System Prompt
-            </Typography>
-            <IconButton
-              onClick={() => setShowSystemBox(!showSystemBox)}
-              sx={{ color: "#fff", ml: "auto" }}
-            >
-              {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
+            <CircularProgress />
+            <div>Creating new thread...</div>
           </Box>
-
-          {showSystemBox && (
+        ) : (
+          <Box width="100%" maxWidth="600px">
+            {/* --- System Prompt Bar --- */}
             <Box
               sx={{
-                backgroundColor: "#2e2e2e",
-                p: 2,
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "#333",
+                color: "#fff",
+                p: 1,
+                mb: 2,
                 borderRadius: 1,
-                mb: 3,
               }}
             >
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                value={systemInput}
-                onChange={(e) => setSystemInput(e.target.value)}
-                label="Edit your system prompt"
-                variant="outlined"
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                System Prompt
+              </Typography>
+              <IconButton
+                onClick={() => setShowSystemBox(!showSystemBox)}
+                sx={{ color: "#fff", ml: "auto" }}
+              >
+                {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Box>
+
+            {showSystemBox && (
+              <Box
                 sx={{
+                  backgroundColor: "#2e2e2e",
+                  p: 2,
+                  borderRadius: 1,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  value={systemInput}
+                  onChange={(e) => setSystemInput(e.target.value)}
+                  label="Edit your system prompt"
+                  variant="outlined"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#555",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#888",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#aaa",
+                      },
+                    },
+                    "& .MuiInputLabel-root": { color: "#ddd" },
+                    "& .MuiOutlinedInput-input": { color: "#fff" },
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* "Your First Message" section */}
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Your First Message
+            </Typography>
+
+            <Box display="flex" alignItems="center" gap={1}>
+              <TextField
+                multiline
+                minRows={1}
+                maxRows={6}
+                fullWidth
+                label="Type your first message (Shift+Enter for newline)"
+                variant="outlined"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={handleKeyDownUser}
+                sx={{
+                  backgroundColor: "#2e2e2e",
                   "& .MuiOutlinedInput-root": {
                     "& fieldset": {
-                      borderColor: "#555",
+                      borderColor: "var(--color-border)",
                     },
                     "&:hover fieldset": {
-                      borderColor: "#888",
+                      borderColor: "var(--color-hover)",
                     },
                     "&.Mui-focused fieldset": {
-                      borderColor: "#aaa",
+                      borderColor: "var(--color-hover)",
                     },
                   },
-                  "& .MuiInputLabel-root": { color: "#ddd" },
-                  "& .MuiOutlinedInput-input": { color: "#fff" },
+                  "& .MuiOutlinedInput-input": {
+                    color: "#fff",
+                    fontSize: "0.9rem",
+                    lineHeight: 1.4,
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "var(--color-subtext)",
+                  },
+                  "& .MuiInputLabel-root.Mui-focused": {
+                    color: "#fff",
+                  },
                 }}
               />
+
+              {/* 送信ボタン */}
+              <IconButton
+                onClick={handleSend}
+                sx={{
+                  borderRadius: "50%",
+                  backgroundColor: "var(--color-primary)",
+                  color: "#fff",
+                  width: 48,
+                  height: 48,
+                  "&:hover": {
+                    backgroundColor: "var(--color-hover)",
+                  },
+                  "&:focus": {
+                    outline: "none",
+                    boxShadow: "none",
+                  },
+                }}
+              >
+                <ArrowUpwardIcon />
+              </IconButton>
             </Box>
-          )}
-
-          {/* "Your First Message" section */}
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Your First Message
-          </Typography>
-
-          <Box display="flex" alignItems="center" gap={1}>
-            <TextField
-              multiline
-              minRows={1}
-              maxRows={6}
-              fullWidth
-              label="Type your first message (Shift+Enter for newline)"
-              variant="outlined"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={handleKeyDownUser}
-              sx={{
-                backgroundColor: "#2e2e2e",
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "var(--color-border)",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "var(--color-hover)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "var(--color-hover)",
-                  },
-                },
-                "& .MuiOutlinedInput-input": {
-                  color: "#fff",
-                  fontSize: "0.9rem",
-                  lineHeight: 1.4,
-                },
-                "& .MuiInputLabel-root": {
-                  color: "var(--color-subtext)",
-                },
-                "& .MuiInputLabel-root.Mui-focused": {
-                  color: "#fff",
-                },
-              }}
-            />
-
-            {/* 送信ボタン */}
-            <IconButton
-              onClick={handleSend}
-              sx={{
-                borderRadius: "50%",
-                backgroundColor: "var(--color-primary)",
-                color: "#fff",
-                width: 48,
-                height: 48,
-                "&:hover": {
-                  backgroundColor: "var(--color-hover)",
-                },
-                "&:focus": {
-                  outline: "none",
-                  boxShadow: "none",
-                },
-              }}
-            >
-              <ArrowUpwardIcon />
-            </IconButton>
           </Box>
-        </Box>
-      )}
-    </Box>
+        )}
+      </Box>
+    </>
   );
 }
