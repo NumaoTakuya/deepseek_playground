@@ -12,10 +12,10 @@ import { callDeepseek } from "../../services/deepseek";
 import type { Message } from "../../types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useApiKey } from "../../contexts/ApiKeyContext";
 
 interface Props {
   threadId: string;
-  apiKey: string;
 }
 
 /**
@@ -24,10 +24,11 @@ interface Props {
  * - 2重丸枠を防ぐため IconButtonをカスタム
  * - Markdown表示
  */
-export default function ChatWindow({ threadId, apiKey }: Props) {
+export default function ChatWindow({ threadId }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
+  const { apiKey } = useApiKey();
 
   useEffect(() => {
     const unsubscribe = listenMessages(threadId, (fetched) => {
@@ -38,7 +39,9 @@ export default function ChatWindow({ threadId, apiKey }: Props) {
 
   const handleSend = async () => {
     if (!apiKey.trim()) {
-      alert("API Key が入力されていません。");
+      alert(
+        "API Key is not input. Please enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
+      );
       return;
     }
     if (!input.trim()) return;
@@ -84,7 +87,8 @@ export default function ChatWindow({ threadId, apiKey }: Props) {
     <Box display="flex" flexDirection="column" height="100%">
       {!apiKey.trim() && (
         <Alert severity="error" sx={{ borderRadius: 0 }}>
-          API Key が入力されていません。
+          API Key is not input. Please enter it in the sidebar. You can obtain
+          it from https://platform.deepseek.com/api_keys
         </Alert>
       )}
 

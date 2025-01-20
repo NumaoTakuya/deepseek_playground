@@ -14,6 +14,7 @@ import { createMessage } from "../../services/message";
 import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
+import { useApiKey } from "../../contexts/ApiKeyContext";
 
 /**
  * 新規チャット開始ページ
@@ -23,24 +24,20 @@ import { db } from "../../services/firebase";
 export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { apiKey } = useApiKey();
 
   const [input, setInput] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // localStorageからAPIキーを読み込み
-  useEffect(() => {
-    const storedKey = localStorage.getItem("deepseekApiKey") || "";
-    setApiKey(storedKey);
-  }, []);
 
   if (!user) return null;
 
   const handleSend = async () => {
     setError("");
     if (!apiKey.trim()) {
-      setError("API Key が入力されていません。サイドバーで入力してください。");
+      setError(
+        "API Key is not input. Please enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
+      );
       return;
     }
     if (!input.trim()) return;

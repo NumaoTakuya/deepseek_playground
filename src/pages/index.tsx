@@ -1,55 +1,195 @@
-// src/pages/index.tsx
-
-import React, { useEffect } from "react";
+import React from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Box,
+  Container,
+  Card,
+  CardContent,
+} from "@mui/material";
 import { useRouter } from "next/router";
-import { signInWithGoogle } from "../services/firebase";
-import { useAuth } from "../contexts/AuthContext";
-import { Button, Box, Card, CardContent, Typography } from "@mui/material";
 
-export default function Home() {
-  const { user, loading } = useAuth();
+export default function LandingPage() {
   const router = useRouter();
 
-  // ユーザーがログイン済みなら /chat へ飛ばす
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace("/chat");
-    }
-  }, [loading, user, router]);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error("Login error:", error);
-    }
+  const handleLogin = () => {
+    router.push("/login");
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  const handleDonate = () => {
+    router.push("/donate");
+  };
 
-  // ログインしていなければカードを表示
   return (
     <Box
-      height="100vh"
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
+      sx={{
+        fontFamily: "Inter, sans-serif",
+        backgroundColor: "#1F2023",
+        color: "#ECECF1",
+      }}
     >
-      <Card sx={{ minWidth: 300, p: 2 }}>
-        <CardContent>
-          <Typography variant="h5" gutterBottom>
-            Welcome to Our Chat
+      {/* Header / Navbar */}
+      <AppBar position="static" sx={{ backgroundColor: "#2C2D31" }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
+            Deepseek Playground (Unofficial)
           </Typography>
-          <Typography variant="body2" paragraph>
-            Deepseek を利用したチャット体験をお楽しみください。
-          </Typography>
-          <Button variant="contained" onClick={handleLogin} fullWidth>
-            Googleでログイン
+          <Button
+            onClick={handleLogin}
+            sx={{
+              color: "#fff",
+              textTransform: "none",
+              fontWeight: 600,
+              mr: 2,
+            }}
+          >
+            Try Freely
           </Button>
-        </CardContent>
-      </Card>
+          <Button
+            variant="outlined"
+            onClick={handleDonate}
+            sx={{
+              color: "#ECECF1",
+              borderColor: "#ECECF1",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Donate
+          </Button>
+        </Toolbar>
+      </AppBar>
+
+      {/* Hero Section */}
+      <Box
+        sx={{
+          position: "relative",
+          height: "70vh", // 画面いっぱいではなく70%程度
+          background: `url("https://picsum.photos/1600/900?grayscale&blur=2") center/cover no-repeat`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Overlay */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        />
+        <Container
+          sx={{
+            position: "relative",
+            textAlign: "center",
+            zIndex: 1,
+          }}
+        >
+          <Typography variant="h2" sx={{ fontWeight: 700, mb: 2 }}>
+            Deepseek Playground
+          </Typography>
+          <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
+            An Unofficial Demo for Flexible AI Chat
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={handleLogin}
+            sx={{
+              backgroundColor: "#00B8D9",
+              "&:hover": { backgroundColor: "#00A0BD" },
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Try Freely
+          </Button>
+        </Container>
+      </Box>
+
+      {/* Features Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography
+          variant="h4"
+          sx={{ fontWeight: 700, mb: 4, textAlign: "center" }}
+        >
+          Features
+        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            justifyContent: "center",
+          }}
+        >
+          <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                Use Your Own API Key
+              </Typography>
+              <Typography variant="body2" color="#bfbfbf">
+                Bring your personal Deepseek key, stored locally on your device
+                to keep it secure.
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                System Message Support
+              </Typography>
+              <Typography variant="body2" color="#bfbfbf">
+                Fine-tune your AI assistant’s behavior with a dedicated system
+                role message.
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                Markdown Chat
+              </Typography>
+              <Typography variant="body2" color="#bfbfbf">
+                Format messages with lists, links, and code blocks — ideal for
+                sharing snippets.
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                Google Login
+              </Typography>
+              <Typography variant="body2" color="#bfbfbf">
+                Quickly sign in via Google and preserve your conversation
+                history in Firestore.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      </Container>
+
+      {/* Footer */}
+      <Box sx={{ backgroundColor: "#2C2D31", py: 4 }}>
+        <Container maxWidth="lg" sx={{ textAlign: "center" }}>
+          <Typography variant="body2" color="#bfbfbf" sx={{ mb: 1 }}>
+            This project is <strong>unofficial</strong> and not affiliated with
+            Deepseek Inc.
+          </Typography>
+          <Typography variant="body2" color="#bfbfbf" sx={{ mb: 2 }}>
+            If you have any questions or find any bugs, please contact us at:
+          </Typography>
+          <Typography variant="body2" color="#00B8D9">
+            numaothe@gmail.com
+          </Typography>
+        </Container>
+      </Box>
     </Box>
   );
 }

@@ -4,21 +4,26 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { AuthProvider } from "../contexts/AuthContext";
 import Layout from "../components/layout/Layout";
+import { ApiKeyProvider } from "../contexts/ApiKeyContext";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  // ルートパス ("/") はログイン画面とし、他は Layout を適用
-  const isLoginPage = router.pathname === "/";
+  // 指定したパスの場合はそのページを表示
+  const isLpPage = router.pathname === "/";
+  const isLoginPage = router.pathname === "/login";
+  const isDonatePage = router.pathname === "/donate";
 
   return (
     <AuthProvider>
-      {isLoginPage ? (
-        <Component {...pageProps} />
-      ) : (
-        <Layout>
+      <ApiKeyProvider>
+        {isLpPage || isLoginPage || isDonatePage ? (
           <Component {...pageProps} />
-        </Layout>
-      )}
+        ) : (
+          <Layout>
+            <Component {...pageProps} />
+          </Layout>
+        )}
+      </ApiKeyProvider>
     </AuthProvider>
   );
 }

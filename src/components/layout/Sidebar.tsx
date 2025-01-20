@@ -1,5 +1,6 @@
 // src/components/layout/Sidebar.tsx
-import React, { useState, useEffect } from "react";
+
+import React, { useState } from "react";
 import { Box, Typography, TextField, Button } from "@mui/material";
 import Link from "next/link";
 import SidebarTab from "./SidebarTab";
@@ -7,19 +8,13 @@ import { useThreads } from "../../hooks/useThreads";
 import { useAuth } from "../../contexts/AuthContext";
 import { doSignOut } from "../../services/firebase";
 import { useRouter } from "next/router";
+import { useApiKey } from "../../contexts/ApiKeyContext";
 
 export default function Sidebar() {
   const router = useRouter();
   const { user } = useAuth();
   const { threads } = useThreads(user?.uid);
-
-  // localStorageから読み込む
-  const [apiKey, setApiKey] = useState("");
-
-  useEffect(() => {
-    const storedKey = localStorage.getItem("deepseekApiKey") || "";
-    setApiKey(storedKey);
-  }, []);
+  const { apiKey, setApiKey } = useApiKey(); // Context から取得
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value);
@@ -39,13 +34,23 @@ export default function Sidebar() {
     router.push("/chat");
   };
 
+  // 「Deepseek Playground」タイトルをクリックで "/" に遷移する
+  const handleTitleClick = () => {
+    router.push("/");
+  };
+
   return (
     <Box className="sidebar" height="100%">
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+      {/* タイトルをボタン風に。cursor:pointerでルーティング */}
+      <Typography
+        variant="h6"
+        sx={{ mb: 2, fontWeight: 600, cursor: "pointer" }}
+        onClick={handleTitleClick}
+      >
         Deepseek Playground
       </Typography>
 
-      {/* --- 「type=password」で入力をマスク --- */}
+      {/* APIキー入力 (type=password) */}
       <TextField
         label="Deepseek API Key"
         type="password"
@@ -76,6 +81,7 @@ export default function Sidebar() {
         }}
       />
 
+      {/* スレッド一覧 (時系列) */}
       <Box flex="1" overflow="auto" mt={2}>
         {threads?.map((thread) => (
           <Box key={thread.id} mb={1}>
@@ -86,6 +92,7 @@ export default function Sidebar() {
         ))}
       </Box>
 
+      {/* New Thread & Logout */}
       <Box mt={2}>
         <Button
           variant="outlined"

@@ -22,5 +22,5 @@ export default function ThreadPage() {
     return <div>Invalid thread ID</div>;
   }
 
-  return <ChatWindow threadId={threadId} apiKey={apiKey} />;
+  return <ChatWindow threadId={threadId} />;
 }

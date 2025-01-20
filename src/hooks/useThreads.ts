@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { db } from "../services/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 
 export interface Thread {
   id: string;
@@ -22,7 +28,11 @@ export function useThreads(userId: string | undefined) {
 
     // ここで "userId" で絞り込む (重要！)
     const ref = collection(db, "threads");
-    const q = query(ref, where("userId", "==", userId));
+    const q = query(
+      ref,
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc")
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
