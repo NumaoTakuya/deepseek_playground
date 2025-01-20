@@ -9,36 +9,44 @@ import {
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import { useRouter } from "next/router";
 import { useAuth } from "../../contexts/AuthContext";
+import { useApiKey } from "../../contexts/ApiKeyContext";
 import { createThread } from "../../services/thread";
 import { createMessage } from "../../services/message";
 import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
-import { useApiKey } from "../../contexts/ApiKeyContext";
 
 /**
  * 新規チャット開始ページ
- * - TextFieldが入力量に応じて自動拡張 (minRows=1, maxRows=6)
- * - ボタンに二重の丸枠が出ないようカスタム
+ * ユーザーの初回入力を元に:
+ * 1) 新規スレッド作成
+ * 2) 短いスレッドタイトル生成 (Deepseek)
+ * 3) アシスタント応答生成 (Deepseek)
+ * 4) メッセージに保存
+ * 5) /chat/[threadId] に遷移
  */
 export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { apiKey } = useApiKey();
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  if (!user) return null;
+  if (!user) return null; // ログイン前は何もしない
 
   const handleSend = async () => {
     setError("");
+
+    // APIキー未入力チェック
     if (!apiKey.trim()) {
       setError(
         "API Key is not input. Please enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
       );
       return;
     }
+    // 入力メッセージが空
     if (!input.trim()) return;
 
     const userInput = input.trim();
@@ -46,44 +54,66 @@ export default function ChatHomePage() {
     setLoading(true);
 
     try {
-      // 1) 新規スレッド作成
+      // 1) 新規スレッド (仮タイトル: "New Thread")
       const newThreadId = await createThread(user.uid, "New Thread");
 
-      // 2) userメッセージ保存
+      // 2) ユーザーの初回メッセージを保存
       await createMessage(newThreadId, "user", userInput);
 
-      // 3) スレッドタイトル更新
+      // 3) Deepseekに「短いタイトル」生成を依頼
+      const promptForTitle = [
+        {
+          role: "system" as const,
+          content:
+            "You generate a short conversation title based on the user's first message. Output ONLY the title text without quotes or disclaimers.",
+        },
+        {
+          role: "user" as const,
+          content: `User's first message: ${userInput}\nPlease create a short, concise title. Just say the title without quotation.`,
+        },
+      ];
+      const generatedTitle = await callDeepseek(apiKey, promptForTitle);
+      const finalTitle = (generatedTitle || "").trim();
+      const titleToUse =
+        finalTitle.length > 0 ? finalTitle : userInput.slice(0, 10);
+
+      // 4) Firestoreにタイトル反映
       await updateDoc(doc(db, "threads", newThreadId), {
-        title: userInput.slice(0, 10),
+        title: titleToUse,
       });
 
-      // 4) Deepseek呼び出し
-      const conversation = [
+      // 5) Deepseekに「最初のアシスタント応答」を生成してもらう
+      //    例: system で「You are a helpful assistant.」を指定
+      const conversationForAssistant = [
         { role: "system" as const, content: "You are a helpful assistant." },
         { role: "user" as const, content: userInput },
       ];
-      const assistantContent = await callDeepseek(apiKey, conversation);
+      const assistantContent = await callDeepseek(
+        apiKey,
+        conversationForAssistant
+      );
 
-      // 5) assistantメッセージ保存
+      // 6) アシスタントのメッセージを保存
       await createMessage(newThreadId, "assistant", assistantContent);
 
-      // 6) 遷移
+      // 7) 画面遷移 -> /chat/[threadId]
       router.push(`/chat/${newThreadId}`);
     } catch (err) {
       console.error("Error in handleSend:", err);
-      setError("最初のメッセージ送信中にエラーが発生しました。");
+      setError(
+        "An error occurred while creating the thread or generating a title/assistant response."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Shift+Enterで改行, Enter単独で送信
+  // Shift+Enterで改行, Enterで送信
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-    // shiftKeyがあれば改行
   };
 
   return (
@@ -132,7 +162,6 @@ export default function ChatHomePage() {
                     borderColor: "var(--color-hover)",
                   },
                 },
-                // ↓ 入力文字サイズや行間を少し小さめに
                 "& .MuiOutlinedInput-input": {
                   color: "#fff",
                   fontSize: "0.9rem",
@@ -146,14 +175,12 @@ export default function ChatHomePage() {
                 },
               }}
             />
-            {/* 送信ボタン */}
             <IconButton
               onClick={handleSend}
               sx={{
                 borderRadius: "50%",
                 backgroundColor: "var(--color-primary)",
                 color: "#fff",
-                // 2重丸枠を防ぐ
                 border: "none",
                 outline: "none",
                 boxShadow: "none",
