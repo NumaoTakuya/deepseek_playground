@@ -8,14 +8,15 @@ import {
   where,
   onSnapshot,
   orderBy,
+  Timestamp,
 } from "firebase/firestore";
 
 export interface Thread {
   id: string;
   userId: string;
   title: string;
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 /** ログイン中のユーザーの threads をリアルタイム取得 */

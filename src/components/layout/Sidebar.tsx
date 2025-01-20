@@ -1,6 +1,4 @@
 // src/components/layout/Sidebar.tsx
-
-import React, { useState } from "react";
 import { Box, Typography, TextField, Button } from "@mui/material";
 import Link from "next/link";
 import SidebarTab from "./SidebarTab";

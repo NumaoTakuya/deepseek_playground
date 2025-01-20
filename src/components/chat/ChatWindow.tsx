@@ -58,10 +58,10 @@ export default function ChatWindow({ threadId }: Props) {
 
       // 3) 全履歴 + 今の発言をDeepseek
       const conversation = messages.map((m) => ({
-        role: m.role,
+        role: m.role as "user" | "assistant" | "system",
         content: m.content,
       }));
-      conversation.push({ role: "user", content: userInput });
+      conversation.push({ role: "user" as const, content: userInput });
 
       const assistantContent = await callDeepseek(apiKey, conversation);
 

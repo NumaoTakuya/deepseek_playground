@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useRouter } from "next/router";
 import ChatWindow from "../../components/chat/ChatWindow";
 
@@ -9,14 +9,6 @@ import ChatWindow from "../../components/chat/ChatWindow";
 export default function ThreadPage() {
   const router = useRouter();
   const { threadId } = router.query;
-
-  // localStorage からキーを取得
-  const [apiKey, setApiKey] = useState("");
-
-  useEffect(() => {
-    const storedKey = localStorage.getItem("deepseekApiKey") || "";
-    setApiKey(storedKey);
-  }, []);
 
   if (!threadId || typeof threadId !== "string") {
     return <div>Invalid thread ID</div>;

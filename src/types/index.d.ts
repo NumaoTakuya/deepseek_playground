@@ -7,8 +7,8 @@ export interface Thread {
   id: string; // FirestoreドキュメントのIDを格納
   userId: string; // オーナーのユーザーID
   title: string; // トーク（スレッド）のタイトル
-  createdAt?: any; // 作成日時 (サーバータイムスタンプなど)
-  updatedAt?: any; // 更新日時 (サーバータイムスタンプなど)
+  createdAt?: Timestamp; // 作成日時 (サーバータイムスタンプなど)
+  updatedAt?: Timestamp; // 更新日時 (サーバータイムスタンプなど)
 }
 
 // チャットメッセージの型を定義したい場合
@@ -17,5 +17,5 @@ export interface Message {
   threadId: string; // どのThreadに属するか
   role: "system" | "assistant" | "user";
   content: string; // メッセージ本文
-  createdAt?: any;
+  createdAt?: Timestamp;
 }

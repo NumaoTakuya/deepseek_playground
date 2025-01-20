@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   onSnapshot,
+  Timestamp,
 } from "firebase/firestore";
 import { useState, useEffect } from "react";
 
@@ -17,7 +18,7 @@ export interface Message {
   threadId?: string; // 必要なら格納
   role: "system" | "user" | "assistant";
   content: string;
-  createdAt?: any;
+  createdAt?: Timestamp;
 }
 
 /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box,
   TextField,
@@ -25,7 +25,6 @@ export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { apiKey } = useApiKey();
-
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -60,8 +59,8 @@ export default function ChatHomePage() {
 
       // 4) Deepseek呼び出し
       const conversation = [
-        { role: "system" as "system", content: "You are a helpful assistant." },
-        { role: "user" as "user", content: userInput },
+        { role: "system" as const, content: "You are a helpful assistant." },
+        { role: "user" as const, content: userInput },
       ];
       const assistantContent = await callDeepseek(apiKey, conversation);
 

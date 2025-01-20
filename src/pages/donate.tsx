@@ -7,11 +7,8 @@ import {
   Card,
   CardContent,
 } from "@mui/material";
-import { useRouter } from "next/router";
 
 export default function DonatePage() {
-  const router = useRouter();
-
   const handleDonate = (amount: number) => {
     // TODO: Replace with actual Stripe checkout or other payment logic
     alert(`Donating $${amount} (Not implemented yet)`);
