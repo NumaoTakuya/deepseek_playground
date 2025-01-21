@@ -38,7 +38,8 @@ export default function Login() {
         sx={{
           flex: 1,
           position: "relative",
-          background: 'url("/images/hero-bg.jpeg") center/cover no-repeat',
+          background:
+            'url("/images/deepseek-playground-demo.gif") center/cover no-repeat',
         }}
       >
         <Box

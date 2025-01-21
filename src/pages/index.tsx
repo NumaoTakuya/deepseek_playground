@@ -117,7 +117,7 @@ export default function LandingPage() {
           sx={{
             position: "relative",
             height: "70vh",
-            background: `url("/images/hero-bg.jpeg") center/cover no-repeat`,
+            background: `url("/images/deepseek-playground-demo.gif") center/cover no-repeat`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -127,7 +127,7 @@ export default function LandingPage() {
             sx={{
               position: "absolute",
               inset: 0,
-              backgroundColor: "rgba(0,0,0,0.5)",
+              backgroundColor: "rgba(0,0,0,0.7)",
             }}
           />
           <Container
@@ -137,10 +137,24 @@ export default function LandingPage() {
               zIndex: 1,
             }}
           >
-            <Typography variant="h2" sx={{ fontWeight: 700, mb: 2 }}>
+            <Typography
+              variant="h2"
+              sx={{
+                fontWeight: 700,
+                mb: 2,
+                textShadow: "0 0 50px rgba(0,0,0,1)",
+              }}
+            >
               Deepseek Playground
             </Typography>
-            <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                mb: 4,
+                opacity: 0.9,
+                textShadow: "0 0 30px rgba(0,0,0,1)",
+              }}
+            >
               An Open-Source Unofficial Demo for Flexible AI Chat
             </Typography>
             <Button
@@ -206,11 +220,11 @@ export default function LandingPage() {
             <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  Markdown Chat
+                  Open-Source
                 </Typography>
                 <Typography variant="body2" color="#bfbfbf">
-                  Format messages with lists, links, and code blocks — ideal for
-                  sharing snippets.
+                  Fully transparent and customizable. Contribute or adapt the
+                  code to suit your needs.
                 </Typography>
               </CardContent>
             </Card>
