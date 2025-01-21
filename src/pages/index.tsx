@@ -22,7 +22,7 @@ export default function LandingPage() {
 
   const handleDonate = () => {
     alert(
-      "まだリリースしたばかりでStripeのpayment linkの承認がおりていません。あと数日以内に寄付ができるようになると思います"
+      "It has just been released and Stripe's payment link has not yet been approved. I hope to be able to donate within the next few days."
     );
   };
 
