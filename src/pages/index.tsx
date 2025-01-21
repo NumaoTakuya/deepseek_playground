@@ -199,18 +199,6 @@ export default function LandingPage() {
                 </Typography>
               </CardContent>
             </Card>
-
-            <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  Google Login
-                </Typography>
-                <Typography variant="body2" color="#bfbfbf">
-                  Quickly sign in via Google and preserve your conversation
-                  history in Firestore.
-                </Typography>
-              </CardContent>
-            </Card>
           </Box>
         </Container>
 

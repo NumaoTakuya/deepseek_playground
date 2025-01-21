@@ -1,3 +1,4 @@
+// pages/chat/index.tsx
 import React, { useState } from "react";
 import {
   Box,
@@ -6,6 +7,10 @@ import {
   CircularProgress,
   Alert,
   Typography,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -20,11 +25,6 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
 
-/**
- * 新規チャット開始ページ
- * - 上部バーで System Prompt (折り畳み式)
- * - 下部に "Your First Message" 入力欄 + 送信ボタン
- */
 export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -41,6 +41,9 @@ export default function ChatHomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Deepseekモデル選択
+  const [model, setModel] = useState("deepseek-chat");
+
   if (!user) return null;
 
   const handleSend = async () => {
@@ -48,7 +51,7 @@ export default function ChatHomePage() {
 
     if (!apiKey.trim()) {
       setError(
-        "API Key is not input. Please enter it in the sidebar. (Deepseek API)"
+        "No API Key provided. Enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
       );
       return;
     }
@@ -68,7 +71,7 @@ export default function ChatHomePage() {
       // 3) Save user message
       await createMessage(newThreadId, "user", inputValue);
 
-      // 4) Generate short title
+      // 4) Generate short title based on first user message
       const promptForTitle = [
         {
           role: "system" as const,
@@ -80,7 +83,7 @@ export default function ChatHomePage() {
           content: `User's first message: ${inputValue}\nPlease create a short, concise title. Just say the title without quotation.`,
         },
       ];
-      const rawTitle = await callDeepseek(apiKey, promptForTitle);
+      const rawTitle = await callDeepseek(apiKey, promptForTitle, model);
       const finalTitle = (rawTitle || "").trim();
       const titleToUse =
         finalTitle.length > 0 ? finalTitle : inputValue.slice(0, 10);
@@ -92,7 +95,7 @@ export default function ChatHomePage() {
         { role: "system" as const, content: systemInput },
         { role: "user" as const, content: inputValue },
       ];
-      const assistantContent = await callDeepseek(apiKey, conversation);
+      const assistantContent = await callDeepseek(apiKey, conversation, model);
 
       // 6) Save assistant message
       await createMessage(newThreadId, "assistant", assistantContent);
@@ -122,7 +125,6 @@ export default function ChatHomePage() {
           name="description"
           content="Start a new conversation with a custom system prompt and first user message. Powered by Deepseek (unofficial)."
         />
-
         <meta
           property="og:title"
           content="Create a New Chat - Deepseek Playground"
@@ -137,7 +139,6 @@ export default function ChatHomePage() {
           content="https://deepseek-playground.vercel.app/chat"
         />
         <meta property="og:type" content="website" />
-
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="New Chat - Deepseek Playground" />
         <meta
@@ -146,6 +147,7 @@ export default function ChatHomePage() {
         />
         <meta name="twitter:image" content="/images/screenshot.png" />
       </Head>
+
       <Box
         display="flex"
         flexDirection="column"
@@ -172,7 +174,49 @@ export default function ChatHomePage() {
           </Box>
         ) : (
           <Box width="100%" maxWidth="600px">
-            {/* --- System Prompt Bar --- */}
+            {/* Model Selection */}
+            <Box mb={2}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Choose Model
+              </Typography>
+              <FormControl
+                variant="outlined"
+                size="small"
+                sx={{
+                  minWidth: 180,
+                  backgroundColor: "transparent",
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": { borderColor: "#555" },
+                    "&:hover fieldset": { borderColor: "#888" },
+                    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                    "& .MuiSelect-select": {
+                      color: "#fff",
+                      // 長い文字を省略
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    },
+                  },
+                  "& .MuiFormLabel-root": { color: "#ddd" },
+                  "& .MuiFormLabel-root.Mui-focused": { color: "#ddd" },
+                }}
+              >
+                <InputLabel shrink sx={{ color: "#ddd" }}>
+                  Model
+                </InputLabel>
+                <Select
+                  label="Model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as string)}
+                >
+                  <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
+                  <MenuItem value="deepseek-reasoner">
+                    deepseek-reasoner
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            {/* System Prompt Bar */}
             <Box
               sx={{
                 display: "flex",

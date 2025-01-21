@@ -12,11 +12,12 @@ export function createDeepseekClient(apiKey: string) {
 
 export async function callDeepseek(
   apiKey: string,
-  messages: ChatCompletionMessageParam[]
+  messages: ChatCompletionMessageParam[],
+  model: string = "deepseek-chat"
 ) {
   const openai = createDeepseekClient(apiKey);
   const res = await openai.chat.completions.create({
-    model: "deepseek-chat",
+    model,
     messages,
   });
   return res.choices[0].message?.content || "";
