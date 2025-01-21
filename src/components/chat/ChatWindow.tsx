@@ -268,11 +268,15 @@ export default function ChatWindow({ threadId }: Props) {
                 "& fieldset": { borderColor: "#555" },
                 "&:hover fieldset": { borderColor: "#888" },
                 "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                // ▼ 選択部分のスタイル
                 "& .MuiSelect-select": {
-                  color: "#fff",
+                  // ▼ ここが重要
+                  display: "inline-block",
+                  width: "120px", // お好みの幅に調整
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  color: "#fff",
                   padding: "6px 8px",
                 },
               },
@@ -290,6 +294,8 @@ export default function ChatWindow({ threadId }: Props) {
               label="Model"
               value={model}
               onChange={(e) => handleModelChange(e.target.value as string)}
+              // autoWidthをfalseにしたほうが幅調整しやすい
+              autoWidth={false}
             >
               <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
               <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
