@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ユーザーが認証済みかどうか
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // userId が自分のものか確認
+    function isOwnerOfThread(threadId) {
+      return exists(/databases/$(database)/documents/threads/$(threadId)) 
+        && get(/databases/$(database)/documents/threads/$(threadId)).data.userId == request.auth.uid;
+    }
+
+    // statsコレクション
+    match /stats/{document} {
+      // 認証なしで読み取りを許可
+      allow read, write: if true;
+    }
+
+    // threadsコレクション
+    match /threads/{threadId} {
+      // 作成: ユーザーID が自分か
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // 読み取り: スレッド所有者だけ
+      allow read: if isAuthenticated()
+                  && resource.data.userId == request.auth.uid;
+
+      // 更新: スレッド所有者だけ
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+
+      // 削除: スレッド所有者だけ
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // threadsサブコレクションの messages
+    match /threads/{threadId}/messages/{messageId} {
+      // 作成: 認証済み & 該当スレッドを所有している場合OK
+      allow create: if isAuthenticated()
+                    && isOwnerOfThread(threadId);
+
+      // 読み取り: スレッド所有者だけ
+      allow read: if isAuthenticated()
+                  && isOwnerOfThread(threadId);
+
+      // 更新/削除: 同様にスレッド所有者だけ
+      allow update, delete: if isAuthenticated()
+                            && isOwnerOfThread(threadId);
+    }
+  }
+}

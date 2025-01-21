@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -11,9 +11,23 @@ import {
 } from "@mui/material";
 import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import { useRouter } from "next/router";
+import { getUserCount } from "../services/firebase";
 import Head from "next/head";
 
 export default function LandingPage() {
+  const [userCount, setUserCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUserCount = async () => {
+      try {
+        const count = await getUserCount();
+        setUserCount(count);
+      } catch (error) {
+        console.error("Failed to fetch user count:", error);
+      }
+    };
+    fetchUserCount();
+  }, []);
   const router = useRouter();
 
   const handleLogin = () => {
@@ -174,6 +188,16 @@ export default function LandingPage() {
             >
               Try Freely
             </Button>
+            <Typography
+              variant="body1"
+              sx={{
+                mt: 2,
+                opacity: 0.8,
+                textShadow: "0 0 30px rgba(0,0,0,1)",
+              }}
+            >
+              {userCount} users are already exploring!
+            </Typography>
           </Container>
         </Box>
 

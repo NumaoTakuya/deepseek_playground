@@ -1,7 +1,7 @@
 // src/pages/login.tsx
 import React, { useEffect } from "react";
 import { useRouter } from "next/router";
-import { signInWithGoogle } from "../services/firebase";
+import { signInWithGoogle, incrementUserCount } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { Box, Typography, Button } from "@mui/material";
 
@@ -18,6 +18,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await signInWithGoogle();
+      await incrementUserCount();
     } catch (error) {
       console.error("Login error:", error);
     }

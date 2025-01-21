@@ -8,7 +8,14 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  increment,
+  updateDoc,
+} from "firebase/firestore";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -32,6 +39,31 @@ export const googleAuthProvider = new GoogleAuthProvider();
 
 // Firestore
 export const db = getFirestore(app);
+
+// Initialize user count if it doesn't exist
+export async function initializeUserCount() {
+  const countRef = doc(db, "stats", "userCount");
+  const docSnap = await getDoc(countRef);
+
+  if (!docSnap.exists()) {
+    await setDoc(countRef, { count: 0 });
+  }
+}
+
+// Increment user count
+export async function incrementUserCount() {
+  const countRef = doc(db, "stats", "userCount");
+  await updateDoc(countRef, {
+    count: increment(1),
+  });
+}
+
+// Get current user count
+export async function getUserCount() {
+  const countRef = doc(db, "stats", "userCount");
+  const docSnap = await getDoc(countRef);
+  return docSnap.exists() ? docSnap.data().count : 0;
+}
 
 // 例: Googleでのログイン
 export async function signInWithGoogle() {
