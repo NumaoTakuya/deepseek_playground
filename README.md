@@ -22,7 +22,7 @@ An **unofficial** AI chat playground using [Deepseek](https://platform.deepseek.
 
 Here is a screenshot of the chat UI:
 
-![Screenshot](https://media.discordapp.net/attachments/1058796281146908762/1330836031867457567/Screenshot_2025-01-20_at_18.36.02.png?ex=678f6d23&is=678e1ba3&hm=d757d2b6e0e1a40a47530c60173411f0b6f90404230c7e9092430e22621779a8&=&format=webp&quality=lossless&width=1876&height=1056)
+![Screenshot](https://media.discordapp.net/attachments/1058796281146908762/1331174436082159707/Screenshot_2025-01-21_at_17.10.14.png?ex=6790a84d&is=678f56cd&hm=6c9755b4d6bffe813ae1b71811d5db203f24f05c717d3b2764f87d7608b1f5ce&=&format=webp&quality=lossless&width=1100&height=618)
 
 ## Tech Stack
 
