@@ -29,7 +29,7 @@ export default function ThreadPage() {
           property="og:description"
           content="Keep your conversation with a custom system prompt. Non-official Deepseek integration."
         />
-        <meta property="og:image" content="/images/screenshot.png" />
+        <meta property="og:image" content="/images/screenshot-small.png" />
         <meta
           property="og:url"
           content="https://deepseek-playground.vercel.app/chat/[threadId]"
@@ -45,7 +45,7 @@ export default function ThreadPage() {
           name="twitter:description"
           content="Edit your system prompt on the fly, send messages to Deepseek, and store them in Firestore."
         />
-        <meta name="twitter:image" content="/images/screenshot.png" />
+        <meta name="twitter:image" content="/images/screenshot-small.png" />
       </Head>
       <ChatWindow threadId={threadId} />
     </>

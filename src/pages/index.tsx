@@ -39,7 +39,7 @@ export default function LandingPage() {
           property="og:description"
           content="Try out an AI chat with your own Deepseek API key. Non-official, built with Next.js & Firebase."
         />
-        <meta property="og:image" content="/images/screenshot.png" />
+        <meta property="og:image" content="/images/screenshot-small.png" />
         <meta
           property="og:url"
           content="https://deepseek-playground.vercel.app/"
@@ -51,7 +51,7 @@ export default function LandingPage() {
           name="twitter:description"
           content="Experience AI chat with custom system prompts. Non-official, user-friendly interface."
         />
-        <meta name="twitter:image" content="/images/screenshot.png" />
+        <meta name="twitter:image" content="/images/screenshot-small.png" />
       </Head>
 
       <Box
