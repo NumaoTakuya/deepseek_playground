@@ -62,7 +62,7 @@ export default function ChatHomePage() {
     setLoading(true);
 
     try {
-      // 1) Create thread with "New Thread"
+      // 1) Create a new thread doc
       const newThreadId = await createThread(user.uid, "New Thread");
 
       // 2) Save system message
@@ -71,36 +71,40 @@ export default function ChatHomePage() {
       // 3) Save user message
       await createMessage(newThreadId, "user", inputValue);
 
-      // 4) Generate short title based on first user message
+      // 4) (任意) Generate short title
       const promptForTitle = [
         {
           role: "system" as const,
           content:
-            "You generate a short conversation title based on the user's first message. Output ONLY the title text without quotes or disclaimers.",
+            "You generate a short conversation title based on the user's first message within 10-15 letters. Output ONLY the title text without quotes or disclaimers.",
         },
         {
           role: "user" as const,
           content: `User's first message: ${inputValue}\nPlease create a short, concise title. Just say the title without quotation.`,
         },
       ];
-      const rawTitle = await callDeepseek(apiKey, promptForTitle, model);
+      const rawTitle = await callDeepseek(apiKey, promptForTitle);
       const finalTitle = (rawTitle || "").trim();
       const titleToUse =
         finalTitle.length > 0 ? finalTitle : inputValue.slice(0, 10);
 
-      await updateDoc(doc(db, "threads", newThreadId), { title: titleToUse });
+      // 5) Update the thread doc with the final title **and model**.
+      await updateDoc(doc(db, "threads", newThreadId), {
+        title: titleToUse,
+        model, // ← ここでモデルを保存
+      });
 
-      // 5) Generate assistant's first response
+      // 6) Generate assistant's first response
       const conversation = [
         { role: "system" as const, content: systemInput },
         { role: "user" as const, content: inputValue },
       ];
       const assistantContent = await callDeepseek(apiKey, conversation, model);
 
-      // 6) Save assistant message
+      // 7) Save assistant message
       await createMessage(newThreadId, "assistant", assistantContent);
 
-      // 7) Go to /chat/[threadId]
+      // 8) Navigate to /chat/[threadId]
       router.push(`/chat/${newThreadId}`);
     } catch (err) {
       console.error("Error in handleSend:", err);
@@ -121,31 +125,7 @@ export default function ChatHomePage() {
     <>
       <Head>
         <title>Create a New Chat - Deepseek Playground</title>
-        <meta
-          name="description"
-          content="Start a new conversation with a custom system prompt and first user message. Powered by Deepseek (unofficial)."
-        />
-        <meta
-          property="og:title"
-          content="Create a New Chat - Deepseek Playground"
-        />
-        <meta
-          property="og:description"
-          content="Set your first message and system prompt. This unofficial AI chat saves threads in Firestore."
-        />
-        <meta property="og:image" content="/images/screenshot.png" />
-        <meta
-          property="og:url"
-          content="https://deepseek-playground.vercel.app/chat"
-        />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="New Chat - Deepseek Playground" />
-        <meta
-          name="twitter:description"
-          content="Define your system prompt & first message, then get AI responses from Deepseek."
-        />
-        <meta name="twitter:image" content="/images/screenshot.png" />
+        {/* OGP ...省略 */}
       </Head>
 
       <Box
@@ -170,7 +150,10 @@ export default function ChatHomePage() {
             gap={2}
           >
             <CircularProgress />
-            <div>Creating new thread...</div>
+            <div>
+              Creating new thread... it may take a few minutes if prompt is
+              long.
+            </div>
           </Box>
         ) : (
           <Box width="100%" maxWidth="600px">
@@ -191,7 +174,6 @@ export default function ChatHomePage() {
                     "&.Mui-focused fieldset": { borderColor: "#aaa" },
                     "& .MuiSelect-select": {
                       color: "#fff",
-                      // 長い文字を省略
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -216,6 +198,7 @@ export default function ChatHomePage() {
                 </Select>
               </FormControl>
             </Box>
+
             {/* System Prompt Bar */}
             <Box
               sx={{

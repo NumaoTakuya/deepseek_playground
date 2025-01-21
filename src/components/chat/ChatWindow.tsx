@@ -25,6 +25,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 
+// ★ 追加: スレッドDoc購読のため
+import { db } from "../../services/firebase";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+
 interface Props {
   threadId: string;
 }
@@ -41,9 +45,10 @@ export default function ChatWindow({ threadId }: Props) {
   const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
   const [showSystemBox, setShowSystemBox] = useState(false);
 
-  // Deepseekのモデル切り替え
-  const [model, setModel] = useState("deepseek-chat");
+  // Deepseekのモデル切り替え (Firestoreに保存された値を購読)
+  const [model, setModel] = useState("deepseek-chat"); // デフォルト
 
+  // --- スナップショット購読: messages (サブコレクション)
   useEffect(() => {
     const unsubscribe = listenMessages(threadId, (fetched) => {
       const withThread = fetched.map((msg) => ({ ...msg, threadId }));
@@ -59,8 +64,33 @@ export default function ChatWindow({ threadId }: Props) {
         setSystemPrompt("You are a helpful assistant.");
       }
     });
+
     return () => unsubscribe();
   }, [threadId]);
+
+  // --- スナップショット購読: threadDoc (model 読み込み)
+  useEffect(() => {
+    const threadRef = doc(db, "threads", threadId);
+    const unsub = onSnapshot(threadRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as { model?: string };
+        // modelがあれば反映、なければデフォルト "deepseek-chat"
+        setModel(data.model ?? "deepseek-chat");
+      }
+    });
+    return () => unsub();
+  }, [threadId]);
+
+  // ★ モデル変更時 → Firestoreに即反映
+  const handleModelChange = async (newModel: string) => {
+    setModel(newModel);
+    try {
+      const threadRef = doc(db, "threads", threadId);
+      await updateDoc(threadRef, { model: newModel });
+    } catch (err) {
+      console.error("Failed to update model in thread doc:", err);
+    }
+  };
 
   const handleSend = async () => {
     if (!apiKey.trim()) {
@@ -85,21 +115,20 @@ export default function ChatWindow({ threadId }: Props) {
       // ユーザーメッセージ
       await createMessage(threadId, "user", userInput);
 
-      // 過去ログを組み立て
+      // 過去ログを組み立て (system + messages + 今回user)
       const prev = messages
         .filter((m) => m.role !== "system")
         .map((m) => ({
           role: m.role as "user" | "assistant" | "system",
           content: m.content,
         }));
-
       const conversation = [
         { role: "system" as const, content: systemPrompt },
         ...prev,
         { role: "user" as const, content: userInput },
       ];
 
-      // Deepseek呼び出し
+      // Deepseek呼び出し (現在選択されている model)
       const assistantContent = await callDeepseek(apiKey, conversation, model);
 
       // assistantメッセージ保存
@@ -189,7 +218,7 @@ export default function ChatWindow({ threadId }: Props) {
       {/* メッセージリスト */}
       <Box flex="1" overflow="auto" p={2}>
         {messages.map((msg) => {
-          if (msg.role === "system") return null; // systemは別管理
+          if (msg.role === "system") return null;
           const isUser = msg.role === "user";
           return (
             <Box className="bubble-container" key={msg.id}>
@@ -207,6 +236,7 @@ export default function ChatWindow({ threadId }: Props) {
             </Box>
           );
         })}
+
         {assistantThinking && (
           <Box className="bubble-container">
             <Box className="bubble assistant">
@@ -225,7 +255,7 @@ export default function ChatWindow({ threadId }: Props) {
       {/* 入力＆送信ボタン */}
       <Box p={2}>
         <Box display="flex" gap={1} sx={{ m: 0 }}>
-          {/* モデル選択プルダウン */}
+          {/* モデル選択プルダウン: Firebaseに保存・読込 */}
           <FormControl
             variant="outlined"
             margin="none"
@@ -240,7 +270,6 @@ export default function ChatWindow({ threadId }: Props) {
                 "&.Mui-focused fieldset": { borderColor: "#aaa" },
                 "& .MuiSelect-select": {
                   color: "#fff",
-                  // 長い文字を「...」で省略
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -251,7 +280,6 @@ export default function ChatWindow({ threadId }: Props) {
                 backgroundColor: "transparent",
                 color: "#ddd",
               },
-              // Select Label フォーカス時も青色にしない
               "& .MuiInputLabel-root.Mui-focused": {
                 color: "#ddd",
               },
@@ -261,7 +289,7 @@ export default function ChatWindow({ threadId }: Props) {
             <Select
               label="Model"
               value={model}
-              onChange={(e) => setModel(e.target.value as string)}
+              onChange={(e) => handleModelChange(e.target.value as string)}
             >
               <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
               <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
@@ -288,7 +316,6 @@ export default function ChatWindow({ threadId }: Props) {
                 "&.Mui-focused fieldset": { borderColor: "#aaa" },
               },
               "& .MuiInputLabel-root": { color: "#ddd" },
-              // Label フォーカス時の青色を抑える
               "& .MuiInputLabel-root.Mui-focused": {
                 color: "#ddd",
               },
