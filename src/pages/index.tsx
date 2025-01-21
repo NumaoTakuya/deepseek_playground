@@ -32,7 +32,7 @@ export default function LandingPage() {
         <title>Deepseek Playground (Unofficial)</title>
         <meta
           name="description"
-          content="An unofficial AI chat playground using Deepseek. Create new chats, customize system prompts, and get quick AI responses."
+          content="An open-source unofficial AI chat playground using Deepseek. Create new chats, customize system prompts, and get quick AI responses."
         />
         <meta property="og:title" content="Deepseek Playground (Unofficial)" />
         <meta
@@ -127,7 +127,7 @@ export default function LandingPage() {
               Deepseek Playground
             </Typography>
             <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
-              An Unofficial Demo for Flexible AI Chat
+              An Open-Source Unofficial Demo for Flexible AI Chat
             </Typography>
             <Button
               variant="contained"
