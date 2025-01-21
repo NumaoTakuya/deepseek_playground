@@ -9,6 +9,7 @@ import {
   Card,
   CardContent,
 } from "@mui/material";
+import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import { useRouter } from "next/router";
 import Head from "next/head";
 
@@ -20,7 +21,9 @@ export default function LandingPage() {
   };
 
   const handleDonate = () => {
-    router.push("/donate");
+    alert(
+      "まだリリースしたばかりでStripeのpayment linkの承認がおりていません。あと数日以内に寄付ができるようになると思います"
+    );
   };
 
   return (
@@ -31,8 +34,6 @@ export default function LandingPage() {
           name="description"
           content="An unofficial AI chat playground using Deepseek. Create new chats, customize system prompts, and get quick AI responses."
         />
-
-        {/* OGP (Open Graph) */}
         <meta property="og:title" content="Deepseek Playground (Unofficial)" />
         <meta
           property="og:description"
@@ -44,8 +45,6 @@ export default function LandingPage() {
           content="https://deepseek-playground.vercel.app/"
         />
         <meta property="og:type" content="website" />
-
-        {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Deepseek Playground (Unofficial)" />
         <meta
@@ -54,6 +53,7 @@ export default function LandingPage() {
         />
         <meta name="twitter:image" content="/images/screenshot.png" />
       </Head>
+
       <Box
         sx={{
           fontFamily: "Inter, sans-serif",
@@ -61,7 +61,6 @@ export default function LandingPage() {
           color: "#ECECF1",
         }}
       >
-        {/* Header / Navbar */}
         <AppBar position="static" sx={{ backgroundColor: "#2C2D31" }}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
@@ -70,11 +69,18 @@ export default function LandingPage() {
             <Button
               onClick={handleLogin}
               sx={{
+                fontSize: "1.1rem",
+                borderRadius: "2rem",
                 color: "#fff",
                 textTransform: "none",
                 fontWeight: 600,
                 mr: 2,
+                px: 3,
+                py: 1,
+                backgroundColor: "#00B8D9",
+                "&:hover": { backgroundColor: "#00A0BD" },
               }}
+              endIcon={<ArrowOutwardIcon />}
             >
               Try Freely
             </Button>
@@ -93,18 +99,16 @@ export default function LandingPage() {
           </Toolbar>
         </AppBar>
 
-        {/* Hero Section */}
         <Box
           sx={{
             position: "relative",
-            height: "70vh", // 画面いっぱいではなく70%程度
+            height: "70vh",
             background: `url("/images/hero-bg.jpeg") center/cover no-repeat`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          {/* Overlay */}
           <Box
             sx={{
               position: "absolute",
@@ -129,18 +133,22 @@ export default function LandingPage() {
               variant="contained"
               onClick={handleLogin}
               sx={{
+                fontSize: "1.1rem",
+                borderRadius: "2rem",
                 backgroundColor: "#00B8D9",
                 "&:hover": { backgroundColor: "#00A0BD" },
                 textTransform: "none",
                 fontWeight: 600,
+                px: 3,
+                py: 1,
               }}
+              endIcon={<ArrowOutwardIcon />}
             >
               Try Freely
             </Button>
           </Container>
         </Box>
 
-        {/* Features Section */}
         <Container maxWidth="lg" sx={{ py: 8 }}>
           <Typography
             variant="h4"
@@ -206,7 +214,6 @@ export default function LandingPage() {
           </Box>
         </Container>
 
-        {/* Footer */}
         <Box sx={{ backgroundColor: "#2C2D31", py: 4 }}>
           <Container maxWidth="lg" sx={{ textAlign: "center" }}>
             <Typography variant="body2" color="#bfbfbf" sx={{ mb: 1 }}>
