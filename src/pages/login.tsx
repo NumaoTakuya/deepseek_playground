@@ -59,12 +59,19 @@ export default function Login() {
             p: 4,
           }}
         >
-          <Typography
-            variant="h2"
-            sx={{ fontWeight: 700, color: "#ECECF1", mb: 2 }}
-          >
-            Welcome
-          </Typography>
+          {/* アイコンと "Welcome" を横並びにする例 */}
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <Box
+              component="img"
+              src="/favicon.png"
+              alt="App Logo"
+              sx={{ width: 40, height: 40, mr: 2 }}
+            />
+            <Typography variant="h2" sx={{ fontWeight: 700, color: "#ECECF1" }}>
+              Welcome
+            </Typography>
+          </Box>
+
           <Typography variant="h6" sx={{ color: "#bdbdbd", maxWidth: 500 }}>
             Experience flexible AI chat with Deepseek.
             <br />

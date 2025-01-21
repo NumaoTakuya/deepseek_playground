@@ -63,6 +63,13 @@ export default function LandingPage() {
       >
         <AppBar position="static" sx={{ backgroundColor: "#2C2D31" }}>
           <Toolbar>
+            {/* アイコン画像を左に配置 */}
+            <Box
+              component="img"
+              src="/favicon.png"
+              alt="App Logo"
+              sx={{ width: 28, height: 28, mr: 1 }}
+            />
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               Deepseek Playground (Unofficial)
             </Typography>
@@ -99,6 +106,7 @@ export default function LandingPage() {
           </Toolbar>
         </AppBar>
 
+        {/* Hero Section */}
         <Box
           sx={{
             position: "relative",
@@ -149,6 +157,7 @@ export default function LandingPage() {
           </Container>
         </Box>
 
+        {/* Features */}
         <Container maxWidth="lg" sx={{ py: 8 }}>
           <Typography
             variant="h4"
@@ -202,6 +211,7 @@ export default function LandingPage() {
           </Box>
         </Container>
 
+        {/* Footer */}
         <Box sx={{ backgroundColor: "#2C2D31", py: 4 }}>
           <Container maxWidth="lg" sx={{ textAlign: "center" }}>
             <Typography variant="body2" color="#bfbfbf" sx={{ mb: 1 }}>
