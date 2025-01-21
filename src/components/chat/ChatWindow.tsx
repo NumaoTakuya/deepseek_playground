@@ -1,5 +1,6 @@
 // src/components/chat/ChatWindow.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useChatWindow } from "../../hooks/useChatWindow";
 import {
   Box,
   TextField,
@@ -14,20 +15,50 @@ import {
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import {
-  listenMessages,
-  createMessage,
-  updateMessage,
-} from "../../services/message";
 import { callDeepseek } from "../../services/deepseek";
 import type { Message } from "../../types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 
-// ★ 追加: スレッドDoc購読のため
-import { db } from "../../services/firebase";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+// スタイル定数
+const inputStyles = {
+  "& .MuiOutlinedInput-root": {
+    "& fieldset": { borderColor: "#555" },
+    "&:hover fieldset": { borderColor: "#888" },
+    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+  },
+  "& .MuiInputLabel-root": { color: "#ddd" },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#ddd" },
+  "& .MuiOutlinedInput-input": { color: "#fff" },
+};
+
+const selectStyles = {
+  minWidth: 160,
+  backgroundColor: "transparent",
+  "& .MuiOutlinedInput-root": {
+    backgroundColor: "transparent",
+    "& fieldset": { borderColor: "#555" },
+    "&:hover fieldset": { borderColor: "#888" },
+    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+    "& .MuiSelect-select": {
+      display: "inline-block",
+      width: "120px",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      color: "#fff",
+      padding: "6px 8px",
+    },
+  },
+  "& .MuiFormLabel-root": {
+    backgroundColor: "transparent",
+    color: "#ddd",
+  },
+  "& .MuiInputLabel-root.Mui-focused": {
+    color: "#ddd",
+  },
+};
 
 interface Props {
   threadId: string;
@@ -35,111 +66,20 @@ interface Props {
 
 export default function ChatWindow({ threadId }: Props) {
   const { apiKey } = useApiKey();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [assistantThinking, setAssistantThinking] = useState(false);
-
-  const [systemPrompt, setSystemPrompt] = useState(
-    "You are a helpful assistant."
-  );
-  const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
-  const [showSystemBox, setShowSystemBox] = useState(false);
-
-  // Deepseekのモデル切り替え (Firestoreに保存された値を購読)
-  const [model, setModel] = useState("deepseek-chat"); // デフォルト
-
-  // --- スナップショット購読: messages (サブコレクション)
-  useEffect(() => {
-    const unsubscribe = listenMessages(threadId, (fetched) => {
-      const withThread = fetched.map((msg) => ({ ...msg, threadId }));
-      setMessages(withThread);
-
-      // systemメッセージがあれば state に反映
-      const sys = withThread.find((m) => m.role === "system");
-      if (sys) {
-        setSystemMsgId(sys.id);
-        setSystemPrompt(sys.content);
-      } else {
-        setSystemMsgId(null);
-        setSystemPrompt("You are a helpful assistant.");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [threadId]);
-
-  // --- スナップショット購読: threadDoc (model 読み込み)
-  useEffect(() => {
-    const threadRef = doc(db, "threads", threadId);
-    const unsub = onSnapshot(threadRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as { model?: string };
-        // modelがあれば反映、なければデフォルト "deepseek-chat"
-        setModel(data.model ?? "deepseek-chat");
-      }
-    });
-    return () => unsub();
-  }, [threadId]);
-
-  // ★ モデル変更時 → Firestoreに即反映
-  const handleModelChange = async (newModel: string) => {
-    setModel(newModel);
-    try {
-      const threadRef = doc(db, "threads", threadId);
-      await updateDoc(threadRef, { model: newModel });
-    } catch (err) {
-      console.error("Failed to update model in thread doc:", err);
-    }
-  };
-
-  const handleSend = async () => {
-    if (!apiKey.trim()) {
-      alert("No API Key provided. Enter it in the sidebar.");
-      return;
-    }
-    if (!input.trim()) return;
-
-    try {
-      setAssistantThinking(true);
-      const userInput = input.trim();
-      setInput("");
-
-      // systemメッセージがあれば更新、なければ作成
-      if (systemMsgId) {
-        await updateMessage(threadId, systemMsgId, systemPrompt);
-      } else {
-        const newSysId = await createMessage(threadId, "system", systemPrompt);
-        setSystemMsgId(newSysId);
-      }
-
-      // ユーザーメッセージ
-      await createMessage(threadId, "user", userInput);
-
-      // 過去ログを組み立て (system + messages + 今回user)
-      const prev = messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role as "user" | "assistant" | "system",
-          content: m.content,
-        }));
-      const conversation = [
-        { role: "system" as const, content: systemPrompt },
-        ...prev,
-        { role: "user" as const, content: userInput },
-      ];
-
-      // Deepseek呼び出し (現在選択されている model)
-      const assistantContent = await callDeepseek(apiKey, conversation, model);
-
-      // assistantメッセージ保存
-      await createMessage(threadId, "assistant", assistantContent);
-    } catch (err) {
-      console.error("Failed to call Deepseek or send message:", err);
-      alert("Deepseek error. See console.");
-    } finally {
-      setAssistantThinking(false);
-    }
-  };
+  const {
+    messages,
+    input,
+    setInput,
+    assistantThinking,
+    systemPrompt,
+    setSystemPrompt,
+    systemMsgId,
+    showSystemBox,
+    setShowSystemBox,
+    model,
+    handleModelChange,
+    handleSend,
+  } = useChatWindow(threadId, apiKey);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
