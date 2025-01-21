@@ -19,3 +19,7 @@ export interface Message {
   content: string; // メッセージ本文
   createdAt?: Timestamp;
 }
+
+export interface ChatWindowProps {
+  threadId: string;
+}

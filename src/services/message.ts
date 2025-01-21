@@ -8,20 +8,12 @@ import {
   query,
   orderBy,
   onSnapshot,
-  Timestamp,
   doc,
   updateDoc,
 } from "firebase/firestore";
 import { useState, useEffect } from "react";
 
-/** Firestore上で扱うメッセージの型定義 */
-export interface Message {
-  id: string;
-  threadId?: string; // 必要なら格納
-  role: "system" | "user" | "assistant";
-  content: string;
-  createdAt?: Timestamp;
-}
+import { Message } from "../types/index";
 
 /**
  * 指定スレッドに新しいメッセージを追加

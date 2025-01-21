@@ -7,7 +7,7 @@ import {
   updateMessage,
 } from "../services/message";
 import { callDeepseek } from "../services/deepseek";
-import type { Message } from "../services/message";
+import type { Message } from "../types/index";
 
 export function useChatWindow(threadId: string, apiKey: string) {
   const [messages, setMessages] = useState<Message[]>([]);
