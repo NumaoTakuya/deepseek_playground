@@ -9,11 +9,6 @@ import {
 } from "@mui/material";
 
 export default function DonatePage() {
-  const handleDonate = (amount: number) => {
-    // TODO: Replace with actual Stripe checkout or other payment logic
-    alert(`Donating $${amount} (Not implemented yet)`);
-  };
-
   return (
     <Box
       sx={{
@@ -92,14 +87,13 @@ export default function DonatePage() {
               </Typography>
               <Button
                 variant="contained"
-                href="https://buy.stripe.com/test_xxx123" // TODO: 実装
+                href="https://www.paypal.com/ncp/payment/SRMTLNZLNUEFU"
                 sx={{
                   backgroundColor: "#00B8D9",
                   "&:hover": { backgroundColor: "#00A0BD" },
                   textTransform: "none",
                   fontWeight: 600,
                 }}
-                onClick={() => handleDonate(1)}
               >
                 Donate $1
               </Button>
@@ -117,14 +111,13 @@ export default function DonatePage() {
               </Typography>
               <Button
                 variant="contained"
-                href="https://buy.stripe.com/test_xxx123" // TODO: 実装
+                href="https://www.paypal.com/ncp/payment/T73673Y233KJA"
                 sx={{
                   backgroundColor: "#00B8D9",
                   "&:hover": { backgroundColor: "#00A0BD" },
                   textTransform: "none",
                   fontWeight: 600,
                 }}
-                onClick={() => handleDonate(10)}
               >
                 Donate $10
               </Button>
@@ -142,14 +135,13 @@ export default function DonatePage() {
               </Typography>
               <Button
                 variant="contained"
-                href="https://buy.stripe.com/test_xxx123" // TODO: 実装
+                href="https://www.paypal.com/ncp/payment/HNK492TAZG8XL"
                 sx={{
                   backgroundColor: "#00B8D9",
                   "&:hover": { backgroundColor: "#00A0BD" },
                   textTransform: "none",
                   fontWeight: 600,
                 }}
-                onClick={() => handleDonate(100)}
               >
                 Donate $100
               </Button>
