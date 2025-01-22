@@ -1,5 +1,7 @@
 // src/components/layout/Sidebar.tsx
-import { Box, Typography, TextField, Button } from "@mui/material";
+import { Box, Typography, TextField, Button, IconButton } from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import Link from "next/link";
 import SidebarTab from "./SidebarTab";
 import { useThreads } from "../../hooks/useThreads";
@@ -86,6 +88,22 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         position: "relative",
       }}
     >
+      {/* Toggle Button */}
+      <IconButton
+        onClick={onToggle}
+        sx={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 2,
+          color: "var(--color-text)",
+          "&:hover": {
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+          },
+        }}
+      >
+        {isOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+      </IconButton>
       {isOpen && (
         <Box
           onMouseDown={handleMouseDown}
