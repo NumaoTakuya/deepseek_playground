@@ -4,13 +4,13 @@ import {
   Box,
   TextField,
   IconButton,
-  CircularProgress,
   Alert,
   Typography,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
+  CircularProgress,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -20,7 +20,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { createThread } from "../../services/thread";
 import { createMessage } from "../../services/message";
-import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
@@ -48,7 +47,6 @@ export default function ChatHomePage() {
 
   const handleSend = async () => {
     setError("");
-
     if (!apiKey.trim()) {
       setError(
         "No API Key provided. Enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
@@ -62,55 +60,23 @@ export default function ChatHomePage() {
     setLoading(true);
 
     try {
-      // 1) Create a new thread doc
+      // 1) 新規スレッド作成
       const newThreadId = await createThread(user.uid, "New Thread");
 
-      // 2) Save system message
+      // 2) system/userメッセージ保存
       await createMessage(newThreadId, "system", systemInput);
-
-      // 3) Save user message
       await createMessage(newThreadId, "user", inputValue);
 
-      // 4) (任意) Generate short title
-      const promptForTitle = [
-        {
-          role: "system" as const,
-          content:
-            "You generate a short conversation title based on the user's first message within 10-15 letters. Output ONLY the title text without quotes or disclaimers.",
-        },
-        {
-          role: "user" as const,
-          content: `User's first message: ${inputValue}\nPlease create a short, concise title. Just say the title without quotation.`,
-        },
-      ];
-      const rawTitle = await callDeepseek(apiKey, promptForTitle);
-      const finalTitle = (rawTitle || "").trim();
-      const titleToUse =
-        finalTitle.length > 0 ? finalTitle : inputValue.slice(0, 10);
-
-      // 5) Update the thread doc with the final title **and model**.
+      // 3) modelだけFirestoreに書く (タイトル生成は後でバックグラウンド)
       await updateDoc(doc(db, "threads", newThreadId), {
-        title: titleToUse,
-        model, // ← ここでモデルを保存
+        model,
       });
 
-      // 6) Generate assistant's first response
-      const conversation = [
-        { role: "system" as const, content: systemInput },
-        { role: "user" as const, content: inputValue },
-      ];
-      const assistantContent = await callDeepseek(apiKey, conversation, model);
-
-      // 7) Save assistant message
-      await createMessage(newThreadId, "assistant", assistantContent);
-
-      // 8) Navigate to /chat/[threadId]
+      // 4) 即座にチャット画面へ遷移 (スピナー等は出さない)
       router.push(`/chat/${newThreadId}`);
     } catch (err) {
       console.error("Error in handleSend:", err);
-      setError("Error occurred while creating the thread or calling Deepseek.");
-    } finally {
-      setLoading(false);
+      setError("Error occurred while creating the thread.");
     }
   };
 
@@ -125,9 +91,45 @@ export default function ChatHomePage() {
     <>
       <Head>
         <title>Create a New Chat - Deepseek Playground</title>
-        {/* OGP ...省略 */}
+        {/* OGPやmetaタグは元のコードを残す */}
+        <meta
+          name="description"
+          content="Create a new chat conversation on Deepseek Playground."
+        />
+        <meta
+          property="og:title"
+          content="Create a New Chat - Deepseek Playground"
+        />
+        <meta
+          property="og:description"
+          content="Start a new conversation using Deepseek. Save messages in Firestore, adjust system prompts."
+        />
+        <meta
+          property="og:image"
+          content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
+        />
+        <meta
+          property="og:url"
+          content="https://deepseek-playground.vercel.app/chat"
+        />
+        <meta property="og:type" content="website" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Create a New Chat - Deepseek Playground"
+        />
+        <meta
+          name="twitter:description"
+          content="Start a new conversation using Deepseek."
+        />
+        <meta
+          name="twitter:image"
+          content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
+        />
       </Head>
 
+      {/* 全体ラッパ */}
       <Box
         display="flex"
         flexDirection="column"
@@ -141,7 +143,6 @@ export default function ChatHomePage() {
             {error}
           </Alert>
         )}
-
         {loading ? (
           <Box
             display="flex"
@@ -157,7 +158,7 @@ export default function ChatHomePage() {
           </Box>
         ) : (
           <Box width="100%" maxWidth="600px">
-            {/* Model Selection */}
+            {/* モデル選択 */}
             <Box mb={2}>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 Choose Model
@@ -199,7 +200,7 @@ export default function ChatHomePage() {
               </FormControl>
             </Box>
 
-            {/* System Prompt Bar */}
+            {/* System Prompt */}
             <Box
               sx={{
                 display: "flex",
@@ -241,15 +242,9 @@ export default function ChatHomePage() {
                   variant="outlined"
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "#555",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#888",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#aaa",
-                      },
+                      "& fieldset": { borderColor: "#555" },
+                      "&:hover fieldset": { borderColor: "#888" },
+                      "&.Mui-focused fieldset": { borderColor: "#aaa" },
                     },
                     "& .MuiInputLabel-root": { color: "#ddd" },
                     "& .MuiOutlinedInput-input": { color: "#fff" },
@@ -258,7 +253,7 @@ export default function ChatHomePage() {
               </Box>
             )}
 
-            {/* "Your First Message" section */}
+            {/* ユーザーの最初のメッセージ */}
             <Typography variant="h6" sx={{ mb: 1 }}>
               Your First Message
             </Typography>
@@ -277,12 +272,8 @@ export default function ChatHomePage() {
                 sx={{
                   backgroundColor: "#2e2e2e",
                   "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "var(--color-border)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "var(--color-hover)",
-                    },
+                    "& fieldset": { borderColor: "var(--color-border)" },
+                    "&:hover fieldset": { borderColor: "var(--color-hover)" },
                     "&.Mui-focused fieldset": {
                       borderColor: "var(--color-hover)",
                     },

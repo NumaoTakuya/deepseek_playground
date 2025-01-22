@@ -1,3 +1,4 @@
+// pages/chat/[threadId].tsx
 import React from "react";
 import { useRouter } from "next/router";
 import ChatWindow from "../../components/chat/ChatWindow";
@@ -23,7 +24,6 @@ export default function ThreadPage() {
           name="description"
           content="Continue your AI chat conversation powered by Deepseek. Save messages in Firestore, adjust system prompts."
         />
-
         <meta property="og:title" content="Chat Thread - Deepseek Playground" />
         <meta
           property="og:description"
