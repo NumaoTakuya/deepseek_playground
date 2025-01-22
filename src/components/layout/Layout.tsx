@@ -1,5 +1,5 @@
 // src/components/layout/Layout.tsx
-import React from "react";
+import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import { Box } from "@mui/material";
 
@@ -8,12 +8,16 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   return (
     <Box display="flex" height="100vh">
       {/* 左側サイドバー */}
-      <Box width="240px">
-        <Sidebar />
-      </Box>
+      <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
 
       {/* メイン領域 */}
       <Box flex="1" overflow="auto">

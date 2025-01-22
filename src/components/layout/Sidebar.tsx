@@ -7,8 +7,45 @@ import { useAuth } from "../../contexts/AuthContext";
 import { doSignOut } from "../../services/firebase";
 import { useRouter } from "next/router";
 import { useApiKey } from "../../contexts/ApiKeyContext";
+import { useState, useEffect, useRef } from "react";
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
+  const [width, setWidth] = useState(240);
+  const [isDragging, setIsDragging] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  const MIN_WIDTH = 120;
+  const MAX_WIDTH = 400;
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const newWidth = e.clientX;
+      setWidth(Math.min(Math.max(newWidth, MIN_WIDTH), MAX_WIDTH));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
   const router = useRouter();
   const { user } = useAuth();
   const { threads } = useThreads(user?.uid);
@@ -38,15 +75,49 @@ export default function Sidebar() {
   };
 
   return (
-    <Box className="sidebar" height="100%">
-      {/* タイトルをボタン風に。cursor:pointerでルーティング */}
-      <Typography
-        variant="h6"
-        sx={{ mb: 2, fontWeight: 600, cursor: "pointer" }}
-        onClick={handleTitleClick}
-      >
-        Deepseek Playground
-      </Typography>
+    <Box
+      className="sidebar"
+      height="100%"
+      ref={sidebarRef}
+      sx={{
+        width: isOpen ? `${width}px` : "56px",
+        transition: isDragging ? "none" : "width 0.3s ease",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {isOpen && (
+        <Box
+          onMouseDown={handleMouseDown}
+          sx={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "4px",
+            cursor: "ew-resize",
+            zIndex: 1,
+            "&:hover": {
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+            },
+          }}
+        />
+      )}
+      {/* Title with click handler */}
+      <Box mb={2}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 600,
+            cursor: "pointer",
+            opacity: isOpen ? 1 : 0,
+            transition: "opacity 0.3s ease",
+          }}
+          onClick={handleTitleClick}
+        >
+          Deepseek Playground
+        </Typography>
+      </Box>
 
       {/* APIキー入力 (type=password) */}
       <TextField
