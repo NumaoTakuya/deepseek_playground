@@ -1,4 +1,3 @@
-// src/pages/login.tsx
 import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import { signInWithGoogle, incrementUserCount } from "../services/firebase";
@@ -30,6 +29,8 @@ export default function Login() {
     <Box
       sx={{
         display: "flex",
+        // スマホでは縦並び、MD以上では横並び
+        flexDirection: { xs: "column", md: "row" },
         minHeight: "100vh",
         fontFamily: "Inter, sans-serif",
       }}
@@ -39,6 +40,8 @@ export default function Login() {
         sx={{
           flex: 1,
           position: "relative",
+          // スマホで高さを少し確保、MD以上では自動
+          height: { xs: "40vh", md: "auto" },
           background:
             'url("/images/deepseek-playground-demo.gif") center/cover no-repeat',
         }}
@@ -58,10 +61,9 @@ export default function Login() {
             flexDirection: "column",
             justifyContent: "center",
             height: "100%",
-            p: 4,
+            p: { xs: 2, sm: 4 },
           }}
         >
-          {/* アイコンと "Welcome" を横並びにする例 */}
           <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
             <Box
               component="img"
@@ -69,12 +71,28 @@ export default function Login() {
               alt="App Logo"
               sx={{ width: 40, height: 40, mr: 2 }}
             />
-            <Typography variant="h2" sx={{ fontWeight: 700, color: "#ECECF1" }}>
+            <Typography
+              variant="h2"
+              sx={{
+                fontWeight: 700,
+                color: "#ECECF1",
+                // スマホでやや小さめ
+                fontSize: { xs: "1.8rem", sm: "2.5rem" },
+                lineHeight: 1.2,
+              }}
+            >
               Welcome
             </Typography>
           </Box>
 
-          <Typography variant="h6" sx={{ color: "#bdbdbd", maxWidth: 500 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              color: "#bdbdbd",
+              maxWidth: 500,
+              fontSize: { xs: "1rem", sm: "1.125rem" },
+            }}
+          >
             Experience flexible AI chat with Deepseek.
             <br />
             Set your system prompt, chat freely, and have fun.
@@ -90,25 +108,39 @@ export default function Login() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: 4,
+          p: { xs: 2, sm: 4 },
         }}
       >
         <Box
           sx={{
-            width: "90%",
+            width: "100%",
             maxWidth: 400,
             backgroundColor: "#2C2D31",
             borderRadius: 3,
             boxShadow: 4,
             textAlign: "center",
-            p: 4,
+            p: { xs: 3, sm: 4 },
             color: "#ECECF1",
           }}
         >
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 700,
+              mb: 2,
+              fontSize: { xs: "1.25rem", sm: "1.5rem" },
+            }}
+          >
             Sign In
           </Typography>
-          <Typography variant="body1" sx={{ mb: 3, color: "#bfbfbf" }}>
+          <Typography
+            variant="body1"
+            sx={{
+              mb: 3,
+              color: "#bfbfbf",
+              fontSize: { xs: "0.95rem", sm: "1rem" },
+            }}
+          >
             Your comfort and security matter to us.
             <br />
             Please sign in to continue.
@@ -123,8 +155,9 @@ export default function Login() {
               fontWeight: 600,
               textTransform: "none",
               borderRadius: 2,
-              px: 3,
-              py: 1.2,
+              px: { xs: 2, sm: 3 },
+              py: { xs: 1, sm: 1.2 },
+              fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
           >
             Login with Google
