@@ -8,18 +8,11 @@ import {
 } from "../services/message";
 import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
-import type { ChatCompletionMessageParam } from "../services/deepseek";
 
-/** ローカル表示用のメッセージ型。Firestoreの `Message` と似ているが、
- *  途中生成中のassistantメッセージを扱うために optional なフィールドなどを加えてもOK。
- */
-type LocalMessage = Message & {
-  /** 途中生成中かどうか */
-  _isDraft?: boolean;
-};
+type ChatRole = "system" | "user" | "assistant";
 
 export function useChatWindow(threadId: string, apiKey: string) {
-  const [messages, setMessages] = useState<LocalMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [systemPrompt, setSystemPrompt] = useState(
     "You are a helpful assistant."
   );
@@ -31,30 +24,32 @@ export function useChatWindow(threadId: string, apiKey: string) {
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
   const [showSystemBox, setShowSystemBox] = useState(false);
 
-  // ストリームのキャンセル用
+  /**
+   * “いま生成中のアシスタントメッセージID”
+   *  - MessageListに渡して "Thinking..." を表示
+   */
+  const [assistantMsgId, setAssistantMsgId] = useState<string | null>(null);
+
+  /**
+   * “ローカルだけで保持する、途中生成中のアシスタントの本文”
+   *  - Streamの途中経過をリアルタイムでUI表示するために使う
+   *  - Firestoreに書くのは最後1回
+   */
+  const [assistantDraft, setAssistantDraft] = useState("");
+
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
   > | null>(null);
 
-  // --- 1. Firestoreからメッセージ購読 ---
+  // -- メッセージ購読 --
   useEffect(() => {
     const unsubscribe = listenMessages(threadId, (fetched) => {
-      // 時間順にソート
       const sorted = [...fetched].sort((a, b) => {
         if (!a.createdAt || !b.createdAt) return 0;
         return a.createdAt - b.createdAt;
       });
+      setMessages(sorted);
 
-      // local state に反映
-      setMessages((prev) => {
-        // もし今、途中生成中(_isDraft=true)のassistantメッセージがあった場合は、
-        // fetched に含まれる “assistant (空文字 or 途中)” と競合するかもしれない。
-        // ただし実際には、abort時の整理などで工夫が必要。
-        // ここでは単純に fetched を優先するとします:
-        return sorted;
-      });
-
-      // system メッセージがあれば同期
       const sys = sorted.find((m) => m.role === "system");
       if (sys) {
         setSystemMsgId(sys.id);
@@ -67,7 +62,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     return () => unsubscribe();
   }, [threadId]);
 
-  // --- 2. threads ドキュメント購読 ---
+  // -- thread購読 (model/title) --
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
@@ -79,7 +74,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     return () => unsub();
   }, [threadId]);
 
-  // --- system メッセージ更新 ---
+  // -- systemPrompt更新 --
   async function handleSystemPromptUpdate() {
     if (!systemMsgId) {
       await createMessage(threadId, "system", systemPrompt);
@@ -88,148 +83,98 @@ export function useChatWindow(threadId: string, apiKey: string) {
     }
   }
 
-  // --- model更新 ---
+  // -- model変更 --
   async function handleModelChange(newModel: string) {
     setModel(newModel);
     await updateDoc(doc(db, "threads", threadId), { model: newModel });
   }
 
-  /**
-   * メイン: 送信ボタンでメッセージ生成
-   *
-   * - 途中でアシスタントメッセージを"draft"として localState に表示
-   * - ストリーム完了 (またはabort) 後に Firestoreへ1回だけ update
-   */
+  // -- 送信 --
   async function handleSend() {
-    // 送信中 → 停止フロー
+    // 送信中なら→停止
     if (assistantThinking) {
       if (chatStreamRef.current) {
         chatStreamRef.current.abort();
       }
       return;
     }
-
-    // 未入力は無視
     if (!input.trim()) return;
 
     const userText = input.trim();
     setInput("");
-
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
+    setAssistantDraft(""); // 新しく生成するので一旦リセット
 
     try {
-      // 1) systemPrompt → Firestore
+      // 1) systemPromptをFirestoreへ
       await handleSystemPromptUpdate();
 
-      // 2) userメッセージを作成 (Firestore)
+      // 2) userメッセージ
       await createMessage(threadId, "user", userText);
 
-      // 3) 先に空のassistantをFirestoreに作成 (後で1回だけ更新)
-      const assistantMsgId = await createMessage(threadId, "assistant", "");
+      // 3) 空のassistantメッセージ (Firestore) → ID取得
+      const newAssistantMsgId = await createMessage(threadId, "assistant", "");
+      setAssistantMsgId(newAssistantMsgId); // thinking対象
 
-      // 4) localState 上には "_isDraft" メッセージを1件追加
-      setMessages((prev) => {
-        return [
-          ...prev,
-          {
-            id: assistantMsgId,
-            role: "assistant",
-            content: "",
-            threadId,
-            createdAt: Date.now(),
-            _isDraft: true, // これで「途中のメッセージ」とわかる
-          },
-        ];
-      });
-
-      // 5) 過去の会話作成
-      const conversation: ChatCompletionMessageParam[] = [
+      // 4) 過去の会話づくり
+      const conversation = [
         { role: "system", content: systemPrompt },
         ...messages
           .filter((m) => m.role !== "system")
-          .map((m) => ({ role: m.role, content: m.content } as const)),
-        { role: "user", content: userText } as const,
-      ];
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        { role: "user", content: userText },
+      ] as { role: ChatRole; content: string }[];
 
-      // 6) ストリーミング開始
+      // 5) ストリーミング
       const chatStream = await streamDeepseek(apiKey, conversation, model);
       chatStreamRef.current = chatStream;
 
       let partialContent = "";
-      let firstChunkReceived = false;
+      let first = true;
 
-      // 7) for-awaitでchunk受信
       for await (const chunk of chatStream) {
         const delta = chunk.choices[0]?.delta?.content ?? "";
         if (delta) {
           partialContent += delta;
-
-          if (!firstChunkReceived) {
-            firstChunkReceived = true;
+          if (first) {
             setWaitingForFirstChunk(false);
+            first = false;
           }
-
-          // --- ★ ここで“ローカルstate”の最後のassistantメッセージを更新 ---
-          setMessages((prev) => {
-            // 最後の or assistantMsgId のメッセージを差し替え
-            const newMsgs = [...prev];
-            const idx = newMsgs.findIndex((m) => m.id === assistantMsgId);
-            if (idx >= 0) {
-              newMsgs[idx] = {
-                ...newMsgs[idx],
-                content: partialContent,
-              };
-            }
-            return newMsgs;
-          });
-
-          // ※ ここでは Firestore 更新はしない
-          //  → chunkごとにFireStore書き込みするとクォータ超過
+          // --- ここで Firestore更新せず、“assistantDraft” を更新してUI表示 ---
+          setAssistantDraft(partialContent);
         }
       }
 
-      // --- ストリーミング完了: まとめて1回 Firestore 書き込み ---
-      await updateMessage(threadId, assistantMsgId, partialContent);
-
-      // `_isDraft` を消す or 何らかのフラグ更新
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        const idx = newMsgs.findIndex((m) => m.id === assistantMsgId);
-        if (idx >= 0) {
-          newMsgs[idx] = {
-            ...newMsgs[idx],
-            _isDraft: false,
-          };
-        }
-        return newMsgs;
-      });
+      // 6) ストリーム完了: Firestoreにまとめて書き込み
+      await updateMessage(threadId, newAssistantMsgId, partialContent);
     } catch (err) {
-      console.error("handleSend error (stream):", err);
-
-      // 失敗した場合、とりあえず `_isDraft` メッセージを削除するなどの処理
-      setMessages((prev) => prev.filter((m) => m._isDraft !== true));
+      console.error("handleSend error (stream)", err);
     } finally {
       setAssistantThinking(false);
       chatStreamRef.current = null;
+      setAssistantMsgId(null);
     }
   }
 
   return {
     messages,
-    systemPrompt,
-    setSystemPrompt,
-    model,
-    setModel,
-    title,
     input,
     setInput,
-    assistantThinking,
-    waitingForFirstChunk,
+    model,
+    setModel,
+    systemPrompt,
+    setSystemPrompt,
     showSystemBox,
     setShowSystemBox,
-    handleSend,
-    handleSystemPromptUpdate,
     handleModelChange,
+    handleSend,
+    waitingForFirstChunk,
+    assistantThinking,
+    assistantMsgId, // ← Thinking表示のため
+    assistantDraft, // ← 途中受信中のテキスト
   };
 }

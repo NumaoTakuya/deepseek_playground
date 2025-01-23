@@ -25,7 +25,9 @@ export default function ChatWindow({ threadId }: Props) {
     handleModelChange,
     handleSend,
     waitingForFirstChunk,
-    assistantThinking, // ← 入力欄でアイコン切り替えに使う
+    assistantThinking,
+    assistantMsgId,
+    assistantDraft,
   } = useChatWindow(threadId, apiKey);
 
   const [isFirstTime, setIsFirstTime] = useState(true);
@@ -82,6 +84,8 @@ export default function ChatWindow({ threadId }: Props) {
 
       <MessageList
         messages={messages}
+        streamingAssistantId={assistantMsgId}
+        assistantDraft={assistantDraft}
         waitingForFirstChunk={waitingForFirstChunk}
       />
 
