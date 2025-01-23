@@ -1,3 +1,5 @@
+// hooks/useChatWindow.ts
+
 import { useState, useEffect, useRef } from "react";
 import { db } from "../services/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
@@ -31,7 +33,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
   const [showSystemBox, setShowSystemBox] = useState(false);
 
-  // ↓ 追加: ストリームを格納しておく参照
+  // 途中停止用に: 現在のストリームを格納する
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
   > | null>(null);
@@ -39,13 +41,14 @@ export function useChatWindow(threadId: string, apiKey: string) {
   // Firestore からメッセージ取得 (画面表示用)
   useEffect(() => {
     const unsubscribe = listenMessages(threadId, (fetched) => {
+      // 時間順にソート
       const sorted = [...fetched].sort((a, b) => {
         if (!a.createdAt || !b.createdAt) return 0;
         return a.createdAt - b.createdAt;
       });
       setMessages(sorted);
 
-      // systemメッセージの反映
+      // system メッセージを拾って、ローカルstateに反映
       const sys = sorted.find((m) => m.role === "system");
       if (sys) {
         setSystemMsgId(sys.id);
@@ -70,7 +73,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     return () => unsub();
   }, [threadId]);
 
-  // systemPromptをFirestoreに更新
+  // Firestore側の systemメッセージを更新する関数
   const handleSystemPromptUpdate = async () => {
     if (!systemMsgId) {
       // systemメッセージがまだ無ければ作成
@@ -88,35 +91,37 @@ export function useChatWindow(threadId: string, apiKey: string) {
   };
 
   /**
-   * メインの送信ボタン
-   * - 送信中の場合はストリームをabort()
-   * - 未送信の場合は新しくストリーミング開始
+   * 送信ボタンが押されたとき
+   * - 送信中の場合は stream.abort() で停止
+   * - 未送信の場合は system prompt を先にFirestoreに反映 → ストリーム実行
    */
   const handleSend = async () => {
-    // 送信中なら停止処理
+    // 送信中なら → 停止フロー
     if (assistantThinking) {
       if (chatStreamRef.current) {
-        // stream.abort() 実行
-        chatStreamRef.current.abort();
+        chatStreamRef.current.abort(); // stream停止
       }
       return;
     }
 
-    // ここから未送信の場合
+    // 未送信なら → 新規送信処理
     if (!input.trim()) return;
     const userText = input.trim();
-    setInput(""); // 入力欄をクリア
+    setInput("");
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
 
     try {
-      // 1) ユーザーメッセージを作成
+      // 1) 送信前にSystemPromptをFirestoreへ反映
+      await handleSystemPromptUpdate();
+
+      // 2) ユーザーメッセージ作成
       await createMessage(threadId, "user", userText);
 
-      // 2) 空のアシスタントメッセージを先に作成
+      // 3) 空のアシスタントメッセージを先に作成
       const assistantMsgId = await createMessage(threadId, "assistant", "");
 
-      // 3) 投げるメッセージ構築
+      // 4) streamDeepseek に投げるメッセージを作成
       const conversation: ChatMessage[] = [
         { role: "system", content: systemPrompt },
         ...messages
@@ -128,32 +133,33 @@ export function useChatWindow(threadId: string, apiKey: string) {
         { role: "user", content: userText },
       ];
 
-      // 4) ストリーミング開始
+      // 5) ストリーミング開始
       const chatStream = await streamDeepseek(apiKey, conversation, model);
       chatStreamRef.current = chatStream;
 
       let partialContent = "";
       let firstChunkReceived = false;
 
-      // 5) for-await でトークンを受け取る
+      // 6) for-await で逐次トークン受信
       for await (const chunk of chatStream) {
         const delta = chunk.choices[0]?.delta?.content ?? "";
         if (delta) {
           partialContent += delta;
 
+          // 最初のチャンクが来たら "Thinking..." を解除
           if (!firstChunkReceived) {
             setWaitingForFirstChunk(false);
             firstChunkReceived = true;
           }
 
-          // Firestore の assistantメッセージ更新
+          // 毎チャンクで Firestore の assistantメッセージを更新
           await updateMessage(threadId, assistantMsgId, partialContent);
         }
       }
     } catch (err) {
       console.error("handleSend error (stream):", err);
     } finally {
-      // 完了または停止後、フラグ戻し
+      // 完了 or 停止後にフラグ解除
       setAssistantThinking(false);
       chatStreamRef.current = null;
     }

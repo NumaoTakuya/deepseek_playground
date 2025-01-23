@@ -16,6 +16,7 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { useRouter } from "next/router";
+import ApiKeyOnboardingDialog from "@/src/components/ApiKeyOnboardingDialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { createThread } from "../../services/thread";
@@ -28,7 +29,15 @@ import Head from "next/head";
 export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { apiKey } = useApiKey();
+  const { apiKey, setApiKey } = useApiKey();
+  const [open, setOpen] = useState(!apiKey);
+
+  // ダイアログ内でキーが確定された
+  const handleApiKeySave = (key: string) => {
+    setApiKey(key); // Contextなどで保存
+    localStorage.setItem("apiKey", key);
+    setOpen(false);
+  };
 
   // system prompt
   const [systemInput, setSystemInput] = useState(
@@ -103,6 +112,14 @@ export default function ChatHomePage() {
 
   return (
     <>
+      {/* Wizardダイアログ（もしlocalStrageにapi keyが存在しなかったら表示） */}
+      {!apiKey && (
+        <ApiKeyOnboardingDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          onApiKeySave={handleApiKeySave}
+        />
+      )}
       <Head>
         <title>Create a New Chat - Deepseek Playground</title>
         {/* OGPやmetaタグは元のコードを残す */}
