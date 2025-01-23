@@ -20,6 +20,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { createThread } from "../../services/thread";
 import { createMessage } from "../../services/message";
+import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
@@ -60,20 +61,29 @@ export default function ChatHomePage() {
     setLoading(true);
 
     try {
-      // 1) 新規スレッド作成
-      const newThreadId = await createThread(user.uid, "New Thread");
+      // 1) 新規スレッド作成（仮タイトル）
+      const newThreadId = await createThread(user.uid, "New Chat");
 
       // 2) system/userメッセージ保存
       await createMessage(newThreadId, "system", systemInput);
       await createMessage(newThreadId, "user", inputValue);
 
-      // 3) modelだけFirestoreに書く (タイトル生成は後でバックグラウンド)
-      await updateDoc(doc(db, "threads", newThreadId), {
-        model,
-      });
-
-      // 4) 即座にチャット画面へ遷移 (スピナー等は出さない)
+      // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
+
+      // 4) バックグラウンドでタイトル生成
+      const titlePrompt = `Create a short thread title (under 10 characters, no quotes) based on this message: "${inputValue}"`;
+      callDeepseek(apiKey, [
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "user", content: titlePrompt },
+      ])
+        .then(async (title) => {
+          await updateDoc(doc(db, "threads", newThreadId), {
+            title,
+            model,
+          });
+        })
+        .catch(console.error);
     } catch (err) {
       console.error("Error in handleSend:", err);
       setError("Error occurred while creating the thread.");
