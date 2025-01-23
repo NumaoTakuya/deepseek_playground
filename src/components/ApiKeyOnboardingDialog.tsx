@@ -1,4 +1,5 @@
 // src/components/ApiKeyOnboardingDialog.tsx
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -53,14 +54,14 @@ export default function ApiKeyOnboardingDialog({
       {step === 1 && (
         <>
           <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.4rem" }}>
-            1. Hello & Welcome to Deepseek Playground! 🎉
+            1. Hello &amp; Welcome to Deepseek Playground! 🎉
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
-              We're thrilled to have you here! To start crafting AI responses,
-              you'll need a Deepseek API key. Don't worry—your key is{" "}
-              <strong>only stored locally</strong> in your browser. We never
-              send it anywhere else.
+              We&apos;re thrilled to have you here! To start crafting AI
+              responses, you&apos;ll need a Deepseek API key. Don&apos;t
+              worry&mdash;your key is <strong>only stored locally</strong> in
+              your browser. We never send it anywhere else.
             </Typography>
           </DialogContent>
           <DialogActions sx={{ justifyContent: "flex-end" }}>
@@ -96,9 +97,9 @@ export default function ApiKeyOnboardingDialog({
             />
 
             <Typography sx={{ mb: 2 }}>
-              Head over to Deepseek's console, then click{" "}
-              <strong>"Create new API key"</strong> to get your shiny new key.
-              Once you've copied it, pop back here!
+              Head over to Deepseek&apos;s console, then click{" "}
+              <strong>&quot;Create new API key&quot;</strong> to get your shiny
+              new key. Once you&apos;ve copied it, pop back here!
             </Typography>
 
             {/* "Go to Deepseek Page" button */}
@@ -143,8 +144,8 @@ export default function ApiKeyOnboardingDialog({
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
               Almost there! Just drop your freshly-generated Deepseek key below.
-              We'll keep it <strong>safely stored</strong> in your browser so
-              you can focus on building awesome stuff.
+              We&apos;ll keep it <strong>safely stored</strong> in your browser
+              so you can focus on building awesome stuff.
             </Typography>
 
             <TextField
@@ -172,7 +173,7 @@ export default function ApiKeyOnboardingDialog({
               variant="body2"
               sx={{ color: "#aaa", mt: 2, fontSize: "0.85rem" }}
             >
-              We don't send your key to any servers. Pinky promise. 🤞
+              We don&apos;t send your key to any servers. Pinky promise. 🤞
             </Typography>
           </DialogContent>
           <DialogActions sx={{ justifyContent: "space-between", pt: 2 }}>
