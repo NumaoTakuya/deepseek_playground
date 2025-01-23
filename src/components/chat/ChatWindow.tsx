@@ -5,7 +5,6 @@ import { useApiKey } from "../../contexts/ApiKeyContext";
 import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
-import { sleep } from "openai/core.mjs";
 
 interface Props {
   threadId: string;
@@ -18,7 +17,6 @@ export default function ChatWindow({ threadId }: Props) {
     input,
     setInput,
     setModel,
-    assistantThinking,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,
@@ -52,7 +50,7 @@ export default function ChatWindow({ threadId }: Props) {
       localStorage.removeItem(`thread-${threadId}-inputValue`);
       localStorage.removeItem(`thread-${threadId}-systemInput`);
     }
-  }, [threadId]);
+  }, [threadId, setInput, setModel, setSystemPrompt]);
 
   useEffect(() => {
     if (isFirstTime && model && input && systemPrompt) {
@@ -60,7 +58,7 @@ export default function ChatWindow({ threadId }: Props) {
       handleSend();
       return;
     }
-  }, [model, input, systemPrompt]);
+  }, [model, input, systemPrompt, handleSend, isFirstTime]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%">
@@ -73,7 +71,6 @@ export default function ChatWindow({ threadId }: Props) {
 
       <MessageList
         messages={messages}
-        assistantThinking={assistantThinking}
         waitingForFirstChunk={waitingForFirstChunk}
       />
 

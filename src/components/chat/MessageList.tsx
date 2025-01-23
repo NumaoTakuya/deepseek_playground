@@ -3,17 +3,14 @@ import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../../types";
-import LoadingIndicator from "../common/LoadingIndicator";
 
 interface MessageListProps {
   messages: Message[];
-  assistantThinking: boolean;
   waitingForFirstChunk: boolean;
 }
 
 export default function MessageList({
   messages,
-  assistantThinking,
   waitingForFirstChunk,
 }: MessageListProps) {
   // 最後のassistantメッセージ (もしあれば)
