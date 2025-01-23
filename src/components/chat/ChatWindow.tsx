@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box } from "@mui/material";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
+import { sleep } from "openai/core.mjs";
 
 interface Props {
   threadId: string;
@@ -16,6 +17,7 @@ export default function ChatWindow({ threadId }: Props) {
     messages,
     input,
     setInput,
+    setModel,
     assistantThinking,
     systemPrompt,
     setSystemPrompt,
@@ -25,6 +27,7 @@ export default function ChatWindow({ threadId }: Props) {
     handleModelChange,
     handleSend,
   } = useChatWindow(threadId, apiKey);
+  const [isFirstTime, setIsFirstTime] = useState(true);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -32,6 +35,31 @@ export default function ChatWindow({ threadId }: Props) {
       handleSend();
     }
   };
+
+  // もしlocalStorageに内容が保存されていれば(=１回目のメッセージであれば)それを取得し、チャット開始(handleSend実行)。そしてlocalStorageを即座に削除
+  useEffect(() => {
+    const storedModel = localStorage.getItem(`thread-${threadId}-model`);
+    const storedInput = localStorage.getItem(`thread-${threadId}-inputValue`);
+    const storedSystemInput = localStorage.getItem(
+      `thread-${threadId}-systemInput`
+    );
+    if (storedModel && storedInput && storedSystemInput) {
+      setModel(storedModel);
+      setInput(storedInput);
+      setSystemPrompt(storedSystemInput);
+      localStorage.removeItem(`thread-${threadId}-model`);
+      localStorage.removeItem(`thread-${threadId}-inputValue`);
+      localStorage.removeItem(`thread-${threadId}-systemInput`);
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    if (isFirstTime && model && input && systemPrompt) {
+      setIsFirstTime(false);
+      handleSend();
+      return;
+    }
+  }, [model, input, systemPrompt]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%">

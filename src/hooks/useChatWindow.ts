@@ -8,7 +8,7 @@ import {
   createMessage,
   updateMessage,
 } from "../services/message";
-import { streamDeepseek } from "../services/deepseek"; // ストリーミング版を使う想定
+import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
 
 type ChatRole = "system" | "user" | "assistant";
@@ -107,10 +107,15 @@ export function useChatWindow(threadId: string, apiKey: string) {
 
   // 他: system prompt更新, model変更 なども同様
   const handleSystemPromptUpdate = async () => {
-    /*...*/
+    if (!systemMsgId) {
+      await createMessage(threadId, "system", systemPrompt);
+    } else {
+      await updateMessage(threadId, systemMsgId, systemPrompt);
+    }
   };
   const handleModelChange = async (newModel: string) => {
-    /*...*/
+    setModel(newModel);
+    await updateDoc(doc(db, "threads", threadId), { model: newModel });
   };
 
   return {

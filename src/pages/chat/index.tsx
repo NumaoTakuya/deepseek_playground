@@ -64,9 +64,10 @@ export default function ChatHomePage() {
       // 1) 新規スレッド作成（仮タイトル）
       const newThreadId = await createThread(user.uid, "New Chat");
 
-      // 2) system/userメッセージ保存
-      await createMessage(newThreadId, "system", systemInput);
-      await createMessage(newThreadId, "user", inputValue);
+      // 2) [threadId]で用いるためローカルストレージにユーザの入力内容を一時的に保存
+      localStorage.setItem(`thread-${newThreadId}-model`, model);
+      localStorage.setItem(`thread-${newThreadId}-systemInput`, systemInput);
+      localStorage.setItem(`thread-${newThreadId}-inputValue`, inputValue);
 
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
