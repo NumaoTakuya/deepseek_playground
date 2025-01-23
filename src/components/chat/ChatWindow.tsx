@@ -26,6 +26,7 @@ export default function ChatWindow({ threadId }: Props) {
     model,
     handleModelChange,
     handleSend,
+    waitingForFirstChunk,
   } = useChatWindow(threadId, apiKey);
   const [isFirstTime, setIsFirstTime] = useState(true);
 
@@ -70,7 +71,11 @@ export default function ChatWindow({ threadId }: Props) {
         setShowSystemBox={setShowSystemBox}
       />
 
-      <MessageList messages={messages} assistantThinking={assistantThinking} />
+      <MessageList
+        messages={messages}
+        assistantThinking={assistantThinking}
+        waitingForFirstChunk={waitingForFirstChunk}
+      />
 
       <InputSection
         input={input}

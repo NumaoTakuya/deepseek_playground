@@ -27,6 +27,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
   const [title, setTitle] = useState("New Thread");
   const [input, setInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
+  const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
   const [showSystemBox, setShowSystemBox] = useState(false);
 
   // Firestore からメッセージ取得 (画面表示用)
@@ -71,6 +72,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     const userText = input.trim();
     setInput(""); // 入力欄をクリア
     setAssistantThinking(true); // thinking開始
+    setWaitingForFirstChunk(true); // 最初のチャンク待ち開始
 
     try {
       // 1) ユーザーメッセージを作成
@@ -92,7 +94,12 @@ export function useChatWindow(threadId: string, apiKey: string) {
       ];
 
       let partialContent = "";
+      let firstChunkReceived = false;
       for await (const chunk of streamDeepseek(apiKey, conversation, model)) {
+        if (!firstChunkReceived) {
+          setWaitingForFirstChunk(false); // 最初のチャンクが来たら終了
+          firstChunkReceived = true;
+        }
         partialContent += chunk;
         // 4) 毎チャンクごとに同じassistantメッセージをupdate
         await updateMessage(threadId, assistantMsgId, partialContent);
@@ -128,6 +135,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     input,
     setInput,
     assistantThinking,
+    waitingForFirstChunk,
     showSystemBox,
     setShowSystemBox,
     handleSend,

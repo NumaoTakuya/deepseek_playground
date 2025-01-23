@@ -1,17 +1,20 @@
 // components/chat/MessageList.tsx
-import { Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../../types";
+import LoadingIndicator from "../common/LoadingIndicator";
 
 interface MessageListProps {
   messages: Message[];
   assistantThinking: boolean;
+  waitingForFirstChunk: boolean;
 }
 
 export default function MessageList({
   messages,
   assistantThinking,
+  waitingForFirstChunk,
 }: MessageListProps) {
   // 最後のassistantメッセージ (もしあれば)
   const lastAssistantMsg = [...messages]
@@ -40,12 +43,12 @@ export default function MessageList({
                 {msg.content}
               </ReactMarkdown>
 
-              {/* ▼ thinking中のスピナーや "Thinking..." を表示しない → この部分削除 */}
-              {/* 例:
-              {isAssistant && isLastAssistant && assistantThinking && (
-                <Box> ...thinking... </Box>
+              {isAssistant && isLastAssistant && waitingForFirstChunk && (
+                <Box display="flex" alignItems="center" gap={1} mt={1}>
+                  <CircularProgress size={16} thickness={5} />
+                  <span>Thinking...</span>
+                </Box>
               )}
-              */}
             </Box>
           </Box>
         );
