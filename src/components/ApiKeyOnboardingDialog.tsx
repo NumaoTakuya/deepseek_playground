@@ -57,8 +57,8 @@ export default function ApiKeyOnboardingDialog({
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
-              We’re thrilled to have you here! To start crafting AI responses,
-              you’ll need a Deepseek API key. Don’t worry—your key is{" "}
+              We're thrilled to have you here! To start crafting AI responses,
+              you'll need a Deepseek API key. Don't worry—your key is{" "}
               <strong>only stored locally</strong> in your browser. We never
               send it anywhere else.
             </Typography>
@@ -96,9 +96,9 @@ export default function ApiKeyOnboardingDialog({
             />
 
             <Typography sx={{ mb: 2 }}>
-              Head over to Deepseek’s console, then click{" "}
+              Head over to Deepseek's console, then click{" "}
               <strong>"Create new API key"</strong> to get your shiny new key.
-              Once you’ve copied it, pop back here!
+              Once you've copied it, pop back here!
             </Typography>
 
             {/* "Go to Deepseek Page" button */}
@@ -143,7 +143,7 @@ export default function ApiKeyOnboardingDialog({
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
               Almost there! Just drop your freshly-generated Deepseek key below.
-              We’ll keep it <strong>safely stored</strong> in your browser so
+              We'll keep it <strong>safely stored</strong> in your browser so
               you can focus on building awesome stuff.
             </Typography>
 
@@ -172,7 +172,7 @@ export default function ApiKeyOnboardingDialog({
               variant="body2"
               sx={{ color: "#aaa", mt: 2, fontSize: "0.85rem" }}
             >
-              We don’t send your key to any servers. Pinky promise. 🤞
+              We don't send your key to any servers. Pinky promise. 🤞
             </Typography>
           </DialogContent>
           <DialogActions sx={{ justifyContent: "space-between", pt: 2 }}>
