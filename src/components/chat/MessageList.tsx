@@ -1,4 +1,3 @@
-// components/chat/MessageList.tsx
 import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -50,8 +49,6 @@ export default function MessageList({
           </Box>
         );
       })}
-
-      {/* ここにも "thinkingバブル" があったが、それも削除 */}
     </Box>
   );
 }

@@ -25,7 +25,9 @@ export default function ChatWindow({ threadId }: Props) {
     handleModelChange,
     handleSend,
     waitingForFirstChunk,
+    assistantThinking, // ← 入力欄でアイコン切り替えに使う
   } = useChatWindow(threadId, apiKey);
+
   const [isFirstTime, setIsFirstTime] = useState(true);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -58,7 +60,7 @@ export default function ChatWindow({ threadId }: Props) {
       // もしisFirstTimeがtrueかつ、localStorageに保存されていなければ、１回目のメッセージではない。
       setIsFirstTime(false);
     }
-  }, [threadId, setInput, setModel, setSystemPrompt]);
+  }, [threadId, setInput, setModel, setSystemPrompt, isFirstTime]);
 
   // 初回のみ自動送信
   useEffect(() => {
@@ -67,7 +69,7 @@ export default function ChatWindow({ threadId }: Props) {
       handleSend();
       return;
     }
-  }, [model, input, systemPrompt]);
+  }, [model, input, systemPrompt, isFirstTime, handleSend]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%">
@@ -90,6 +92,7 @@ export default function ChatWindow({ threadId }: Props) {
         handleKeyDown={handleKeyDown}
         model={model}
         handleModelChange={handleModelChange}
+        assistantThinking={assistantThinking} // ← 追加
       />
     </Box>
   );

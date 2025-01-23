@@ -2,6 +2,7 @@
 
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+// ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
 
 /**
  * Deepseek (OpenAI互換)クライアント生成
@@ -31,28 +32,28 @@ export async function callDeepseek(
 }
 
 /**
- * ストリーミング版: Async Generatorでトークンを逐次返す
- * - `for await (const chunk of streamDeepseek(...)) { ... }`
+ * ストリーミング版:
+ * openai.beta.chat.completions.stream(...) は
+ * 「Promise<ChatCompletionStream>」を返す。
+ * そのため、この関数も Promise で包んで返す。
+ *
+ * 呼び出し側では:
+ *    const stream = await streamDeepseek(apiKey, messages, model);
+ *    for await (const chunk of stream) {
+ *      ...
+ *    }
  */
-export async function* streamDeepseek(
+export async function streamDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat"
-): AsyncGenerator<string, void, undefined> {
+) {
   const openai = createDeepseekClient(apiKey);
-
-  // stream: true でトークンを部分的に受け取る
-  const completion = await openai.chat.completions.create({
+  // openai@4.x の "beta" API を使用
+  const stream = await openai.beta.chat.completions.stream({
     model,
     messages,
     stream: true,
   });
-
-  for await (const part of completion) {
-    // 部分的に返ってくるトークンはここ
-    const delta = part.choices[0]?.delta?.content ?? "";
-    if (delta) {
-      yield delta;
-    }
-  }
+  return stream;
 }

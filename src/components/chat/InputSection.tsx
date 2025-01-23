@@ -9,6 +9,7 @@ import {
   Alert,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import StopIcon from "@mui/icons-material/Stop"; // ← 追加
 import { useApiKey } from "../../contexts/ApiKeyContext";
 
 interface InputSectionProps {
@@ -18,6 +19,8 @@ interface InputSectionProps {
   handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   model: string;
   handleModelChange: (model: string) => void;
+  // 追加: thinking中かどうか (ボタンアイコン切替)
+  assistantThinking?: boolean;
 }
 
 export default function InputSection({
@@ -27,6 +30,7 @@ export default function InputSection({
   handleKeyDown,
   model,
   handleModelChange,
+  assistantThinking = false,
 }: InputSectionProps) {
   const { apiKey } = useApiKey();
 
@@ -134,7 +138,7 @@ export default function InputSection({
             justifyContent: "center",
           }}
         >
-          <ArrowUpwardIcon />
+          {assistantThinking ? <StopIcon /> : <ArrowUpwardIcon />}
         </IconButton>
       </Box>
     </Box>

@@ -1,6 +1,4 @@
-// hooks/useChatWindow.ts
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db } from "../services/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import {
@@ -11,7 +9,10 @@ import {
 import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
 
+// チャットで利用するロールの型
 type ChatRole = "system" | "user" | "assistant";
+
+// ChatCompletion に投げる用のメッセージ型
 type ChatMessage = {
   role: ChatRole;
   content: string;
@@ -29,6 +30,11 @@ export function useChatWindow(threadId: string, apiKey: string) {
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
   const [showSystemBox, setShowSystemBox] = useState(false);
+
+  // ↓ 追加: ストリームを格納しておく参照
+  const chatStreamRef = useRef<Awaited<
+    ReturnType<typeof streamDeepseek>
+  > | null>(null);
 
   // Firestore からメッセージ取得 (画面表示用)
   useEffect(() => {
@@ -64,24 +70,53 @@ export function useChatWindow(threadId: string, apiKey: string) {
     return () => unsub();
   }, [threadId]);
 
-  // --- ここまでが「UI表示用に Firestoreを購読」してる部分 ---
+  // systemPromptをFirestoreに更新
+  const handleSystemPromptUpdate = async () => {
+    if (!systemMsgId) {
+      // systemメッセージがまだ無ければ作成
+      await createMessage(threadId, "system", systemPrompt);
+    } else {
+      // 既存 systemメッセージを更新
+      await updateMessage(threadId, systemMsgId, systemPrompt);
+    }
+  };
 
-  // ユーザー送信 → その場でストリーミング呼び出し
+  // model変更をFirestoreに反映
+  const handleModelChange = async (newModel: string) => {
+    setModel(newModel);
+    await updateDoc(doc(db, "threads", threadId), { model: newModel });
+  };
+
+  /**
+   * メインの送信ボタン
+   * - 送信中の場合はストリームをabort()
+   * - 未送信の場合は新しくストリーミング開始
+   */
   const handleSend = async () => {
-    if (!input.trim() || assistantThinking) return;
+    // 送信中なら停止処理
+    if (assistantThinking) {
+      if (chatStreamRef.current) {
+        // stream.abort() 実行
+        chatStreamRef.current.abort();
+      }
+      return;
+    }
+
+    // ここから未送信の場合
+    if (!input.trim()) return;
     const userText = input.trim();
     setInput(""); // 入力欄をクリア
-    setAssistantThinking(true); // thinking開始
-    setWaitingForFirstChunk(true); // 最初のチャンク待ち開始
+    setAssistantThinking(true);
+    setWaitingForFirstChunk(true);
 
     try {
       // 1) ユーザーメッセージを作成
       await createMessage(threadId, "user", userText);
 
-      // 2) 空のアシスタントメッセージを先に作成 (content: "")
+      // 2) 空のアシスタントメッセージを先に作成
       const assistantMsgId = await createMessage(threadId, "assistant", "");
 
-      // 3) ストリーミング (ここでローカルの conversation履歴を準備)
+      // 3) 投げるメッセージ構築
       const conversation: ChatMessage[] = [
         { role: "system", content: systemPrompt },
         ...messages
@@ -93,36 +128,35 @@ export function useChatWindow(threadId: string, apiKey: string) {
         { role: "user", content: userText },
       ];
 
+      // 4) ストリーミング開始
+      const chatStream = await streamDeepseek(apiKey, conversation, model);
+      chatStreamRef.current = chatStream;
+
       let partialContent = "";
       let firstChunkReceived = false;
-      for await (const chunk of streamDeepseek(apiKey, conversation, model)) {
-        if (!firstChunkReceived) {
-          setWaitingForFirstChunk(false); // 最初のチャンクが来たら終了
-          firstChunkReceived = true;
+
+      // 5) for-await でトークンを受け取る
+      for await (const chunk of chatStream) {
+        const delta = chunk.choices[0]?.delta?.content ?? "";
+        if (delta) {
+          partialContent += delta;
+
+          if (!firstChunkReceived) {
+            setWaitingForFirstChunk(false);
+            firstChunkReceived = true;
+          }
+
+          // Firestore の assistantメッセージ更新
+          await updateMessage(threadId, assistantMsgId, partialContent);
         }
-        partialContent += chunk;
-        // 4) 毎チャンクごとに同じassistantメッセージをupdate
-        await updateMessage(threadId, assistantMsgId, partialContent);
       }
-      // 5) 完了。partialContentに全文が入る
     } catch (err) {
       console.error("handleSend error (stream):", err);
     } finally {
+      // 完了または停止後、フラグ戻し
       setAssistantThinking(false);
+      chatStreamRef.current = null;
     }
-  };
-
-  // 他: system prompt更新, model変更 なども同様
-  const handleSystemPromptUpdate = async () => {
-    if (!systemMsgId) {
-      await createMessage(threadId, "system", systemPrompt);
-    } else {
-      await updateMessage(threadId, systemMsgId, systemPrompt);
-    }
-  };
-  const handleModelChange = async (newModel: string) => {
-    setModel(newModel);
-    await updateDoc(doc(db, "threads", threadId), { model: newModel });
   };
 
   return {
