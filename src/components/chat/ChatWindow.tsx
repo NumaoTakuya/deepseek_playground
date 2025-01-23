@@ -49,16 +49,25 @@ export default function ChatWindow({ threadId }: Props) {
       localStorage.removeItem(`thread-${threadId}-model`);
       localStorage.removeItem(`thread-${threadId}-inputValue`);
       localStorage.removeItem(`thread-${threadId}-systemInput`);
+    } else if (
+      isFirstTime &&
+      !storedModel &&
+      !storedInput &&
+      !storedSystemInput
+    ) {
+      // もしisFirstTimeがtrueかつ、localStorageに保存されていなければ、１回目のメッセージではない。
+      setIsFirstTime(false);
     }
   }, [threadId, setInput, setModel, setSystemPrompt]);
 
+  // 初回のみ自動送信
   useEffect(() => {
     if (isFirstTime && model && input && systemPrompt) {
       setIsFirstTime(false);
       handleSend();
       return;
     }
-  }, [model, input, systemPrompt, handleSend, isFirstTime]);
+  }, [model, input, systemPrompt]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%">
