@@ -64,6 +64,9 @@ export default function ChatHomePage() {
       // 1) 新規スレッド作成（仮タイトル）
       const newThreadId = await createThread(user.uid, "New Chat");
 
+      // 2) system promptをfirestoreに保存
+      await createMessage(newThreadId, "system", systemInput);
+
       // 2) [threadId]で用いるためローカルストレージにユーザの入力内容を一時的に保存
       localStorage.setItem(`thread-${newThreadId}-model`, model);
       localStorage.setItem(`thread-${newThreadId}-systemInput`, systemInput);
