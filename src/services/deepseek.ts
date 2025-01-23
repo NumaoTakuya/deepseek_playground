@@ -1,7 +1,12 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+
+export type ChatCompletionMessageParam = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
 
 /**
@@ -24,18 +29,31 @@ export async function callDeepseek(
   model: string = "deepseek-chat"
 ): Promise<string> {
   const openai = createDeepseekClient(apiKey);
-  const res = await openai.chat.completions.create({
-    model,
-    messages,
-  });
-  return res.choices[0]?.message?.content ?? "";
+
+  try {
+    const res = await openai.chat.completions.create({
+      model,
+      messages,
+    });
+    return res.choices[0]?.message?.content ?? "";
+  } catch (error) {
+    // error の型はライブラリによって異なる場合があります (AxiosError or OpenAIError など)
+    console.error("[callDeepseek] Failed to create completion:", error);
+
+    // 必要に応じて、エラーコードに応じた分岐を行う (例: 429 Too Many Requests, 401 Unauthorized, etc.)
+    // if (isAxiosError(error) && error.response?.status === 429) {
+    //   console.warn("[callDeepseek] Rate limit exceeded. Retrying or notifying user...");
+    // }
+
+    // 上位に再スローする (UI側で再試行やエラーメッセージを表示できる)
+    throw error;
+  }
 }
 
 /**
  * ストリーミング版:
  * openai.beta.chat.completions.stream(...) は
  * 「Promise<ChatCompletionStream>」を返す。
- * そのため、この関数も Promise で包んで返す。
  *
  * 呼び出し側では:
  *    const stream = await streamDeepseek(apiKey, messages, model);
@@ -49,11 +67,27 @@ export async function streamDeepseek(
   model: string = "deepseek-chat"
 ) {
   const openai = createDeepseekClient(apiKey);
-  // openai@4.x の "beta" API を使用
-  const stream = await openai.beta.chat.completions.stream({
-    model,
-    messages,
-    stream: true,
-  });
-  return stream;
+
+  try {
+    // openai@4.x の "beta" API を使用
+    const stream = await openai.beta.chat.completions.stream({
+      model,
+      messages,
+      stream: true,
+    });
+    return stream;
+  } catch (error) {
+    console.error(
+      "[streamDeepseek] Failed to create streaming completion:",
+      error
+    );
+
+    // 必要ならエラーコード判別 (429, 401 など)
+    // 例:
+    // if (isAxiosError(error) && error.response?.status === 429) {
+    //   console.warn("[streamDeepseek] Rate limit exceeded. Consider retry or user notification.");
+    // }
+
+    throw error;
+  }
 }

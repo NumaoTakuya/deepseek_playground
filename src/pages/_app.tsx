@@ -1,5 +1,6 @@
 // src/pages/_app.tsx
 import "../styles/global.css";
+import "katex/dist/katex.min.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
