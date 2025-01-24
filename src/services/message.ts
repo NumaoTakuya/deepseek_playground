@@ -25,6 +25,7 @@ export async function createMessage(
   role: Message["role"],
   content: string
 ) {
+  console.trace("createMessage", threadId, role, content);
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
     const docRef = await addDoc(messagesRef, {
