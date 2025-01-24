@@ -16,6 +16,7 @@ import {
   increment,
   updateDoc,
 } from "firebase/firestore";
+import { getAnalytics, logEvent } from "firebase/analytics";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -32,6 +33,11 @@ const firebaseConfig = {
 };
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+// Analytics
+export const analytics =
+  typeof window !== "undefined" ? getAnalytics(app) : null;
+export { logEvent };
 
 // Authentication
 export const auth = getAuth(app);
@@ -90,5 +96,21 @@ export async function doSignOut() {
 export function onFirebaseAuthStateChanged(
   callback: (user: FirebaseUser | null) => void
 ) {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // ログイン時
+      if (analytics) {
+        logEvent(analytics, "login", {
+          method: user.providerData[0]?.providerId || "unknown",
+          uid: user.uid,
+        });
+      }
+    } else {
+      // ログアウト時
+      if (analytics) {
+        logEvent(analytics, "logout");
+      }
+    }
+    callback(user);
+  });
 }

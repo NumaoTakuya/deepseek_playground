@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { db } from "../services/firebase";
+import { db, analytics, logEvent } from "../services/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import {
   listenMessages,
@@ -99,6 +99,15 @@ export function useChatWindow(threadId: string, apiKey: string) {
     if (!input.trim()) return;
 
     const userText = input.trim();
+    const startTime = Date.now();
+    // メッセージ送信開始イベント
+    if (analytics) {
+      logEvent(analytics, "message_send_start", {
+        threadId,
+        model: model ?? "unknown",
+        messageLength: userText.length,
+      });
+    }
     setInput("");
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
@@ -149,8 +158,28 @@ export function useChatWindow(threadId: string, apiKey: string) {
 
       // 6) ストリーム完了: Firestoreにまとめて書き込み
       await updateMessage(threadId, newAssistantMsgId, partialContent);
+
+      // メッセージ送信成功イベント
+      if (analytics) {
+        logEvent(analytics, "message_send_success", {
+          threadId,
+          model,
+          messageLength: userText.length,
+          responseLength: partialContent.length,
+          duration: Date.now() - startTime,
+        });
+      }
     } catch (err) {
       console.error("handleSend error (stream)", err);
+      // メッセージ送信失敗イベント
+      if (analytics) {
+        logEvent(analytics, "message_send_failure", {
+          threadId,
+          model,
+          messageLength: userText.length,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
     } finally {
       setAssistantThinking(false);
       chatStreamRef.current = null;

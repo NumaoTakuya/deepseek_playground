@@ -7,15 +7,32 @@ import { useEffect } from "react";
 import { AuthProvider } from "../contexts/AuthContext";
 import Layout from "../components/layout/Layout";
 import { ApiKeyProvider } from "../contexts/ApiKeyContext";
-import { initializeUserCount } from "../services/firebase";
+import { initializeUserCount, logEvent, analytics } from "../services/firebase";
 
 function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+
   useEffect(() => {
     initializeUserCount().catch((error) => {
       console.error("Failed to initialize user count:", error);
     });
   }, []);
-  const router = useRouter();
+
+  // Track page views
+  useEffect(() => {
+    const handleRouteChange = (url: string) => {
+      if (analytics) {
+        logEvent(analytics, "page_view", {
+          page_path: url,
+        });
+      }
+    };
+
+    router.events.on("routeChangeComplete", handleRouteChange);
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+    };
+  }, [router.events]);
   // 指定したパスの場合はそのページを表示
   const isLpPage = router.pathname === "/";
   const isLoginPage = router.pathname === "/login";

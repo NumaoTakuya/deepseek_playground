@@ -1,6 +1,6 @@
 // src/services/message.ts
 
-import { db } from "./firebase";
+import { db, analytics } from "./firebase";
 import {
   collection,
   addDoc,
@@ -12,6 +12,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app"; // 追加（エラーハンドリング用）
+import { logEvent } from "firebase/analytics";
 import { useState, useEffect } from "react";
 
 import { Message } from "../types/index";
@@ -33,6 +34,16 @@ export async function createMessage(
       content,
       createdAt: serverTimestamp(),
     });
+
+    // Log message sent event
+    if (analytics) {
+      logEvent(analytics, "message_sent", {
+        thread_id: threadId,
+        role: role,
+        content_length: content.length,
+      });
+    }
+
     return docRef.id; // Return the new document ID
   } catch (error) {
     if (error instanceof FirebaseError) {
@@ -164,6 +175,13 @@ export async function updateMessage(
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
     await updateDoc(messageRef, { content });
+    if (analytics) {
+      logEvent(analytics, "message_updated", {
+        thread_id: threadId,
+        message_id: messageId,
+        content_length: content.length,
+      });
+    }
   } catch (error) {
     if (error instanceof FirebaseError) {
       if (error.code === "resource-exhausted") {
