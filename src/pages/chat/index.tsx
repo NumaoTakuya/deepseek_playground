@@ -20,7 +20,6 @@ import ApiKeyOnboardingDialog from "@/src/components/ApiKeyOnboardingDialog";
 import { useAuth } from "../../contexts/AuthContext";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { createThread } from "../../services/thread";
-import { createMessage } from "../../services/message";
 import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";

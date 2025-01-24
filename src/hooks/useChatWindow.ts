@@ -18,7 +18,6 @@ export function useChatWindow(threadId: string, apiKey: string) {
   );
   const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
   const [model, setModel] = useState("deepseek-chat");
-  const [title, setTitle] = useState("New Thread");
   const [input, setInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
@@ -66,9 +65,8 @@ export function useChatWindow(threadId: string, apiKey: string) {
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.data() as { model?: string; title?: string };
+        const data = snapshot.data() as { model?: string };
         setModel(data.model ?? "deepseek-chat");
-        setTitle(data.title ?? "New Thread");
       }
     });
     return () => unsub();
