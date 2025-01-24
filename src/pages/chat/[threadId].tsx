@@ -16,6 +16,9 @@ export default function ThreadPage() {
     return <div>Invalid thread ID</div>;
   }
 
+  // ページ全体のスクロールを禁止（こうしないとlatex表記が存在するとき、謎の莫大なスクロールスペースが出る）
+  if (typeof document !== "undefined") document.body.style.overflow = "hidden";
+
   return (
     <>
       <Head>
