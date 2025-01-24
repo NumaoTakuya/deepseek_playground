@@ -1,14 +1,20 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React from "react";
 import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-// KaTeX auto-render
-import "katex/dist/katex.min.css";
-import renderMathInElement from "katex/dist/contrib/auto-render.mjs";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css"; // KaTeX用のCSS
 
 import type { Message } from "../../types";
 
+/**
+ * 親コンポーネントから渡す props:
+ * - messages
+ * - streamingAssistantId: いまストリーミング中のアシスタントメッセージID
+ * - waitingForFirstChunk: 最初のチャンクをまだ受信してないかどうか
+ * - assistantDraft: ストリーミング途中の文章(リアルタイム表示用)
+ */
 interface MessageListProps {
   messages: Message[];
   streamingAssistantId?: string | null;
@@ -16,28 +22,19 @@ interface MessageListProps {
   assistantDraft?: string;
 }
 
-/** \(...\)/\[...\] を二重バックスラッシュにする（元の関数） */
-function escapeLaTeXDelimiters(text: string) {
-  return text
-    .replace(/\\\(/g, "\\\\(")
-    .replace(/\\\)/g, "\\\\)")
-    .replace(/\\\[/g, "\\\\[")
-    .replace(/\\\]/g, "\\\\]");
-}
-
-/** auto-renderに拾われず残った “\\(” などを元に戻す（元の関数） */
-function revertDoubleBackslashes(container: HTMLElement) {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    if (node.nodeValue) {
-      node.nodeValue = node.nodeValue
-        .replace(/\\\\\(/g, "\\(")
-        .replace(/\\\\\)/g, "\\)")
-        .replace(/\\\\\[/g, "\\[")
-        .replace(/\\\\\]/g, "\\]");
-    }
-  }
+/**
+ * 1) `\( ...\)` / `\[ ...\]` → `$...$` / `$$...$$`
+ *    これにより remark-math が標準対応する数式記法に変換する
+ */
+function convertRoundBracketsToDollar(str: string) {
+  // \[ ... \]
+  str = str.replace(
+    /\\\[((?:\\.|[\s\S])+?)\\\]/g,
+    (_m, inner) => `$$${inner}$$`
+  );
+  // \( ... \)
+  str = str.replace(/\\\(((?:\\.|[\s\S])+?)\\\)/g, (_m, inner) => `$${inner}$`);
+  return str;
 }
 
 export default function MessageList({
@@ -46,51 +43,23 @@ export default function MessageList({
   waitingForFirstChunk,
   assistantDraft,
 }: MessageListProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  /**
-   * useLayoutEffect: “DOMが描画されてレイアウトが済んだ直後” に実行。
-   * 通常のuseEffectより早いタイミングでDOMの整合を確保しやすい。
-   */
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
-
-    try {
-      // auto-renderで数式変換
-      renderMathInElement(containerRef.current, {
-        delimiters: [
-          { left: "\\[", right: "\\]", display: true },
-          { left: "\\(", right: "\\)", display: false },
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-        ],
-        throwOnError: false,
-      });
-
-      // 変換されなかった“\\(” などを元に戻す
-      revertDoubleBackslashes(containerRef.current);
-    } catch (err) {
-      // 衝突などのエラーが出るとここに来る
-      console.error("KaTeX auto-render error:", err);
-    }
-  }, [messages, assistantDraft]);
-
   return (
-    <Box ref={containerRef} flex="1" overflow="auto" p={2}>
+    <Box flex="1" overflow="auto" p={2}>
       {messages.map((msg) => {
-        if (msg.role === "system") return null;
+        if (msg.role === "system") return null; // systemは非表示
 
         const isAssistant = msg.role === "assistant";
+        // “ストリーミング中”かどうか
         const isStreaming = isAssistant && msg.id === streamingAssistantId;
 
-        // 現在のテキスト
+        // テキストを表示する内容
         const textToShow = isStreaming ? assistantDraft ?? "" : msg.content;
 
-        // “Thinking...”
+        // “Thinking...”フラグ
         const showThinking = isStreaming && waitingForFirstChunk;
 
-        // Markdown前に二重バックスラッシュ
-        const escapedContent = escapeLaTeXDelimiters(textToShow || "");
+        // 2) `\(...\)` / `\[...\]` を `$...$` / `$$...$$` に置換
+        const convertedText = convertRoundBracketsToDollar(textToShow);
 
         return (
           <Box className="bubble-container" key={msg.id}>
@@ -102,8 +71,12 @@ export default function MessageList({
                 {msg.role}
               </div>
 
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {escapedContent}
+              {/* 3) remark-math + rehype-katex で数式パース */}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {convertedText}
               </ReactMarkdown>
 
               {showThinking && (
