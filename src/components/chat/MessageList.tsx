@@ -1,21 +1,14 @@
-import React, { useEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-// KaTeX関連
+// KaTeX auto-render
 import "katex/dist/katex.min.css";
 import renderMathInElement from "katex/dist/contrib/auto-render.mjs";
 
 import type { Message } from "../../types";
 
-/**
- * 親コンポーネントから渡す `streamingAssistantId` は
- *   「いまストリーミング中のアシスタントメッセージのID」
- * `waitingForFirstChunk` は
- *   「最初のチャンクを受信していない段階かどうか」
- * などを示す想定。
- */
 interface MessageListProps {
   messages: Message[];
   streamingAssistantId?: string | null;
@@ -23,12 +16,7 @@ interface MessageListProps {
   assistantDraft?: string;
 }
 
-/**
- * (1) Markdownにかける前に:
- *   - \(...\) / \[...\] / \) / \] を二重バックスラッシュにしておく
- *   - 例: \(\frac{a}{b}\) → \\(\frac{a}{b}\\)
- *         \[x^2\]        → \\[x^2\\]
- */
+/** \(...\)/\[...\] を二重バックスラッシュにする（元の関数） */
 function escapeLaTeXDelimiters(text: string) {
   return text
     .replace(/\\\(/g, "\\\\(")
@@ -37,13 +25,9 @@ function escapeLaTeXDelimiters(text: string) {
     .replace(/\\\]/g, "\\\\]");
 }
 
-/**
- * (3) KaTeX 変換されなかった部分に残った \\( や \\) を再び \(...\) に戻す
- *     => "ユーザーに単なる文字列として見せたい場合" に戻すため
- */
+/** auto-renderに拾われず残った “\\(” などを元に戻す（元の関数） */
 function revertDoubleBackslashes(container: HTMLElement) {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
     if (node.nodeValue) {
@@ -56,12 +40,6 @@ function revertDoubleBackslashes(container: HTMLElement) {
   }
 }
 
-/**
- * MessageListコンポーネント:
- * - messages: 表示するメッセージ一覧
- * - streamingAssistantId: “Thinking...” を表示中のアシスタントメッセージのID
- * - waitingForFirstChunk: 最初のチャンクが来る前かどうか
- */
 export default function MessageList({
   messages,
   streamingAssistantId,
@@ -70,18 +48,31 @@ export default function MessageList({
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  /**
+   * useLayoutEffect: “DOMが描画されてレイアウトが済んだ直後” に実行。
+   * 通常のuseEffectより早いタイミングでDOMの整合を確保しやすい。
+   */
+  useLayoutEffect(() => {
     if (!containerRef.current) return;
-    renderMathInElement(containerRef.current, {
-      delimiters: [
-        { left: "\\[", right: "\\]", display: true },
-        { left: "\\(", right: "\\)", display: false },
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-      ],
-      throwOnError: false,
-    });
-    revertDoubleBackslashes(containerRef.current);
+
+    try {
+      // auto-renderで数式変換
+      renderMathInElement(containerRef.current, {
+        delimiters: [
+          { left: "\\[", right: "\\]", display: true },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+        ],
+        throwOnError: false,
+      });
+
+      // 変換されなかった“\\(” などを元に戻す
+      revertDoubleBackslashes(containerRef.current);
+    } catch (err) {
+      // 衝突などのエラーが出るとここに来る
+      console.error("KaTeX auto-render error:", err);
+    }
   }, [messages, assistantDraft]);
 
   return (
@@ -90,28 +81,23 @@ export default function MessageList({
         if (msg.role === "system") return null;
 
         const isAssistant = msg.role === "assistant";
-        // streaming中かどうか
-        const isStreaming = isAssistant && streamingAssistantId === msg.id;
+        const isStreaming = isAssistant && msg.id === streamingAssistantId;
 
-        // 現在メッセージのテキストは msg.content だが
-        // もし streaming中なら “assistantDraft” を表示
+        // 現在のテキスト
         const textToShow = isStreaming ? assistantDraft ?? "" : msg.content;
 
-        // “Thinking...” は
-        //  - streamingAssistantId がこのメッセージ
-        //  - かつ waitingForFirstChunk === true
+        // “Thinking...”
         const showThinking = isStreaming && waitingForFirstChunk;
 
+        // Markdown前に二重バックスラッシュ
         const escapedContent = escapeLaTeXDelimiters(textToShow || "");
 
         return (
           <Box className="bubble-container" key={msg.id}>
-            <Box
-              className={`bubble ${msg.role === "user" ? "user" : "assistant"}`}
-            >
+            <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
               <div
                 className="bubble-label"
-                style={{ color: msg.role === "user" ? "#F0F0F0" : "#ccc" }}
+                style={{ color: isAssistant ? "#ccc" : "#F0F0F0" }}
               >
                 {msg.role}
               </div>
