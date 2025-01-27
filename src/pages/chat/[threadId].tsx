@@ -1,4 +1,4 @@
-// pages/chat/[threadId].tsx
+// src/pages/chat/[threadId].tsx
 import React from "react";
 import { useRouter } from "next/router";
 import ChatWindow from "../../components/chat/ChatWindow";

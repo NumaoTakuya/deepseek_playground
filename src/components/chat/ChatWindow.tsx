@@ -1,3 +1,5 @@
+// src/components/chat/ChatWindow.tsx
+
 import React, { useState, useEffect } from "react";
 import { Box } from "@mui/material";
 import { useChatWindow } from "../../hooks/useChatWindow";

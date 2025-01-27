@@ -1,4 +1,4 @@
-// src/types/index.ts
+// src/types/index.d.ts
 
 // Firestore から取得した日付系を any で受ける or Firestore Timestamp型を定義してもOK
 // import { Timestamp } from "firebase/firestore";

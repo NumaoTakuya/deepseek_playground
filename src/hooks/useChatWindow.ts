@@ -1,3 +1,5 @@
+// src/hooks/useChatWindow.ts
+
 import { useState, useEffect, useRef } from "react";
 import { db, analytics, logEvent } from "../services/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";

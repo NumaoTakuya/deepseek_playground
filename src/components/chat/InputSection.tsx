@@ -1,3 +1,5 @@
+// src/components/chat/InputSection.tsx
+
 import {
   Box,
   TextField,

@@ -1,3 +1,5 @@
+// src/components/chat/MessageList.tsx
+
 import React from "react";
 import { Box, CircularProgress } from "@mui/material";
 import ReactMarkdown from "react-markdown";
