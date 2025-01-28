@@ -1,7 +1,7 @@
 // src/components/chat/ChatWindow.tsx
 
 import React, { useState, useEffect } from "react";
-import { Box } from "@mui/material";
+import { Box, Alert } from "@mui/material";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import SystemPromptSection from "./SystemPromptSection";
@@ -33,6 +33,7 @@ export default function ChatWindow({ threadId }: Props) {
   } = useChatWindow(threadId, apiKey);
 
   const [isFirstTime, setIsFirstTime] = useState(true);
+  const [error, setError] = useState(""); // 警告メッセージ用の状態
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -41,7 +42,19 @@ export default function ChatWindow({ threadId }: Props) {
     }
   };
 
-  // もしlocalStorageに内容が保存されていれば(=１回目のメッセージであれば)それを取得し、チャット開始(handleSend実行)。そしてlocalStorageを即座に削除
+  // モデル変更ハンドラのラッパー
+  const handleModelChangeWrapper = (newModel: string) => {
+    handleModelChange(newModel); // 常にモデルを更新
+    if (newModel === "deepseek-reasoner") {
+      setError(
+        "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
+      );
+    } else {
+      setError(""); // 他のモデル選択時は警告をクリア
+    }
+  };
+
+  // ローカルストレージから初期値を読み込む
   useEffect(() => {
     const storedModel = localStorage.getItem(`thread-${threadId}-model`);
     const storedInput = localStorage.getItem(`thread-${threadId}-inputValue`);
@@ -61,12 +74,11 @@ export default function ChatWindow({ threadId }: Props) {
       !storedInput &&
       !storedSystemInput
     ) {
-      // もしisFirstTimeがtrueかつ、localStorageに保存されていなければ、１回目のメッセージではない。
       setIsFirstTime(false);
     }
   }, [threadId, setInput, setModel, setSystemPrompt, isFirstTime]);
 
-  // 初回のみ自動送信
+  // 初回自動送信
   useEffect(() => {
     if (isFirstTime && model && input && systemPrompt) {
       setIsFirstTime(false);
@@ -77,6 +89,13 @@ export default function ChatWindow({ threadId }: Props) {
 
   return (
     <Box display="flex" flexDirection="column" height="100%">
+      {/* 警告メッセージ表示 */}
+      {error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       <SystemPromptSection
         systemPrompt={systemPrompt}
         setSystemPrompt={setSystemPrompt}
@@ -97,8 +116,8 @@ export default function ChatWindow({ threadId }: Props) {
         handleSend={handleSend}
         handleKeyDown={handleKeyDown}
         model={model}
-        handleModelChange={handleModelChange}
-        assistantThinking={assistantThinking} // ← 追加
+        handleModelChange={handleModelChangeWrapper} // ラッパー関数を使用
+        assistantThinking={assistantThinking}
       />
     </Box>
   );
