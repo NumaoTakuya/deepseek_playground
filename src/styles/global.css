@@ -110,3 +110,17 @@ button:hover,
   color: var(--color-subtext);
   margin-bottom: 2px;
 }
+
+/* メッセージリスト用のスタイル */
+.bubble .react-markdown blockquote {
+  border-left: 4px solid #787878; /* 左側のグレー縦線 */
+  margin: 0;
+  padding: 4px 16px;
+  color: #808080; /* 文字色グレー */
+  font-size: 0.9em; /* 文字サイズ縮小 */
+}
+
+/* 通常の段落との余白調整 */
+.bubble .react-markdown p {
+  margin: 8px 0;
+}

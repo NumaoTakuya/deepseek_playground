@@ -29,6 +29,7 @@ export default function ChatWindow({ threadId }: Props) {
     waitingForFirstChunk,
     assistantThinking,
     assistantMsgId,
+    assistantCoT,
     assistantDraft,
   } = useChatWindow(threadId, apiKey);
 
@@ -106,6 +107,7 @@ export default function ChatWindow({ threadId }: Props) {
       <MessageList
         messages={messages}
         streamingAssistantId={assistantMsgId}
+        assistantCoT={assistantCoT}
         assistantDraft={assistantDraft}
         waitingForFirstChunk={waitingForFirstChunk}
       />

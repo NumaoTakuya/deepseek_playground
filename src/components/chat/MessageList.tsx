@@ -1,26 +1,20 @@
 // src/components/chat/MessageList.tsx
-
-import React from "react";
-import { Box, CircularProgress } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import { Box, CircularProgress, Collapse, IconButton } from "@mui/material";
+import { ExpandMore, ExpandLess } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css"; // KaTeX用のCSS
+import "katex/dist/katex.min.css";
 
 import type { Message } from "../../types";
 
-/**
- * 親コンポーネントから渡す props:
- * - messages
- * - streamingAssistantId: いまストリーミング中のアシスタントメッセージID
- * - waitingForFirstChunk: 最初のチャンクをまだ受信してないかどうか
- * - assistantDraft: ストリーミング途中の文章(リアルタイム表示用)
- */
 interface MessageListProps {
   messages: Message[];
   streamingAssistantId?: string | null;
   waitingForFirstChunk: boolean;
+  assistantCoT?: string | null;
   assistantDraft?: string;
 }
 
@@ -29,38 +23,47 @@ interface MessageListProps {
  *    これにより remark-math が標準対応する数式記法に変換する
  */
 function convertRoundBracketsToDollar(str: string) {
-  // \[ ... \]
   str = str.replace(
     /\\\[((?:\\.|[\s\S])+?)\\\]/g,
     (_m, inner) => `$$${inner}$$`
   );
-  // \( ... \)
   str = str.replace(/\\\(((?:\\.|[\s\S])+?)\\\)/g, (_m, inner) => `$${inner}$`);
   return str;
+}
+
+function formatQuote(text: string): string {
+  const paragraphs = text.split(/\n\n+/).filter((p) => p.trim() !== "");
+  const quotedParagraphs = paragraphs.map((paragraph) => {
+    return paragraph
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+  });
+  return quotedParagraphs.join("\n\n");
 }
 
 export default function MessageList({
   messages,
   streamingAssistantId,
   waitingForFirstChunk,
+  assistantCoT,
   assistantDraft,
 }: MessageListProps) {
+  const [isCoTExpanded, setIsCoTExpanded] = useState(true);
+
+  const toggleCoT = () => {
+    setIsCoTExpanded(!isCoTExpanded);
+  };
+
   return (
     <Box flex="1" overflow="auto" p={2}>
-      {messages.map((msg) => {
-        if (msg.role === "system") return null; // systemは非表示
+      {messages.map((msg, index) => {
+        if (msg.role === "system") return null;
 
         const isAssistant = msg.role === "assistant";
-        // “ストリーミング中”かどうか
         const isStreaming = isAssistant && msg.id === streamingAssistantId;
-
-        // テキストを表示する内容
         const textToShow = isStreaming ? assistantDraft ?? "" : msg.content;
-
-        // “Thinking...”フラグ
         const showThinking = isStreaming && waitingForFirstChunk;
-
-        // 2) `\(...\)` / `\[...\]` を `$...$` / `$$...$$` に置換
         const convertedText = convertRoundBracketsToDollar(textToShow);
 
         return (
@@ -73,10 +76,59 @@ export default function MessageList({
                 {msg.role}
               </div>
 
-              {/* 3) remark-math + rehype-katex で数式パース */}
+              {isAssistant && index == messages.length - 1 && assistantCoT && (
+                <Box sx={{ mt: 1 }}>
+                  {" "}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      color: "#666",
+                      "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
+                      borderRadius: 1,
+                      p: 0.5,
+                      width: "fit-content",
+                    }}
+                    onClick={toggleCoT}
+                  >
+                    <IconButton
+                      size="small"
+                      sx={{
+                        p: 0.5,
+                        color: "inherit",
+                        "&:hover": { backgroundColor: "transparent" },
+                      }}
+                    >
+                      {isCoTExpanded ? <ExpandLess /> : <ExpandMore />}
+                    </IconButton>
+                    <span
+                      style={{
+                        fontSize: "0.8rem",
+                        userSelect: "none",
+                      }}
+                    >
+                      {isCoTExpanded
+                        ? "Collapse Chain of Thoughts"
+                        : "Expand Chain of Thoughts"}
+                    </span>
+                  </Box>
+                  <Collapse in={isCoTExpanded}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      className="react-markdown"
+                    >
+                      {formatQuote(assistantCoT)}
+                    </ReactMarkdown>
+                  </Collapse>
+                </Box>
+              )}
+
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeKatex]}
+                className="react-markdown"
               >
                 {convertedText}
               </ReactMarkdown>

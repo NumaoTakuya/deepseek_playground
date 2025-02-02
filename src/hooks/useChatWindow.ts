@@ -33,6 +33,12 @@ export function useChatWindow(threadId: string, apiKey: string) {
 
   /**
    * “ローカルだけで保持する、途中生成中のアシスタントの本文”
+   *  - contentに対するreasoning_contentに相当する
+   *  - Firestoreには保存しない
+   */
+  const [assistantCoT, setAssistantCoT] = useState<string | null>(null);
+  /**
+   * “ローカルだけで保持する、途中生成中のアシスタントの本文”
    *  - Streamの途中経過をリアルタイムでUI表示するために使う
    *  - Firestoreに書くのは最後1回
    */
@@ -113,7 +119,8 @@ export function useChatWindow(threadId: string, apiKey: string) {
     setInput("");
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
-    setAssistantDraft(""); // 新しく生成するので一旦リセット
+    setAssistantCoT("");
+    setAssistantDraft("");
 
     try {
       // 1) systemPromptをFirestoreへ
@@ -142,18 +149,28 @@ export function useChatWindow(threadId: string, apiKey: string) {
       const chatStream = await streamDeepseek(apiKey, conversation, model);
       chatStreamRef.current = chatStream;
 
+      let partialReasoningContent = "";
       let partialContent = "";
       let first = true;
 
       for await (const chunk of chatStream) {
-        const delta = chunk.choices[0]?.delta?.content ?? "";
-        if (delta) {
-          partialContent += delta;
+        const delta = chunk.choices[0]?.delta as any;
+        const delta_reasoning_content = delta.reasoning_content ?? "";
+        const delta_content = delta.content ?? "";
+        if (delta_reasoning_content) {
+          partialReasoningContent += delta_reasoning_content;
           if (first) {
             setWaitingForFirstChunk(false);
             first = false;
           }
-          // --- ここで Firestore更新せず、“assistantDraft” を更新してUI表示 ---
+          setAssistantCoT(partialReasoningContent);
+        }
+        if (delta_content) {
+          partialContent += delta_content;
+          if (first) {
+            setWaitingForFirstChunk(false);
+            first = false;
+          }
           setAssistantDraft(partialContent);
         }
       }
@@ -203,7 +220,8 @@ export function useChatWindow(threadId: string, apiKey: string) {
     handleSend,
     waitingForFirstChunk,
     assistantThinking,
-    assistantMsgId, // ← Thinking表示のため
-    assistantDraft, // ← 途中受信中のテキスト
+    assistantMsgId,
+    assistantCoT,
+    assistantDraft,
   };
 }
