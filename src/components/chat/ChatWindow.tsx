@@ -45,13 +45,13 @@ export default function ChatWindow({ threadId }: Props) {
   // モデル変更ハンドラのラッパー
   const handleModelChangeWrapper = (newModel: string) => {
     handleModelChange(newModel); // 常にモデルを更新
-    if (newModel === "deepseek-reasoner") {
-      setError(
-        "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
-      );
-    } else {
-      setError(""); // 他のモデル選択時は警告をクリア
-    }
+    // if (newModel === "deepseek-reasoner") {
+    //   setError(
+    //     "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
+    //   );
+    // } else {
+    //   setError(""); // 他のモデル選択時は警告をクリア
+    // }
   };
 
   // ローカルストレージから初期値を読み込む

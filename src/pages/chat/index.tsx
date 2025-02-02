@@ -221,13 +221,13 @@ export default function ChatHomePage() {
                   onChange={(e) => {
                     const selectedModel = e.target.value as string;
                     setModel(selectedModel);
-                    if (selectedModel === "deepseek-reasoner") {
-                      setError(
-                        "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
-                      );
-                    } else {
-                      setError(""); // 他のモデル選択時はエラーをクリア
-                    }
+                    // if (selectedModel === "deepseek-reasoner") {
+                    //   setError(
+                    //     "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
+                    //   );
+                    // } else {
+                    //   setError(""); // 他のモデル選択時はエラーをクリア
+                    // }
                   }}
                 >
                   <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
