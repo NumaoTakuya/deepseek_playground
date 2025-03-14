@@ -154,7 +154,12 @@ export function useChatWindow(threadId: string, apiKey: string) {
       let first = true;
 
       for await (const chunk of chatStream) {
-        const delta = chunk.choices[0]?.delta as any;
+        interface Delta {
+          reasoning_content?: string;
+          content?: string;
+        }
+
+        const delta = chunk.choices[0]?.delta as Delta;
         const delta_reasoning_content = delta.reasoning_content ?? "";
         const delta_content = delta.content ?? "";
         if (delta_reasoning_content) {

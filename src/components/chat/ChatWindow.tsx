@@ -34,7 +34,7 @@ export default function ChatWindow({ threadId }: Props) {
   } = useChatWindow(threadId, apiKey);
 
   const [isFirstTime, setIsFirstTime] = useState(true);
-  const [error, setError] = useState(""); // 警告メッセージ用の状態
+  const [error] = useState(""); // 警告メッセージ用の状態
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

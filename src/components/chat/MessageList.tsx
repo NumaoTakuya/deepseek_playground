@@ -1,5 +1,5 @@
 // src/components/chat/MessageList.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Box, CircularProgress, Collapse, IconButton } from "@mui/material";
 import { ExpandMore, ExpandLess } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
