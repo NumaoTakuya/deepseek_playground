@@ -168,6 +168,17 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         }}
       />
 
+      {isOpen && (
+        <Button
+          variant="outlined"
+          fullWidth
+          sx={{ mt: 1, color: "#fff", borderColor: "#fff" }}
+          onClick={handleNewThread}
+        >
+          New Thread
+        </Button>
+      )}
+
       {/* スレッド一覧 (時系列) */}
       <Box flex="1" overflow="auto" mt={2}>
         {threads?.map((thread) => (
@@ -179,17 +190,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         ))}
       </Box>
 
-      {/* New Thread & Logout */}
+      {/* Logout */}
       <Box mt={2}>
-        <Button
-          variant="outlined"
-          fullWidth
-          sx={{ mb: 1, color: "#fff", borderColor: "#fff" }}
-          onClick={handleNewThread}
-        >
-          New Thread
-        </Button>
-
         <Button
           variant="outlined"
           color="error"
