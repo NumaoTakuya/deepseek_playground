@@ -1,5 +1,17 @@
 // src/components/layout/Sidebar.tsx
-import { Box, Typography, TextField, Button, IconButton } from "@mui/material";
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Switch,
+} from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import Link from "next/link";
@@ -52,6 +64,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { user } = useAuth();
   const { threads } = useThreads(user?.uid);
   const { apiKey, setApiKey } = useApiKey(); // Context から取得
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value);
@@ -74,6 +88,42 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   // 「Deepseek Playground」タイトルをクリックで "/" に遷移する
   const handleTitleClick = () => {
     router.push("/");
+  };
+
+  const applyTheme = (mode: "light" | "dark") => {
+    if (typeof document === "undefined") return;
+    if (mode === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedTheme = window.localStorage.getItem("theme");
+    const prefersDark = storedTheme !== "light";
+    setDarkMode(prefersDark);
+    applyTheme(prefersDark ? "dark" : "light");
+  }, []);
+
+  useEffect(() => {
+    applyTheme(darkMode ? "dark" : "light");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("theme", darkMode ? "dark" : "light");
+    }
+  }, [darkMode]);
+
+  const handleToggleDarkMode = (_: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
+    setDarkMode(checked);
+  };
+
+  const handleOpenSettings = () => {
+    setSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
   };
 
   return (
@@ -157,13 +207,13 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             borderColor: "var(--color-hover)",
           },
           "& .MuiOutlinedInput-input": {
-            color: "#fff",
+            color: "var(--color-text)",
           },
           "& .MuiInputLabel-root": {
             color: "var(--color-subtext)",
           },
           "& .MuiInputLabel-root.Mui-focused": {
-            color: "#fff",
+            color: "var(--color-text)",
           },
         }}
       />
@@ -172,7 +222,16 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         <Button
           variant="outlined"
           fullWidth
-          sx={{ mt: 1, color: "#fff", borderColor: "#fff" }}
+          sx={{
+            mt: 1,
+            color: "var(--color-text)",
+            borderColor: "var(--color-border)",
+            "&:hover": {
+              borderColor: "var(--color-accent-surface)",
+              backgroundColor: "var(--color-accent-surface)",
+              color: "var(--color-on-accent-surface)",
+            },
+          }}
           onClick={handleNewThread}
         >
           New Thread
@@ -190,17 +249,78 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         ))}
       </Box>
 
-      {/* Logout */}
+      {/* Settings */}
       <Box mt={2}>
         <Button
           variant="outlined"
-          color="error"
           fullWidth
-          onClick={handleLogout}
+          onClick={handleOpenSettings}
+          sx={{
+            color: "var(--color-text)",
+            borderColor: "var(--color-border)",
+            "&:hover": {
+              borderColor: "var(--color-accent-surface)",
+              backgroundColor: "var(--color-accent-surface)",
+              color: "var(--color-on-accent-surface)",
+            },
+          }}
         >
-          Logout
+          Settings
         </Button>
       </Box>
+
+      <Dialog
+        open={settingsOpen}
+        onClose={handleCloseSettings}
+        PaperProps={{
+          sx: {
+            backgroundColor: "var(--color-panel)",
+            color: "var(--color-text)",
+            minWidth: { xs: "280px", sm: "360px" },
+            p: 1,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, pb: 1 }}>Settings</DialogTitle>
+        <DialogContent>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={darkMode}
+                onChange={handleToggleDarkMode}
+                sx={{
+                  "& .MuiSwitch-thumb": { backgroundColor: "var(--color-text)" },
+                  "& .MuiSwitch-track": { backgroundColor: "var(--color-border)" },
+                  "&.Mui-checked .MuiSwitch-track": {
+                    backgroundColor: "var(--color-primary)",
+                  },
+                }}
+              />
+            }
+            label="Dark Mode"
+            sx={{ color: "var(--color-text)" }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "space-between" }}>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={handleLogout}
+            sx={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-text)",
+              "&:hover": {
+                borderColor: "var(--color-accent-surface)",
+                backgroundColor: "var(--color-accent-surface)",
+                color: "var(--color-on-accent-surface)",
+              },
+            }}
+          >
+            Logout
+          </Button>
+          <Button onClick={handleCloseSettings}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

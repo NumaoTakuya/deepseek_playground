@@ -22,22 +22,22 @@ export default function SystemPromptSection({
         sx={{
           display: "flex",
           alignItems: "center",
-          backgroundColor: "#333",
-          color: "#fff",
+          backgroundColor: "var(--color-panel)",
+          color: "var(--color-text)",
           p: 1,
         }}
       >
         <Box sx={{ fontWeight: 600 }}>System Prompt</Box>
         <IconButton
           onClick={() => setShowSystemBox(!showSystemBox)}
-          sx={{ color: "#fff", ml: "auto" }}
+          sx={{ color: "var(--color-text)", ml: "auto" }}
         >
           {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </IconButton>
       </Box>
 
       {showSystemBox && (
-        <Box sx={{ backgroundColor: "#2e2e2e", p: 2 }}>
+        <Box sx={{ backgroundColor: "var(--color-panel)", p: 2 }}>
           <TextField
             fullWidth
             multiline
@@ -48,18 +48,18 @@ export default function SystemPromptSection({
             variant="outlined"
             sx={{
               "& .MuiOutlinedInput-root": {
-                "& fieldset": { borderColor: "#555" },
-                "&:hover fieldset": { borderColor: "#888" },
-                "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                "& fieldset": { borderColor: "var(--color-border)" },
+                "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
               },
               "& .MuiInputLabel-root": {
-                color: "#ddd",
+                color: "var(--color-subtext)",
               },
               "& .MuiInputLabel-root.Mui-focused": {
-                color: "#ddd",
+                color: "var(--color-text)",
               },
               "& .MuiOutlinedInput-input": {
-                color: "#fff",
+                color: "var(--color-text)",
               },
             }}
           />

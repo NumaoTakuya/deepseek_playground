@@ -56,7 +56,7 @@ export default function ApiKeyOnboardingDialog({
         <IconButton
           onClick={handleCancel}
           size="small"
-          sx={{ color: "#fff", ml: 1 }}
+          sx={{ color: "var(--color-text)", ml: 1 }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -78,12 +78,15 @@ export default function ApiKeyOnboardingDialog({
           <Checkbox
             checked={dontShowAgain}
             onChange={(event) => onDontShowAgainChange(event.target.checked)}
-            sx={{ color: "#fff", "&.Mui-checked": { color: "#fff" } }}
+            sx={{
+              color: "var(--color-subtext)",
+              "&.Mui-checked": { color: "var(--color-primary)" },
+            }}
           />
         }
         label="Do not show this again"
         sx={{
-          color: "#fff",
+          color: "var(--color-text)",
           ml: 0,
           "& .MuiTypography-root": { fontSize: "0.9rem" },
         }}
@@ -100,8 +103,8 @@ export default function ApiKeyOnboardingDialog({
       onClose={handleCancel}
       PaperProps={{
         sx: {
-          backgroundColor: "#2e2e2e",
-          color: "#fff",
+          backgroundColor: "var(--color-panel)",
+          color: "var(--color-text)",
           textAlign: "center",
           p: 3,
           borderRadius: 2,
@@ -170,20 +173,20 @@ export default function ApiKeyOnboardingDialog({
               }
               endIcon={<OpenInNewIcon />}
               sx={{
-                backgroundColor: "#fff",
-                color: "#000",
+                backgroundColor: "var(--color-primary)",
+                color: "#fff",
                 borderRadius: 2,
                 fontWeight: "bold",
                 mb: 2,
                 "&:hover": {
-                  backgroundColor: "#f0f0f0",
+                  backgroundColor: "var(--color-hover)",
                 },
               }}
             >
               Go to Deepseek Page
             </Button>
 
-            <Typography variant="body2" sx={{ color: "#aaa" }}>
+            <Typography variant="body2" sx={{ color: "var(--color-subtext)" }}>
               Pro tip: You can always create multiple keys if you like.
             </Typography>
           </DialogContent>
@@ -218,22 +221,26 @@ export default function ApiKeyOnboardingDialog({
               placeholder="sk-xxx..."
               sx={{
                 "& .MuiOutlinedInput-root": {
-                  "& fieldset": { borderColor: "#555" },
-                  "&:hover fieldset": { borderColor: "#888" },
-                  "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                  "& fieldset": { borderColor: "var(--color-border)" },
+                  "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                  "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
                   "& .MuiOutlinedInput-input": {
-                    color: "#fff",
+                    color: "var(--color-text)",
                     fontFamily: '"Roboto Mono", monospace',
                   },
                 },
-                backgroundColor: "#333",
+                backgroundColor: "var(--color-panel)",
                 mt: 1,
               }}
             />
 
             <Typography
               variant="body2"
-              sx={{ color: "#aaa", mt: 2, fontSize: "0.85rem" }}
+              sx={{
+                color: "var(--color-subtext)",
+                mt: 2,
+                fontSize: "0.85rem",
+              }}
             >
               We don&apos;t send your key to any servers. Pinky promise. 🤞
             </Typography>

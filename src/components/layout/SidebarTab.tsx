@@ -13,7 +13,7 @@ export default function SidebarTab({ title }: Props) {
       fullWidth
       sx={{
         justifyContent: "flex-start",
-        color: "#fff",
+        color: "var(--color-text)",
         textTransform: "none",
         minHeight: 40,
         paddingY: 0.5,
@@ -26,7 +26,8 @@ export default function SidebarTab({ title }: Props) {
           marginLeft: 1,
         },
         "&:hover": {
-          backgroundColor: "var(--color-hover)",
+          backgroundColor: "var(--color-accent-surface)",
+          color: "var(--color-on-accent-surface)",
         },
       }}
     >
@@ -40,6 +41,7 @@ export default function SidebarTab({ title }: Props) {
           whiteSpace: "nowrap",
           textAlign: "left",
           fontSize: "0.95rem",
+          color: "inherit",
         }}
       >
         {title}

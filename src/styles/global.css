@@ -8,9 +8,24 @@
   --color-panel: #3a3b40; /* パネル系 */
   --color-border: #4a4b52; /* ボーダー */
   --color-primary: #00b8d9; /* アクセント (ティール系) */
-  --color-hover: #00a0bd; /* ホバー時 */
+  --color-hover: #00a0bd; /* アクティブ強調 */
+  --color-accent-surface: #27c5e6; /* ソフトなアクセント背景 */
+  --color-on-accent-surface: #041721; /* ソフトアクセント上の文字 */
   --color-text: #f5f5f5; /* メイン文字 */
   --color-subtext: #aaaaaa; /* サブ文字 */
+}
+
+:root[data-theme="light"] {
+  --color-bg: #f7f9fc;
+  --color-sidebar: #ffffff;
+  --color-panel: #ffffff;
+  --color-border: #d0d7e2;
+  --color-primary: #0077aa;
+  --color-hover: #005f88;
+  --color-accent-surface: #d6f4ff;
+  --color-on-accent-surface: #0c2a37;
+  --color-text: #1f2933;
+  --color-subtext: #52606d;
 }
 
 /* 全体 */
@@ -95,8 +110,8 @@ button:hover,
 }
 .bubble.user {
   margin-left: auto; /* 右寄せ */
-  background-color: var(--color-primary);
-  color: #fff;
+  background-color: var(--color-accent-surface);
+  color: var(--color-on-accent-surface);
 }
 .bubble.assistant {
   margin-right: auto; /* 左寄せ */
@@ -109,6 +124,14 @@ button:hover,
   font-size: 0.75rem;
   color: var(--color-subtext);
   margin-bottom: 2px;
+}
+
+.bubble.user .bubble-label {
+  color: var(--color-on-accent-surface);
+}
+
+.bubble.assistant .bubble-label {
+  color: var(--color-subtext);
 }
 
 /* メッセージリスト用のスタイル */

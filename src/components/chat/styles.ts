@@ -1,13 +1,13 @@
 // src/components/chat/styles.ts
 export const inputStyles = {
   "& .MuiOutlinedInput-root": {
-    "& fieldset": { borderColor: "#555" },
-    "&:hover fieldset": { borderColor: "#888" },
-    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+    "& fieldset": { borderColor: "var(--color-border)" },
+    "&:hover fieldset": { borderColor: "var(--color-hover)" },
+    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
   },
-  "& .MuiInputLabel-root": { color: "#ddd" },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#ddd" },
-  "& .MuiOutlinedInput-input": { color: "#fff" },
+  "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+  "& .MuiInputLabel-root.Mui-focused": { color: "var(--color-text)" },
+  "& .MuiOutlinedInput-input": { color: "var(--color-text)" },
 };
 
 export const selectStyles = {
@@ -15,25 +15,25 @@ export const selectStyles = {
   backgroundColor: "transparent",
   "& .MuiOutlinedInput-root": {
     backgroundColor: "transparent",
-    "& fieldset": { borderColor: "#555" },
-    "&:hover fieldset": { borderColor: "#888" },
-    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+    "& fieldset": { borderColor: "var(--color-border)" },
+    "&:hover fieldset": { borderColor: "var(--color-hover)" },
+    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
     "& .MuiSelect-select": {
       display: "inline-block",
       width: "120px",
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
-      color: "#fff",
+      color: "var(--color-text)",
       padding: "6px 8px",
     },
   },
   "& .MuiFormLabel-root": {
     backgroundColor: "transparent",
-    color: "#ddd",
+    color: "var(--color-subtext)",
   },
   "& .MuiInputLabel-root.Mui-focused": {
-    color: "#ddd",
+    color: "var(--color-text)",
   },
 };
 
@@ -42,41 +42,41 @@ export const formControlStyles = {
   backgroundColor: "transparent",
   "& .MuiOutlinedInput-root": {
     backgroundColor: "transparent",
-    "& fieldset": { borderColor: "#555" },
-    "&:hover fieldset": { borderColor: "#888" },
-    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+    "& fieldset": { borderColor: "var(--color-border)" },
+    "&:hover fieldset": { borderColor: "var(--color-hover)" },
+    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
     "& .MuiSelect-select": {
       display: "inline-block",
       width: "120px",
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
-      color: "#fff",
+      color: "var(--color-text)",
       padding: "6px 8px",
     },
   },
   "& .MuiFormLabel-root": {
     backgroundColor: "transparent",
-    color: "#ddd",
+    color: "var(--color-subtext)",
   },
   "& .MuiInputLabel-root.Mui-focused": {
-    color: "#ddd",
+    color: "var(--color-text)",
   },
 };
 
 export const textFieldStyles = {
-  backgroundColor: "#2e2e2e",
+  backgroundColor: "var(--color-panel)",
   "& .MuiOutlinedInput-root": {
-    "& fieldset": { borderColor: "#555" },
-    "&:hover fieldset": { borderColor: "#888" },
-    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+    "& fieldset": { borderColor: "var(--color-border)" },
+    "&:hover fieldset": { borderColor: "var(--color-hover)" },
+    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
   },
-  "& .MuiInputLabel-root": { color: "#ddd" },
+  "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
   "& .MuiInputLabel-root.Mui-focused": {
-    color: "#ddd",
+    color: "var(--color-text)",
   },
   "& .MuiOutlinedInput-input": {
-    color: "#fff",
+    color: "var(--color-text)",
     fontSize: "0.9rem",
     lineHeight: 1.4,
   },

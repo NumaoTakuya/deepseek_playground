@@ -69,10 +69,7 @@ export default function MessageList({
         return (
           <Box className="bubble-container" key={msg.id}>
             <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
-              <div
-                className="bubble-label"
-                style={{ color: isAssistant ? "#ccc" : "#F0F0F0" }}
-              >
+              <div className="bubble-label">
                 {msg.role}
               </div>
 

@@ -254,21 +254,23 @@ export default function ChatHomePage() {
                   minWidth: 180,
                   backgroundColor: "transparent",
                   "& .MuiOutlinedInput-root": {
-                    "& fieldset": { borderColor: "#555" },
-                    "&:hover fieldset": { borderColor: "#888" },
-                    "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                    "& fieldset": { borderColor: "var(--color-border)" },
+                    "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
                     "& .MuiSelect-select": {
-                      color: "#fff",
+                      color: "var(--color-text)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     },
                   },
-                  "& .MuiFormLabel-root": { color: "#ddd" },
-                  "& .MuiFormLabel-root.Mui-focused": { color: "#ddd" },
+                  "& .MuiFormLabel-root": { color: "var(--color-subtext)" },
+                  "& .MuiFormLabel-root.Mui-focused": {
+                    color: "var(--color-text)",
+                  },
                 }}
               >
-                <InputLabel shrink sx={{ color: "#ddd" }}>
+                <InputLabel shrink sx={{ color: "var(--color-subtext)" }}>
                   Model
                 </InputLabel>
                 <Select
@@ -299,8 +301,8 @@ export default function ChatHomePage() {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                backgroundColor: "#333",
-                color: "#fff",
+                backgroundColor: "var(--color-panel)",
+                color: "var(--color-text)",
                 p: 1,
                 mb: 2,
                 borderRadius: 1,
@@ -311,7 +313,7 @@ export default function ChatHomePage() {
               </Typography>
               <IconButton
                 onClick={() => setShowSystemBox(!showSystemBox)}
-                sx={{ color: "#fff", ml: "auto" }}
+                sx={{ color: "var(--color-text)", ml: "auto" }}
               >
                 {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
@@ -320,7 +322,7 @@ export default function ChatHomePage() {
             {showSystemBox && (
               <Box
                 sx={{
-                  backgroundColor: "#2e2e2e",
+                  backgroundColor: "var(--color-panel)",
                   p: 2,
                   borderRadius: 1,
                   mb: 3,
@@ -336,12 +338,14 @@ export default function ChatHomePage() {
                   variant="outlined"
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      "& fieldset": { borderColor: "#555" },
-                      "&:hover fieldset": { borderColor: "#888" },
-                      "&.Mui-focused fieldset": { borderColor: "#aaa" },
+                      "& fieldset": { borderColor: "var(--color-border)" },
+                      "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "var(--color-hover)",
+                      },
                     },
-                    "& .MuiInputLabel-root": { color: "#ddd" },
-                    "& .MuiOutlinedInput-input": { color: "#fff" },
+                    "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                    "& .MuiOutlinedInput-input": { color: "var(--color-text)" },
                   }}
                 />
               </Box>
@@ -364,7 +368,7 @@ export default function ChatHomePage() {
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyDown={handleKeyDownUser}
                 sx={{
-                  backgroundColor: "#2e2e2e",
+                  backgroundColor: "var(--color-panel)",
                   "& .MuiOutlinedInput-root": {
                     "& fieldset": { borderColor: "var(--color-border)" },
                     "&:hover fieldset": { borderColor: "var(--color-hover)" },
@@ -373,7 +377,7 @@ export default function ChatHomePage() {
                     },
                   },
                   "& .MuiOutlinedInput-input": {
-                    color: "#fff",
+                    color: "var(--color-text)",
                     fontSize: "0.9rem",
                     lineHeight: 1.4,
                   },
@@ -381,7 +385,7 @@ export default function ChatHomePage() {
                     color: "var(--color-subtext)",
                   },
                   "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#fff",
+                    color: "var(--color-text)",
                   },
                 }}
               />
