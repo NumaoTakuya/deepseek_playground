@@ -1,6 +1,6 @@
 // src/components/ApiKeyOnboardingDialog.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -10,19 +10,27 @@ import {
   Button,
   Typography,
   TextField,
+  Checkbox,
+  FormControlLabel,
+  IconButton,
 } from "@mui/material";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import CloseIcon from "@mui/icons-material/Close";
 
 interface Props {
   open: boolean; // Whether the dialog is open
-  onClose: () => void; // Callback to close the dialog
-  onApiKeySave: (key: string) => void; // Called when user finishes entering their key
+  onClose: (dontShowAgain: boolean) => void; // Callback to close the dialog
+  onApiKeySave: (key: string, dontShowAgain: boolean) => void; // Called when user finishes entering their key
+  dontShowAgain: boolean; // Whether the user opted out of seeing the walkthrough again
+  onDontShowAgainChange: (value: boolean) => void; // Update parent when checkbox toggled
 }
 
 export default function ApiKeyOnboardingDialog({
   open,
   onClose,
   onApiKeySave,
+  dontShowAgain,
+  onDontShowAgainChange,
 }: Props) {
   const [step, setStep] = useState(1);
   const [tempKey, setTempKey] = useState("");
@@ -32,14 +40,64 @@ export default function ApiKeyOnboardingDialog({
 
   // Finish wizard: Save key & close
   const handleFinish = () => {
-    onApiKeySave(tempKey.trim());
-    onClose();
+    onApiKeySave(tempKey.trim(), dontShowAgain);
   };
+
+  const handleCancel = () => {
+    setStep(1);
+    setTempKey("");
+    onClose(dontShowAgain);
+  };
+
+  const TitleWithClose = ({ children }: { children: React.ReactNode }) => (
+    <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.4rem", pb: 1 }}>
+      <Box display="flex" alignItems="center">
+        <Box flexGrow={1}>{children}</Box>
+        <IconButton
+          onClick={handleCancel}
+          size="small"
+          sx={{ color: "#fff", ml: 1 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    </DialogTitle>
+  );
+
+  useEffect(() => {
+    if (open) {
+      setStep(1);
+      setTempKey("");
+    }
+  }, [open]);
+
+  const renderFooter = (children: React.ReactNode) => (
+    <DialogActions sx={{ justifyContent: "space-between", pt: 2 }}>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={dontShowAgain}
+            onChange={(event) => onDontShowAgainChange(event.target.checked)}
+            sx={{ color: "#fff", "&.Mui-checked": { color: "#fff" } }}
+          />
+        }
+        label="Do not show this again"
+        sx={{
+          color: "#fff",
+          ml: 0,
+          "& .MuiTypography-root": { fontSize: "0.9rem" },
+        }}
+      />
+      <Box display="flex" gap={1}>
+        {children}
+      </Box>
+    </DialogActions>
+  );
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleCancel}
       PaperProps={{
         sx: {
           backgroundColor: "#2e2e2e",
@@ -53,9 +111,9 @@ export default function ApiKeyOnboardingDialog({
     >
       {step === 1 && (
         <>
-          <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.4rem" }}>
+          <TitleWithClose>
             1. Hello &amp; Welcome to Deepseek Playground! 🎉
-          </DialogTitle>
+          </TitleWithClose>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
               We&apos;re thrilled to have you here! To start crafting AI
@@ -64,22 +122,24 @@ export default function ApiKeyOnboardingDialog({
               your browser. We never send it anywhere else.
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ justifyContent: "flex-end" }}>
-            <Button onClick={onClose} sx={{ mr: 1 }}>
-              Cancel
-            </Button>
-            <Button variant="contained" onClick={handleNext}>
-              Next
-            </Button>
-          </DialogActions>
+          {renderFooter(
+            <>
+              <Button onClick={handleCancel} sx={{ mr: 1 }}>
+                Cancel
+              </Button>
+              <Button variant="contained" onClick={handleNext}>
+                Next
+              </Button>
+            </>
+          )}
         </>
       )}
 
       {step === 2 && (
         <>
-          <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.4rem" }}>
+          <TitleWithClose>
             2. Generate Your Deepseek API Key 🔑
-          </DialogTitle>
+          </TitleWithClose>
           <DialogContent>
             {/* Replace with your own GIF or image */}
             <Box
@@ -127,20 +187,22 @@ export default function ApiKeyOnboardingDialog({
               Pro tip: You can always create multiple keys if you like.
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ justifyContent: "space-between" }}>
-            <Button onClick={handleBack}>Back</Button>
-            <Button variant="contained" onClick={handleNext}>
-              Next
-            </Button>
-          </DialogActions>
+          {renderFooter(
+            <>
+              <Button onClick={handleBack}>Back</Button>
+              <Button variant="contained" onClick={handleNext}>
+                Next
+              </Button>
+            </>
+          )}
         </>
       )}
 
       {step === 3 && (
         <>
-          <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.4rem" }}>
+          <TitleWithClose>
             3. Paste Your Brand-New Key! 🚀
-          </DialogTitle>
+          </TitleWithClose>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
               Almost there! Just drop your freshly-generated Deepseek key below.
@@ -176,27 +238,29 @@ export default function ApiKeyOnboardingDialog({
               We don&apos;t send your key to any servers. Pinky promise. 🤞
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ justifyContent: "space-between", pt: 2 }}>
-            <Button onClick={handleBack}>Back</Button>
-            <Button
-              variant="contained"
-              onClick={handleFinish}
-              disabled={!tempKey.trim()}
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                fontSize: "1rem",
-                px: 4,
-                py: 1.5,
-                fontWeight: "bold",
-                fontFamily: '"Ubuntu Mono", monospace',
-                "&:hover": {
-                  backgroundColor: "var(--color-hover)",
-                },
-              }}
-            >
-              Finish
-            </Button>
-          </DialogActions>
+          {renderFooter(
+            <>
+              <Button onClick={handleBack}>Back</Button>
+              <Button
+                variant="contained"
+                onClick={handleFinish}
+                disabled={!tempKey.trim()}
+                sx={{
+                  backgroundColor: "var(--color-primary)",
+                  fontSize: "1rem",
+                  px: 4,
+                  py: 1.5,
+                  fontWeight: "bold",
+                  fontFamily: '"Ubuntu Mono", monospace',
+                  "&:hover": {
+                    backgroundColor: "var(--color-hover)",
+                  },
+                }}
+              >
+                Finish
+              </Button>
+            </>
+          )}
         </>
       )}
     </Dialog>

@@ -1,5 +1,5 @@
 // pages/chat/index.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   TextField,
@@ -29,13 +29,69 @@ export default function ChatHomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { apiKey, setApiKey } = useApiKey();
-  const [open, setOpen] = useState(!apiKey);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [skipOnboarding, setSkipOnboarding] = useState(false);
+  const [hasDismissedThisSession, setHasDismissedThisSession] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedSkip = window.localStorage.getItem("skipApiKeyOnboarding") === "true";
+    const storedKey = window.localStorage.getItem("deepseekApiKey");
+    setSkipOnboarding(storedSkip);
+    setDontShowAgain(storedSkip);
+    if (storedKey) {
+      setHasDismissedThisSession(true);
+    }
+    setPreferencesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    if (apiKey) {
+      setIsDialogOpen(false);
+      setHasDismissedThisSession(false);
+      return;
+    }
+    if (!skipOnboarding && !hasDismissedThisSession) {
+      setIsDialogOpen(true);
+    } else {
+      setIsDialogOpen(false);
+    }
+  }, [apiKey, skipOnboarding, hasDismissedThisSession, preferencesLoaded]);
+
+  const persistSkipPreference = (shouldSkip: boolean) => {
+    if (typeof window === "undefined") return;
+    if (shouldSkip) {
+      window.localStorage.setItem("skipApiKeyOnboarding", "true");
+    } else {
+      window.localStorage.removeItem("skipApiKeyOnboarding");
+    }
+  };
+
+  const handleDontShowAgainChange = (value: boolean) => {
+    setDontShowAgain(value);
+  };
+
+  const handleOnboardingClose = (shouldSkip: boolean) => {
+    setDontShowAgain(shouldSkip);
+    persistSkipPreference(shouldSkip);
+    if (shouldSkip) {
+      setSkipOnboarding(true);
+      setHasDismissedThisSession(false);
+    } else {
+      setSkipOnboarding(false);
+      setHasDismissedThisSession(true);
+    }
+    setIsDialogOpen(false);
+  };
 
   // ダイアログ内でキーが確定された
-  const handleApiKeySave = (key: string) => {
+  const handleApiKeySave = (key: string, shouldSkip: boolean) => {
     setApiKey(key); // Contextなどで保存
     localStorage.setItem("apiKey", key);
-    setOpen(false);
+    handleOnboardingClose(shouldSkip);
   };
 
   // system prompt
@@ -110,13 +166,13 @@ export default function ChatHomePage() {
   return (
     <>
       {/* Wizardダイアログ（もしlocalStrageにapi keyが存在しなかったら表示） */}
-      {!apiKey && (
-        <ApiKeyOnboardingDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          onApiKeySave={handleApiKeySave}
-        />
-      )}
+      <ApiKeyOnboardingDialog
+        open={isDialogOpen}
+        onClose={handleOnboardingClose}
+        onApiKeySave={handleApiKeySave}
+        dontShowAgain={dontShowAgain}
+        onDontShowAgainChange={handleDontShowAgainChange}
+      />
       <Head>
         <title>Create a New Chat - Deepseek Playground</title>
         {/* OGPやmetaタグは元のコードを残す */}
