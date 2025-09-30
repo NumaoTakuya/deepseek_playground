@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import SettingsIcon from "@mui/icons-material/Settings";
 import Link from "next/link";
 import SidebarTab from "./SidebarTab";
 import { useThreads } from "../../hooks/useThreads";
@@ -113,6 +114,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         transition: isDragging ? "none" : "width 0.3s ease",
         overflow: "hidden",
         position: "relative",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       {/* Toggle Button */}
@@ -176,6 +179,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         variant="outlined"
         autoComplete="off"
         sx={{
+          display: isOpen ? "block" : "none",
           backgroundColor: "var(--color-panel)",
           "& .MuiOutlinedInput-notchedOutline": {
             borderColor: "var(--color-border)",
@@ -216,7 +220,12 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
       )}
 
       {/* スレッド一覧 (時系列) */}
-      <Box flex="1" overflow="auto" mt={2}>
+      <Box
+        flex="1"
+        overflow="auto"
+        mt={2}
+        sx={{ display: isOpen ? "block" : "none" }}
+      >
         {threads?.map((thread) => (
           <Box key={thread.id} mb={1}>
             <Link href={`/chat/${thread.id}`} passHref>
@@ -227,23 +236,51 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
       </Box>
 
       {/* Settings */}
-      <Box mt={2}>
-        <Button
-          variant="outlined"
-          fullWidth
-          onClick={handleOpenSettings}
-          sx={{
-            color: "var(--color-text)",
-            borderColor: "var(--color-border)",
-            "&:hover": {
-              borderColor: "var(--color-accent-surface)",
-              backgroundColor: "var(--color-accent-surface)",
-              color: "var(--color-on-accent-surface)",
-            },
-          }}
-        >
-          Settings
-        </Button>
+      <Box
+        display="flex"
+        justifyContent="center"
+        sx={{ mt: "auto", pt: 2, pb: 1 }}
+      >
+        {isOpen ? (
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={handleOpenSettings}
+            startIcon={<SettingsIcon />}
+            aria-label="Open settings"
+            sx={{
+              color: "var(--color-text)",
+              borderColor: "var(--color-border)",
+              justifyContent: "center",
+              "&:hover": {
+                borderColor: "var(--color-accent-surface)",
+                backgroundColor: "var(--color-accent-surface)",
+                color: "var(--color-on-accent-surface)",
+              },
+            }}
+          >
+            Settings
+          </Button>
+        ) : (
+          <IconButton
+            onClick={handleOpenSettings}
+            aria-label="Open settings"
+            sx={{
+              color: "var(--color-text)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "8px",
+              width: 40,
+              height: 40,
+              "&:hover": {
+                borderColor: "var(--color-accent-surface)",
+                backgroundColor: "var(--color-accent-surface)",
+                color: "var(--color-on-accent-surface)",
+              },
+            }}
+          >
+            <SettingsIcon />
+          </IconButton>
+        )}
       </Box>
 
       <Dialog
