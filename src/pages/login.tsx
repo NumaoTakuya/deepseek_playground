@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { signInWithGoogle, incrementUserCount } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { Box, Typography, Button } from "@mui/material";
+import GoogleIcon from "@mui/icons-material/Google";
 
 export default function Login() {
   const { user, loading } = useAuth();
@@ -172,6 +173,7 @@ export default function Login() {
             variant="contained"
             fullWidth
             onClick={handleLogin}
+            startIcon={<GoogleIcon />}
             sx={{
               backgroundColor: accentColor,
               "&:hover": { backgroundColor: accentHover },
