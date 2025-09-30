@@ -48,7 +48,24 @@ export const googleAuthProvider = new GoogleAuthProvider();
 
 // Firestore
 export const db = getFirestore(app);
-connectFirestoreEmulator(db, "127.0.0.1", 8080); // Emulator
+
+const useFirestoreEmulator =
+  process.env.NEXT_PUBLIC_USE_FIRESTORE_EMULATOR === "true";
+
+const emulatorState = globalThis as typeof globalThis & {
+  __FIRESTORE_EMULATOR_INITIALIZED__?: boolean;
+};
+
+if (useFirestoreEmulator && !emulatorState.__FIRESTORE_EMULATOR_INITIALIZED__) {
+  const host =
+    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST ?? "127.0.0.1";
+  const port = Number(
+    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? "8080"
+  );
+
+  connectFirestoreEmulator(db, host, port);
+  emulatorState.__FIRESTORE_EMULATOR_INITIALIZED__ = true; // Prevent double init during HMR
+}
 
 // Initialize user count if it doesn't exist
 export async function initializeUserCount() {

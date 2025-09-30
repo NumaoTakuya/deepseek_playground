@@ -43,12 +43,27 @@ test("stats は未認証でも read/write できる", async () => {
   await assertSucceeds(getDoc(doc(db, "stats/s1")));
 });
 
-test("users: 自分のドキュメントのみ read/write 可、他人は不可", async () => {
+test("users: 自分のドキュメントのみ read/write 可、他人や未認証は不可", async () => {
   const alice = env.authenticatedContext("alice");
+  const bob = env.authenticatedContext("bob");
+  const unauth = env.unauthenticatedContext();
+
   const aliceDb = alice.firestore();
-  await assertSucceeds(setDoc(doc(aliceDb, "users/alice"), { name: "A" }));
+  const bobDb = bob.firestore();
+  const unauthDb = unauth.firestore();
+
+  // 自分のドキュメントは作成・更新・取得できる
+  await assertSucceeds(setDoc(doc(aliceDb, "users/alice"), { theme: "dark" }));
+  await assertSucceeds(updateDoc(doc(aliceDb, "users/alice"), { theme: "light" }));
   await assertSucceeds(getDoc(doc(aliceDb, "users/alice")));
-  await assertFails(getDoc(doc(aliceDb, "users/bob"))); // 他人は読めない
+
+  // 他人のドキュメントは read/write できない
+  await assertFails(getDoc(doc(aliceDb, "users/bob")));
+  await assertFails(setDoc(doc(bobDb, "users/alice"), { theme: "dark" }));
+
+  // 未認証は read/write できない
+  await assertFails(setDoc(doc(unauthDb, "users/anyone"), { theme: "dark" }));
+  await assertFails(getDoc(doc(unauthDb, "users/alice")));
 });
 
 test("threads: owner は read/update/delete 可、作成は userId==uid 必須", async () => {
