@@ -10,12 +10,18 @@ import {
 } from "@mui/material";
 
 export default function DonatePage() {
+  const accentColor = "var(--color-primary)";
+  const accentHover = "var(--color-hover)";
+  const textColor = "var(--color-text)";
+  const subtextColor = "var(--color-subtext)";
+  const panelBg = "var(--color-panel)";
+  const heroOverlay = "var(--hero-overlay)";
+
   return (
     <Box
       sx={{
-        fontFamily: "Inter, sans-serif",
-        backgroundColor: "#1F2023",
-        color: "#ECECF1",
+        backgroundColor: "var(--color-bg)",
+        color: textColor,
         minHeight: "100vh",
       }}
     >
@@ -36,7 +42,7 @@ export default function DonatePage() {
           sx={{
             position: "absolute",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: heroOverlay,
           }}
         />
         <Container
@@ -44,18 +50,18 @@ export default function DonatePage() {
             position: "relative",
             textAlign: "center",
             zIndex: 1,
-            color: "#fff",
+            color: textColor,
             px: 2,
           }}
         >
           <Typography
             variant="h4"
             sx={{
-              fontWeight: 700,
-              mb: 2,
-              fontSize: { xs: "1.8rem", sm: "2.125rem" },
-            }}
-          >
+                fontWeight: 700,
+                mb: 2,
+                fontSize: { xs: "1.8rem", sm: "2.125rem" },
+              }}
+            >
             Support Our Unofficial Project
           </Typography>
           <Typography
@@ -64,11 +70,11 @@ export default function DonatePage() {
               maxWidth: 600,
               mx: "auto",
               opacity: 0.9,
-              fontSize: { xs: "0.9rem", sm: "1rem" },
-            }}
-          >
-            This project is non-profit and open-source. Your donation helps
-            cover server costs and keeps our Deepseek Playground running freely
+                fontSize: { xs: "0.9rem", sm: "1rem" },
+              }}
+            >
+              This project is non-profit and open-source. Your donation helps
+              cover server costs and keeps our Deepseek Playground running freely
             for everyone.
           </Typography>
         </Container>
@@ -90,15 +96,27 @@ export default function DonatePage() {
         <Grid container spacing={4} justifyContent="center">
           {/* Donation Card Example */}
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ backgroundColor: "#2A2B32", height: "100%" }}>
+            <Card
+              sx={{
+                backgroundColor: panelBg,
+                border: "1px solid var(--color-border)",
+                height: "100%",
+              }}
+            >
               <CardContent>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 600, mb: 2, color: textColor }}
+                >
                   Small Support
                 </Typography>
                 <Typography
                   variant="body2"
-                  color="#bfbfbf"
-                  sx={{ mb: 3, fontSize: { xs: "0.9rem", sm: "1rem" } }}
+                  sx={{
+                    color: subtextColor,
+                    mb: 3,
+                    fontSize: { xs: "0.9rem", sm: "1rem" },
+                  }}
                 >
                   Contribute <strong>$1</strong> to help with basic server
                   maintenance.
@@ -107,8 +125,8 @@ export default function DonatePage() {
                   variant="contained"
                   href="https://www.paypal.com/ncp/payment/SRMTLNZLNUEFU"
                   sx={{
-                    backgroundColor: "#00B8D9",
-                    "&:hover": { backgroundColor: "#00A0BD" },
+                    backgroundColor: accentColor,
+                    "&:hover": { backgroundColor: accentHover },
                     textTransform: "none",
                     fontWeight: 600,
                   }}
@@ -120,15 +138,27 @@ export default function DonatePage() {
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ backgroundColor: "#2A2B32", height: "100%" }}>
+            <Card
+              sx={{
+                backgroundColor: panelBg,
+                border: "1px solid var(--color-border)",
+                height: "100%",
+              }}
+            >
               <CardContent>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 600, mb: 2, color: textColor }}
+                >
                   Steady Boost
                 </Typography>
                 <Typography
                   variant="body2"
-                  color="#bfbfbf"
-                  sx={{ mb: 3, fontSize: { xs: "0.9rem", sm: "1rem" } }}
+                  sx={{
+                    color: subtextColor,
+                    mb: 3,
+                    fontSize: { xs: "0.9rem", sm: "1rem" },
+                  }}
                 >
                   Contribute <strong>$10</strong> to cover a decent chunk of
                   monthly costs.
@@ -137,8 +167,8 @@ export default function DonatePage() {
                   variant="contained"
                   href="https://www.paypal.com/ncp/payment/T73673Y233KJA"
                   sx={{
-                    backgroundColor: "#00B8D9",
-                    "&:hover": { backgroundColor: "#00A0BD" },
+                    backgroundColor: accentColor,
+                    "&:hover": { backgroundColor: accentHover },
                     textTransform: "none",
                     fontWeight: 600,
                   }}
@@ -150,15 +180,27 @@ export default function DonatePage() {
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ backgroundColor: "#2A2B32", height: "100%" }}>
+            <Card
+              sx={{
+                backgroundColor: panelBg,
+                border: "1px solid var(--color-border)",
+                height: "100%",
+              }}
+            >
               <CardContent>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 600, mb: 2, color: textColor }}
+                >
                   Major Contribution
                 </Typography>
                 <Typography
                   variant="body2"
-                  color="#bfbfbf"
-                  sx={{ mb: 3, fontSize: { xs: "0.9rem", sm: "1rem" } }}
+                  sx={{
+                    color: subtextColor,
+                    mb: 3,
+                    fontSize: { xs: "0.9rem", sm: "1rem" },
+                  }}
                 >
                   Contribute <strong>$100</strong> or more to significantly
                   support our hosting and development efforts.
@@ -167,8 +209,8 @@ export default function DonatePage() {
                   variant="contained"
                   href="https://www.paypal.com/ncp/payment/HNK492TAZG8XL"
                   sx={{
-                    backgroundColor: "#00B8D9",
-                    "&:hover": { backgroundColor: "#00A0BD" },
+                    backgroundColor: accentColor,
+                    "&:hover": { backgroundColor: accentHover },
                     textTransform: "none",
                     fontWeight: 600,
                   }}
@@ -184,8 +226,8 @@ export default function DonatePage() {
         <Box sx={{ mt: { xs: 4, sm: 6 }, textAlign: "center" }}>
           <Typography
             variant="body1"
-            color="#bfbfbf"
             sx={{
+              color: subtextColor,
               maxWidth: 600,
               mx: "auto",
               mb: 2,
@@ -199,8 +241,8 @@ export default function DonatePage() {
           </Typography>
           <Typography
             variant="body1"
-            color="#bfbfbf"
             sx={{
+              color: subtextColor,
               maxWidth: 600,
               mx: "auto",
               fontSize: { xs: "0.9rem", sm: "1rem" },

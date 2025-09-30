@@ -22,6 +22,7 @@ import { doSignOut } from "../../services/firebase";
 import { useRouter } from "next/router";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../../contexts/ThemeContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { threads } = useThreads(user?.uid);
   const { apiKey, setApiKey } = useApiKey(); // Context から取得
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const { darkMode, setTheme } = useTheme();
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value);
@@ -90,32 +91,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
     router.push("/");
   };
 
-  const applyTheme = (mode: "light" | "dark") => {
-    if (typeof document === "undefined") return;
-    if (mode === "light") {
-      document.documentElement.setAttribute("data-theme", "light");
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedTheme = window.localStorage.getItem("theme");
-    const prefersDark = storedTheme !== "light";
-    setDarkMode(prefersDark);
-    applyTheme(prefersDark ? "dark" : "light");
-  }, []);
-
-  useEffect(() => {
-    applyTheme(darkMode ? "dark" : "light");
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("theme", darkMode ? "dark" : "light");
-    }
-  }, [darkMode]);
-
   const handleToggleDarkMode = (_: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
-    setDarkMode(checked);
+    setTheme(checked ? "dark" : "light");
   };
 
   const handleOpenSettings = () => {

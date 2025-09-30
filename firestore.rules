@@ -18,6 +18,12 @@ service cloud.firestore {
       // 認証なしで読み取りを許可
       allow read, write: if true;
     }
+    
+    // usersコレクション (ユーザー設定など)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create, update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
 
     // threadsコレクション
     match /threads/{threadId} {

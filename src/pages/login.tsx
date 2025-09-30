@@ -23,7 +23,29 @@ export default function Login() {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  const accentColor = "var(--color-primary)";
+  const accentHover = "var(--color-hover)";
+  const textColor = "var(--color-text)";
+  const subtextColor = "var(--color-subtext)";
+  const panelBg = "var(--color-panel)";
+  const heroOverlay = "var(--hero-overlay)";
+
+  if (loading)
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          minHeight: "100vh",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "var(--color-bg)",
+          color: textColor,
+          fontSize: "1.1rem",
+        }}
+      >
+        Loading...
+      </Box>
+    );
 
   return (
     <Box
@@ -32,7 +54,8 @@ export default function Login() {
         // スマホでは縦並び、MD以上では横並び
         flexDirection: { xs: "column", md: "row" },
         minHeight: "100vh",
-        fontFamily: "Inter, sans-serif",
+        backgroundColor: "var(--color-bg)",
+        color: textColor,
       }}
     >
       {/* 左カラム：大きな背景＆テキスト */}
@@ -50,7 +73,7 @@ export default function Login() {
           sx={{
             position: "absolute",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: heroOverlay,
           }}
         />
         <Box
@@ -75,7 +98,7 @@ export default function Login() {
               variant="h2"
               sx={{
                 fontWeight: 700,
-                color: "#ECECF1",
+                color: textColor,
                 // スマホでやや小さめ
                 fontSize: { xs: "1.8rem", sm: "2.5rem" },
                 lineHeight: 1.2,
@@ -88,7 +111,7 @@ export default function Login() {
           <Typography
             variant="h6"
             sx={{
-              color: "#bdbdbd",
+              color: textColor,
               maxWidth: 500,
               fontSize: { xs: "1rem", sm: "1.125rem" },
             }}
@@ -104,7 +127,7 @@ export default function Login() {
       <Box
         sx={{
           flex: 1,
-          backgroundColor: "#1F2023",
+          backgroundColor: "var(--color-bg)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -115,12 +138,12 @@ export default function Login() {
           sx={{
             width: "100%",
             maxWidth: 400,
-            backgroundColor: "#2C2D31",
+            backgroundColor: panelBg,
             borderRadius: 3,
             boxShadow: 4,
             textAlign: "center",
             p: { xs: 3, sm: 4 },
-            color: "#ECECF1",
+            color: textColor,
           }}
         >
           <Typography
@@ -137,7 +160,7 @@ export default function Login() {
             variant="body1"
             sx={{
               mb: 3,
-              color: "#bfbfbf",
+              color: subtextColor,
               fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
           >
@@ -150,8 +173,9 @@ export default function Login() {
             fullWidth
             onClick={handleLogin}
             sx={{
-              backgroundColor: "#00B8D9",
-              "&:hover": { backgroundColor: "#00A0BD" },
+              backgroundColor: accentColor,
+              "&:hover": { backgroundColor: accentHover },
+              color: "#ffffff",
               fontWeight: 600,
               textTransform: "none",
               borderRadius: 2,

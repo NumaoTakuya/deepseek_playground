@@ -13,6 +13,9 @@
   --color-on-accent-surface: #041721; /* ソフトアクセント上の文字 */
   --color-text: #f5f5f5; /* メイン文字 */
   --color-subtext: #aaaaaa; /* サブ文字 */
+  --hero-overlay: rgba(0, 0, 0, 0.7);
+  --hero-title-shadow: 0 0 50px rgba(0, 0, 0, 1);
+  --hero-subtitle-shadow: 0 0 30px rgba(0, 0, 0, 1);
 }
 
 :root[data-theme="light"] {
@@ -26,6 +29,9 @@
   --color-on-accent-surface: #0c2a37;
   --color-text: #1f2933;
   --color-subtext: #52606d;
+  --hero-overlay: rgba(255, 255, 255, 0.7);
+  --hero-title-shadow: 0 0 35px rgba(255, 255, 255, 0.9);
+  --hero-subtitle-shadow: 0 0 25px rgba(255, 255, 255, 0.85);
 }
 
 /* 全体 */
@@ -62,16 +68,16 @@ body {
 }
 
 /* MUI ボタンなどをアクセント色に (必要に応じて!important追加) */
-button,
-.MuiButton-root,
-.MuiIconButton-root {
-  background-color: var(--color-primary);
-  color: #fff;
+.MuiButton-root {
   text-transform: none;
 }
-button:hover,
-.MuiButton-root:hover,
-.MuiIconButton-root:hover {
+
+.MuiButton-contained {
+  background-color: var(--color-primary);
+  color: var(--color-on-accent-surface);
+}
+
+.MuiButton-contained:hover {
   background-color: var(--color-hover);
 }
 

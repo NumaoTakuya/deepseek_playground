@@ -8,6 +8,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import Layout from "../components/layout/Layout";
 import { ApiKeyProvider } from "../contexts/ApiKeyContext";
 import { initializeUserCount, logEvent, analytics } from "../services/firebase";
+import { ThemeProvider } from "../contexts/ThemeContext";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -40,15 +41,17 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <AuthProvider>
-      <ApiKeyProvider>
-        {isLpPage || isLoginPage || isDonatePage ? (
-          <Component {...pageProps} />
-        ) : (
-          <Layout>
+      <ThemeProvider>
+        <ApiKeyProvider>
+          {isLpPage || isLoginPage || isDonatePage ? (
             <Component {...pageProps} />
-          </Layout>
-        )}
-      </ApiKeyProvider>
+          ) : (
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          )}
+        </ApiKeyProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

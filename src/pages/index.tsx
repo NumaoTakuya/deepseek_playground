@@ -38,6 +38,14 @@ export default function LandingPage() {
     router.push("/donate");
   };
 
+  const accentColor = "var(--color-primary)";
+  const accentHover = "var(--color-hover)";
+  const textColor = "var(--color-text)";
+  const subtextColor = "var(--color-subtext)";
+  const heroOverlay = "var(--hero-overlay)";
+  const heroTitleShadow = "var(--hero-title-shadow)";
+  const heroSubtitleShadow = "var(--hero-subtitle-shadow)";
+
   return (
     <>
       <Head>
@@ -74,12 +82,14 @@ export default function LandingPage() {
 
       <Box
         sx={{
-          fontFamily: "Inter, sans-serif",
-          backgroundColor: "#1F2023",
-          color: "#ECECF1",
+          backgroundColor: "var(--color-bg)",
+          color: textColor,
         }}
       >
-        <AppBar position="static" sx={{ backgroundColor: "#2C2D31" }}>
+        <AppBar
+          position="static"
+          sx={{ backgroundColor: "var(--color-sidebar)", color: textColor, boxShadow: "none" }}
+        >
           <Toolbar>
             {/* アイコン画像を左に配置 */}
             <Box
@@ -96,14 +106,14 @@ export default function LandingPage() {
               sx={{
                 fontSize: "1.1rem",
                 borderRadius: "2rem",
-                color: "#fff",
+                color: "#ffffff",
                 textTransform: "none",
                 fontWeight: 600,
                 mr: 2,
                 px: 3,
                 py: 1,
-                backgroundColor: "#00B8D9",
-                "&:hover": { backgroundColor: "#00A0BD" },
+                backgroundColor: accentColor,
+                "&:hover": { backgroundColor: accentHover },
               }}
               endIcon={<ArrowOutwardIcon />}
             >
@@ -113,8 +123,8 @@ export default function LandingPage() {
               variant="outlined"
               onClick={handleDonate}
               sx={{
-                color: "#ECECF1",
-                borderColor: "#ECECF1",
+                color: textColor,
+                borderColor: textColor,
                 textTransform: "none",
                 fontWeight: 600,
               }}
@@ -139,7 +149,7 @@ export default function LandingPage() {
             sx={{
               position: "absolute",
               inset: 0,
-              backgroundColor: "rgba(0,0,0,0.7)",
+              backgroundColor: heroOverlay,
             }}
           />
           <Container
@@ -147,6 +157,7 @@ export default function LandingPage() {
               position: "relative",
               textAlign: "center",
               zIndex: 1,
+              color: textColor,
             }}
           >
             <Typography
@@ -154,7 +165,7 @@ export default function LandingPage() {
               sx={{
                 fontWeight: 700,
                 mb: 2,
-                textShadow: "0 0 50px rgba(0,0,0,1)",
+                textShadow: heroTitleShadow,
               }}
             >
               Deepseek Playground
@@ -164,7 +175,8 @@ export default function LandingPage() {
               sx={{
                 mb: 4,
                 opacity: 0.9,
-                textShadow: "0 0 30px rgba(0,0,0,1)",
+                textShadow: heroSubtitleShadow,
+                color: textColor,
               }}
             >
               An Open-Source Unofficial Demo for Flexible AI Chat
@@ -175,8 +187,9 @@ export default function LandingPage() {
               sx={{
                 fontSize: "1.1rem",
                 borderRadius: "2rem",
-                backgroundColor: "#00B8D9",
-                "&:hover": { backgroundColor: "#00A0BD" },
+                backgroundColor: accentColor,
+                "&:hover": { backgroundColor: accentHover },
+                color: "#ffffff",
                 textTransform: "none",
                 fontWeight: 600,
                 px: 3,
@@ -191,7 +204,7 @@ export default function LandingPage() {
               sx={{
                 mt: 2,
                 opacity: 0.8,
-                textShadow: "0 0 30px rgba(0,0,0,1)",
+                textShadow: heroSubtitleShadow,
               }}
             >
               {userCount} users are already exploring!
@@ -203,7 +216,7 @@ export default function LandingPage() {
         <Container maxWidth="lg" sx={{ py: 8 }}>
           <Typography
             variant="h4"
-            sx={{ fontWeight: 700, mb: 4, textAlign: "center" }}
+            sx={{ fontWeight: 700, mb: 4, textAlign: "center", color: textColor }}
           >
             Features
           </Typography>
@@ -215,36 +228,72 @@ export default function LandingPage() {
               justifyContent: "center",
             }}
           >
-            <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <Card
+              sx={{
+                maxWidth: 300,
+                backgroundColor: "var(--color-panel)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, mb: 1, color: textColor }}
+                >
                   Use Your Own API Key
                 </Typography>
-                <Typography variant="body2" color="#bfbfbf">
+                <Typography
+                  variant="body2"
+                  sx={{ color: subtextColor }}
+                >
                   Bring your personal Deepseek key, stored locally on your
                   device to keep it secure.
                 </Typography>
               </CardContent>
             </Card>
 
-            <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <Card
+              sx={{
+                maxWidth: 300,
+                backgroundColor: "var(--color-panel)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, mb: 1, color: textColor }}
+                >
                   System Message Support
                 </Typography>
-                <Typography variant="body2" color="#bfbfbf">
+                <Typography
+                  variant="body2"
+                  sx={{ color: subtextColor }}
+                >
                   Fine-tune your AI assistant’s behavior with a dedicated system
                   role message.
                 </Typography>
               </CardContent>
             </Card>
 
-            <Card sx={{ maxWidth: 300, backgroundColor: "#2C2D31" }}>
+            <Card
+              sx={{
+                maxWidth: 300,
+                backgroundColor: "var(--color-panel)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, mb: 1, color: textColor }}
+                >
                   Open-Source
                 </Typography>
-                <Typography variant="body2" color="#bfbfbf">
+                <Typography
+                  variant="body2"
+                  sx={{ color: subtextColor }}
+                >
                   Fully transparent and customizable. Contribute or adapt the
                   code to suit your needs.
                 </Typography>
@@ -254,16 +303,25 @@ export default function LandingPage() {
         </Container>
 
         {/* Footer */}
-        <Box sx={{ backgroundColor: "#2C2D31", py: 4 }}>
+        <Box sx={{ backgroundColor: "var(--color-sidebar)", py: 4 }}>
           <Container maxWidth="lg" sx={{ textAlign: "center" }}>
-            <Typography variant="body2" color="#bfbfbf" sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: subtextColor, mb: 1 }}
+            >
               This project is <strong>unofficial</strong> and not affiliated
               with Deepseek Inc.
             </Typography>
-            <Typography variant="body2" color="#bfbfbf" sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: subtextColor, mb: 2 }}
+            >
               If you have any questions or find any bugs, please contact us at:
             </Typography>
-            <Typography variant="body2" color="#00B8D9">
+            <Typography
+              variant="body2"
+              sx={{ color: accentColor, fontWeight: 600 }}
+            >
               numaothe@gmail.com
             </Typography>
           </Container>

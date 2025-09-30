@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import {
   getFirestore,
+  connectFirestoreEmulator,
   doc,
   setDoc,
   getDoc,
@@ -47,6 +48,7 @@ export const googleAuthProvider = new GoogleAuthProvider();
 
 // Firestore
 export const db = getFirestore(app);
+connectFirestoreEmulator(db, "127.0.0.1", 8080); // Emulator
 
 // Initialize user count if it doesn't exist
 export async function initializeUserCount() {
