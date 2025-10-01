@@ -71,6 +71,13 @@ yarn dev
 
 ## Release Notes
 
+### v0.2.1 (2025-10-01)
+
+- Resolved all **security vulnerabilities** detected by `yarn audit` and Dependabot
+- Updated dependencies (`@babel/runtime`, `path-to-regexp`, `undici`, `esbuild`, etc.) to secure versions
+- Removed unnecessary `vercel` dependency (use `npx vercel --prod` for deploy)
+- Project now reports **0 vulnerabilities** with `yarn audit`
+
 ### v0.2.0 (2025-10-01)
 
 - Added **dark mode / light mode toggle**
