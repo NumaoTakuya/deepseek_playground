@@ -1,6 +1,8 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
+import type { Stream } from "openai/core/streaming";
+import type { ChatCompletionChunk } from "openai/resources/chat/completions";
 
 export type ChatCompletionMessageParam = {
   role: "system" | "user" | "assistant";
@@ -16,6 +18,96 @@ export type DeepseekParameters = {
 };
 
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
+
+type DeepseekStreamEventMap = {
+  content: (delta: string) => void;
+  message: (payload: { content: string }) => void;
+  end: () => void;
+};
+
+class DeepseekStreamWrapper implements AsyncIterable<ChatCompletionChunk> {
+  private endHandler?: DeepseekStreamEventMap["end"];
+
+  constructor(private readonly stream: Stream<ChatCompletionChunk>) {}
+
+  [Symbol.asyncIterator](): AsyncIterator<ChatCompletionChunk> {
+    return this.stream[Symbol.asyncIterator]();
+  }
+
+  on<Event extends keyof DeepseekStreamEventMap>(
+    event: Event,
+    handler: DeepseekStreamEventMap[Event]
+  ): this {
+    if (event === "end") {
+      this.endHandler = handler as DeepseekStreamEventMap["end"];
+      return this;
+    }
+
+    void (async () => {
+      try {
+        if (event === "content") {
+          const contentHandler = handler as DeepseekStreamEventMap["content"];
+          for await (const chunk of this.stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) {
+              contentHandler(delta);
+            }
+          }
+        } else if (event === "message") {
+          const messageHandler = handler as DeepseekStreamEventMap["message"];
+          let full = "";
+          for await (const chunk of this.stream) {
+            const delta = chunk.choices[0]?.delta?.content ?? "";
+            if (delta) {
+              full += delta;
+            }
+          }
+          messageHandler({ content: full });
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        console.error("[streamDeepseek] Stream handler error:", error);
+      } finally {
+        this.notifyEnd();
+      }
+    })();
+
+    return this;
+  }
+
+  toReadableStream(): ReadableStream<Uint8Array> {
+    const iterator = this.stream[Symbol.asyncIterator]();
+    const encoder = new TextEncoder();
+
+    return new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        const { value, done } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`));
+      },
+      async cancel() {
+        await iterator.return?.();
+      },
+    });
+  }
+
+  abort(): void {
+    this.stream.controller.abort();
+  }
+
+  private notifyEnd(): void {
+    if (this.endHandler) {
+      this.endHandler();
+    }
+  }
+}
+
+export type DeepseekStream = DeepseekStreamWrapper;
 
 /**
  * Deepseek (OpenAI互換)クライアント生成
@@ -71,14 +163,14 @@ export async function callDeepseek(
  * ストリーミング版:
  * v4の beta.stream に近い使い勝手を保つため、
  * v6の AsyncIterable を薄いラッパで返す（for-await対応 / .on / .toReadableStream 互換を最小実装）
- * 署名は不変（戻り値は any 相当の互換ラッパ）
+ * 署名は不変（戻り値は旧v4互換の薄いラッパ）
  */
 export async function streamDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
   parameters?: DeepseekParameters
-) {
+): Promise<DeepseekStream> {
   const openai = createDeepseekClient(apiKey);
 
   try {
@@ -88,66 +180,7 @@ export async function streamDeepseek(
       stream: true,
       ...mapParams(parameters),
     });
-
-    // 互換ラッパ（最低限: for-await / .on('delta'|'message'|'content') / .toReadableStream）
-    const wrapper: any = {
-      // for await (...) 互換
-      [Symbol.asyncIterator]() {
-        return iterable[Symbol.asyncIterator]();
-      },
-      // シンプルな .on 実装（'content' と 'message' を主に想定）
-      on(event: string, handler: (arg: any) => void) {
-        (async () => {
-          if (event === "content") {
-            for await (const chunk of iterable as any) {
-              const delta = chunk?.choices?.[0]?.delta?.content;
-              if (typeof delta === "string" && delta.length) handler(delta);
-            }
-            // v4互換の end イベント補助
-            if (typeof (wrapper as any)._endHandler === "function") {
-              (wrapper as any)._endHandler();
-            }
-          } else if (event === "message") {
-            // 1メッセージまとまりを通知したい場合の簡易合成
-            let full = "";
-            for await (const chunk of iterable as any) {
-              const delta = chunk?.choices?.[0]?.delta?.content ?? "";
-              if (delta) full += delta;
-            }
-            handler({ content: full });
-            if (typeof (wrapper as any)._endHandler === "function") {
-              (wrapper as any)._endHandler();
-            }
-          } else if (event === "end") {
-            (wrapper as any)._endHandler = handler;
-          }
-        })();
-        return wrapper;
-      },
-      toReadableStream() {
-        // Web ReadableStream を生成（必要最小限）
-        const it = iterable[Symbol.asyncIterator]();
-        return new ReadableStream({
-          async pull(controller) {
-            const { value, done } = await it.next();
-            if (done) {
-              controller.close();
-              return;
-            }
-            controller.enqueue(
-              new TextEncoder().encode(JSON.stringify(value) + "\n")
-            );
-          },
-          async cancel() {
-            if (typeof (it as any).return === "function") {
-              await (it as any).return();
-            }
-          },
-        });
-      },
-    };
-
-    return wrapper;
+    return new DeepseekStreamWrapper(iterable);
   } catch (error) {
     console.error(
       "[streamDeepseek] Failed to create streaming completion:",

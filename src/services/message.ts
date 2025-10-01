@@ -10,12 +10,15 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  type WithFieldValue,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app"; // 追加（エラーハンドリング用）
 import { logEvent } from "firebase/analytics";
 import { useState, useEffect } from "react";
 
-import { Message } from "../types/index";
+import type { Message } from "../types/index";
+
+type MessageDocument = Omit<Message, "id">;
 
 /**
  * 指定スレッドに新しいメッセージを追加
@@ -29,7 +32,7 @@ export async function createMessage(
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
-    const payload: Record<string, unknown> = {
+    const payload: WithFieldValue<MessageDocument> = {
       threadId,
       role,
       content,
@@ -95,9 +98,9 @@ export function useMessages(threadId: string | null) {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const data: Message[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Message, "id">),
+        const data: Message[] = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          ...(docSnapshot.data() as MessageDocument),
         }));
         setMessages(data);
         setLoading(false);
@@ -143,9 +146,9 @@ export function listenMessages(
   return onSnapshot(
     q,
     (snapshot) => {
-      const data: Message[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Message, "id">),
+      const data: Message[] = snapshot.docs.map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...(docSnapshot.data() as MessageDocument),
       }));
       callback(data);
     },
@@ -181,7 +184,10 @@ export async function updateMessage(
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: {
+      content?: string;
+      thinking_content?: string | null;
+    } = {};
     if (content !== undefined) {
       updatePayload.content = content;
     }
