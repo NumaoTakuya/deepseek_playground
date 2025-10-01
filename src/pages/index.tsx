@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   AppBar,
   Toolbar,
@@ -15,7 +15,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Link,
   IconButton,
 } from "@mui/material";
 import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
@@ -26,7 +25,7 @@ import { useRouter } from "next/router";
 import { getUserCount } from "../services/firebase";
 import Head from "next/head";
 import { useApiKey } from "../contexts/ApiKeyContext";
-import { callDeepseek } from "../services/deepseek";
+import { streamDeepseek } from "../services/deepseek";
 import { SelectChangeEvent } from "@mui/material/Select";
 
 export default function LandingPage() {
@@ -34,6 +33,7 @@ export default function LandingPage() {
   const { apiKey, setApiKey } = useApiKey();
   const [testInput, setTestInput] = useState("");
   const [testResponse, setTestResponse] = useState("");
+  const [testThinking, setTestThinking] = useState("");
   const [testError, setTestError] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [testModel, setTestModel] = useState("deepseek-chat");
@@ -41,6 +41,11 @@ export default function LandingPage() {
     "You are a helpful assistant."
   );
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
+
+  const streamRef = useRef<
+    Awaited<ReturnType<typeof streamDeepseek>> | null
+  >(null);
 
   useEffect(() => {
     const fetchUserCount = async () => {
@@ -63,18 +68,18 @@ export default function LandingPage() {
     router.push("/donate");
   };
 
-  const handleApiKeyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleApiKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     setApiKey(event.target.value);
   };
 
   const handleTestInputChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setTestInput(event.target.value);
   };
 
   const handleSystemPromptChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setTestSystemPrompt(event.target.value);
   };
@@ -90,6 +95,13 @@ export default function LandingPage() {
   const handleQuickTest = async () => {
     setTestError("");
     setTestResponse("");
+    setTestThinking("");
+    setWaitingForFirstChunk(false);
+
+    if (streamRef.current) {
+      streamRef.current.abort();
+      streamRef.current = null;
+    }
 
     if (!apiKey.trim()) {
       setTestError("Please enter your Deepseek API key first.");
@@ -102,8 +114,10 @@ export default function LandingPage() {
     }
 
     setTestLoading(true);
+    setWaitingForFirstChunk(true);
+    let aborted = false;
     try {
-      const reply = await callDeepseek(
+      const stream = await streamDeepseek(
         apiKey.trim(),
         [
           { role: "system", content: testSystemPrompt.trim() },
@@ -111,16 +125,66 @@ export default function LandingPage() {
         ],
         testModel
       );
-      setTestResponse(reply);
+      streamRef.current = stream;
+
+      let partialReasoning = "";
+      let partialContent = "";
+      let firstChunk = true;
+
+      for await (const chunk of stream) {
+        interface Delta {
+          reasoning_content?: string;
+          content?: string;
+        }
+
+        const delta = chunk.choices[0]?.delta as Delta | undefined;
+        const deltaReasoning = delta?.reasoning_content ?? "";
+        const deltaContent = delta?.content ?? "";
+
+        if (deltaReasoning) {
+          partialReasoning += deltaReasoning;
+          setTestThinking(partialReasoning);
+        }
+
+        if (deltaContent) {
+          partialContent += deltaContent;
+          setTestResponse(partialContent);
+        }
+
+        if (firstChunk && (deltaReasoning || deltaContent)) {
+          setWaitingForFirstChunk(false);
+          firstChunk = false;
+        }
+      }
     } catch (error) {
       console.error("Failed to call Deepseek API:", error);
-      setTestError(
-        "Failed to fetch a response. Check your API key and try again."
-      );
+      if (error instanceof Error && error.name === "AbortError") {
+        aborted = true;
+      } else {
+        setTestError(
+          "Failed to fetch a response. Check your API key and try again."
+        );
+      }
     } finally {
       setTestLoading(false);
+      setWaitingForFirstChunk(false);
+      if (streamRef.current) {
+        streamRef.current = null;
+      }
+      if (aborted) {
+        setTestError("");
+      }
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.abort();
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   const accentColor = "var(--color-primary)";
   const accentHover = "var(--color-hover)";
@@ -533,7 +597,7 @@ export default function LandingPage() {
                     </Button>
                   </Box>
 
-                  {testLoading && (
+                  {testLoading && waitingForFirstChunk && (
                     <Box
                       sx={{
                         display: "flex",
@@ -546,7 +610,33 @@ export default function LandingPage() {
 
                   {testError && <Alert severity="error">{testError}</Alert>}
 
-                  {testResponse && (
+                  {testThinking && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        px: 2,
+                        py: 2,
+                        borderRadius: 1,
+                        border: "1px solid var(--color-border)",
+                        backgroundColor: "var(--color-sidebar)",
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ color: subtextColor, mb: 1 }}
+                      >
+                        Thinking
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: textColor, whiteSpace: "pre-wrap" }}
+                      >
+                        {testThinking}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {(testLoading || testResponse) && (
                     <Box
                       sx={{
                         mt: 2,
@@ -563,9 +653,28 @@ export default function LandingPage() {
                       >
                         Response
                       </Typography>
-                      <Typography variant="body2" sx={{ color: textColor }}>
-                        {testResponse}
-                      </Typography>
+                      {testResponse ? (
+                        <Typography
+                          variant="body2"
+                          sx={{ color: textColor, whiteSpace: "pre-wrap" }}
+                        >
+                          {testResponse}
+                        </Typography>
+                      ) : (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            color: subtextColor,
+                          }}
+                        >
+                          <CircularProgress size={16} thickness={5} />
+                          <Typography variant="body2" sx={{ color: subtextColor }}>
+                            Waiting for response...
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   )}
                 </Box>
