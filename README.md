@@ -22,7 +22,7 @@ An **unofficial** AI chat playground using [Deepseek](https://platform.deepseek.
 
 Here is a screenshot of the chat UI:
 
-![Screenshot](https://media.discordapp.net/attachments/1058796281146908762/1331174436082159707/Screenshot_2025-01-21_at_17.10.14.png?ex=6790a84d&is=678f56cd&hm=6c9755b4d6bffe813ae1b71811d5db203f24f05c717d3b2764f87d7608b1f5ce&=&format=webp&quality=lossless&width=1100&height=618)
+![Screenshot](https://deepseek-playground.vercel.app/images/screenshot-small.png)
 
 ## Tech Stack
 
@@ -68,6 +68,22 @@ yarn dev
 - The Firebase config in `src/services/firebase.ts` is typically “public” for a web app.
 - The user’s **Deepseek API key** is stored in the browser (localStorage) and not saved in Firestore.
 - No service accounts or secret keys are included.
+
+## Release Notes
+
+### v0.2.0 (2025-10-01)
+
+- Added **dark mode / light mode toggle**
+- Introduced **parameter adjustment panel** on the right side of `chat/[threadId].ts`
+- Made **thinking_content** permanently persistent
+- Added **Quick API Test section** to `index.tsx`
+- Minor layout refinements and UI fixes
+
+### Roadmap / Upcoming
+
+- Show token usage and cost calculation in real-time
+- Implement `tools` features from the API
+- Provide a platform for creating custom agents
 
 ## License
 
