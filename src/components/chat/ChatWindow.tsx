@@ -295,7 +295,6 @@ export default function ChatWindow({ threadId }: Props) {
             <Box
               sx={{
                 border: "1px solid var(--color-border)",
-                borderRadius: 1,
               }}
             >
               <Box
