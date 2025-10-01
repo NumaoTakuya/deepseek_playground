@@ -146,7 +146,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     setInput("");
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
-    setAssistantCoT("");
+    setAssistantCoT(null);
     setAssistantDraft("");
 
     try {
@@ -222,7 +222,16 @@ export function useChatWindow(threadId: string, apiKey: string) {
       }
 
       // 6) ストリーム完了: Firestoreにまとめて書き込み
-      await updateMessage(threadId, newAssistantMsgId, partialContent);
+      const finalThinkingContent = partialReasoningContent.trim()
+        ? partialReasoningContent
+        : null;
+      await updateMessage(
+        threadId,
+        newAssistantMsgId,
+        partialContent,
+        finalThinkingContent
+      );
+      setAssistantCoT(finalThinkingContent);
 
       // メッセージ送信成功イベント
       if (analytics) {

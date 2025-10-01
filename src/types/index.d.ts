@@ -17,6 +17,7 @@ export interface Message {
   threadId: string; // どのThreadに属するか
   role: "system" | "assistant" | "user";
   content: string; // メッセージ本文
+  thinking_content?: string | null;
   createdAt?: Timestamp;
 }
 

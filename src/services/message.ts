@@ -24,16 +24,22 @@ import { Message } from "../types/index";
 export async function createMessage(
   threadId: string,
   role: Message["role"],
-  content: string
+  content: string,
+  thinkingContent?: string | null
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
-    const docRef = await addDoc(messagesRef, {
+    const payload: Record<string, unknown> = {
       threadId,
       role,
       content,
       createdAt: serverTimestamp(),
-    });
+    };
+    if (thinkingContent !== undefined) {
+      payload.thinking_content = thinkingContent;
+    }
+
+    const docRef = await addDoc(messagesRef, payload);
 
     // Log message sent event
     if (analytics) {
@@ -170,12 +176,24 @@ export function listenMessages(
 export async function updateMessage(
   threadId: string,
   messageId: string,
-  content: string
+  content?: string,
+  thinkingContent?: string | null
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
-    await updateDoc(messageRef, { content });
-    if (analytics) {
+    const updatePayload: Record<string, unknown> = {};
+    if (content !== undefined) {
+      updatePayload.content = content;
+    }
+    if (thinkingContent !== undefined) {
+      updatePayload.thinking_content = thinkingContent;
+    }
+    if (Object.keys(updatePayload).length === 0) {
+      return;
+    }
+
+    await updateDoc(messageRef, updatePayload);
+    if (analytics && content !== undefined) {
       logEvent(analytics, "message_updated", {
         thread_id: threadId,
         message_id: messageId,

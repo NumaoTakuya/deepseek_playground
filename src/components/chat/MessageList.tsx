@@ -49,15 +49,18 @@ export default function MessageList({
   assistantCoT,
   assistantDraft,
 }: MessageListProps) {
-  const [isCoTExpanded, setIsCoTExpanded] = useState(true);
+  const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
 
-  const toggleCoT = () => {
-    setIsCoTExpanded(!isCoTExpanded);
+  const toggleCoT = (messageId: string) => {
+    setExpandedCoTs((prev) => ({
+      ...prev,
+      [messageId]: !(prev[messageId] ?? true),
+    }));
   };
 
   return (
     <Box flex="1" overflow="auto" p={2}>
-      {messages.map((msg, index) => {
+      {messages.map((msg) => {
         if (msg.role === "system") return null;
 
         const isAssistant = msg.role === "assistant";
@@ -65,6 +68,16 @@ export default function MessageList({
         const textToShow = isStreaming ? assistantDraft ?? "" : msg.content;
         const showThinking = isStreaming && waitingForFirstChunk;
         const convertedText = convertRoundBracketsToDollar(textToShow);
+        const rawThinkingContent = isStreaming
+          ? assistantCoT
+          : msg.thinking_content ?? null;
+        const hasThinkingContent =
+          typeof rawThinkingContent === "string" &&
+          rawThinkingContent.trim().length > 0;
+        const isCoTExpanded = expandedCoTs[msg.id] ?? true;
+        const thinkingText = hasThinkingContent
+          ? (rawThinkingContent as string).trim()
+          : "";
 
         return (
           <Box className="bubble-container" key={msg.id}>
@@ -73,9 +86,8 @@ export default function MessageList({
                 {msg.role}
               </div>
 
-              {isAssistant && index == messages.length - 1 && assistantCoT && (
+              {isAssistant && hasThinkingContent && (
                 <Box sx={{ mt: 1 }}>
-                  {" "}
                   <Box
                     sx={{
                       display: "flex",
@@ -87,7 +99,7 @@ export default function MessageList({
                       p: 0.5,
                       width: "fit-content",
                     }}
-                    onClick={toggleCoT}
+                    onClick={() => toggleCoT(msg.id)}
                   >
                     <IconButton
                       size="small"
@@ -116,7 +128,7 @@ export default function MessageList({
                       rehypePlugins={[rehypeKatex]}
                       className="react-markdown"
                     >
-                      {formatQuote(assistantCoT)}
+                      {formatQuote(thinkingText)}
                     </ReactMarkdown>
                   </Collapse>
                 </Box>
