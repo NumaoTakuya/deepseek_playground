@@ -7,6 +7,14 @@ export type ChatCompletionMessageParam = {
   content: string;
 };
 
+export type DeepseekParameters = {
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
+};
+
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
 
 /**
@@ -26,7 +34,8 @@ export function createDeepseekClient(apiKey: string) {
 export async function callDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat"
+  model: string = "deepseek-chat",
+  parameters?: DeepseekParameters
 ): Promise<string> {
   const openai = createDeepseekClient(apiKey);
 
@@ -34,6 +43,21 @@ export async function callDeepseek(
     const res = await openai.chat.completions.create({
       model,
       messages,
+      ...(typeof parameters?.frequencyPenalty === "number"
+        ? { frequency_penalty: parameters.frequencyPenalty }
+        : {}),
+      ...(typeof parameters?.presencePenalty === "number"
+        ? { presence_penalty: parameters.presencePenalty }
+        : {}),
+      ...(typeof parameters?.temperature === "number"
+        ? { temperature: parameters.temperature }
+        : {}),
+      ...(typeof parameters?.topP === "number"
+        ? { top_p: parameters.topP }
+        : {}),
+      ...(typeof parameters?.maxTokens === "number"
+        ? { max_tokens: parameters.maxTokens }
+        : {}),
     });
     return res.choices[0]?.message?.content ?? "";
   } catch (error) {
@@ -64,7 +88,8 @@ export async function callDeepseek(
 export async function streamDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat"
+  model: string = "deepseek-chat",
+  parameters?: DeepseekParameters
 ) {
   const openai = createDeepseekClient(apiKey);
 
@@ -74,6 +99,21 @@ export async function streamDeepseek(
       model,
       messages,
       stream: true,
+      ...(typeof parameters?.frequencyPenalty === "number"
+        ? { frequency_penalty: parameters.frequencyPenalty }
+        : {}),
+      ...(typeof parameters?.presencePenalty === "number"
+        ? { presence_penalty: parameters.presencePenalty }
+        : {}),
+      ...(typeof parameters?.temperature === "number"
+        ? { temperature: parameters.temperature }
+        : {}),
+      ...(typeof parameters?.topP === "number"
+        ? { top_p: parameters.topP }
+        : {}),
+      ...(typeof parameters?.maxTokens === "number"
+        ? { max_tokens: parameters.maxTokens }
+        : {}),
     });
     return stream;
   } catch (error) {

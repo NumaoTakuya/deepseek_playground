@@ -24,6 +24,11 @@ export function useChatWindow(threadId: string, apiKey: string) {
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
   const [showSystemBox, setShowSystemBox] = useState(false);
+  const [frequencyPenalty, setFrequencyPenalty] = useState(0);
+  const [presencePenalty, setPresencePenalty] = useState(0);
+  const [temperature, setTemperature] = useState(1);
+  const [topP, setTopP] = useState(1);
+  const [maxTokens, setMaxTokens] = useState(1024);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -69,12 +74,34 @@ export function useChatWindow(threadId: string, apiKey: string) {
     return () => unsubscribe();
   }, [threadId]);
 
-  // -- thread購読 (model/title) --
+  // -- thread購読 (model/parametersなど) --
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.data() as { model?: string };
+        const data = snapshot.data() as {
+          model?: string;
+          frequencyPenalty?: number;
+          presencePenalty?: number;
+          temperature?: number;
+          topP?: number;
+          maxTokens?: number;
+        };
         setModel(data.model ?? "deepseek-chat");
+        if (typeof data.frequencyPenalty === "number") {
+          setFrequencyPenalty(data.frequencyPenalty);
+        }
+        if (typeof data.presencePenalty === "number") {
+          setPresencePenalty(data.presencePenalty);
+        }
+        if (typeof data.temperature === "number") {
+          setTemperature(data.temperature);
+        }
+        if (typeof data.topP === "number") {
+          setTopP(data.topP);
+        }
+        if (typeof data.maxTokens === "number") {
+          setMaxTokens(data.maxTokens);
+        }
       }
     });
     return () => unsub();
@@ -145,8 +172,22 @@ export function useChatWindow(threadId: string, apiKey: string) {
         { role: "user", content: userText },
       ] as { role: ChatRole; content: string }[];
 
+      await updateDoc(doc(db, "threads", threadId), {
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+      });
+
       // 5) ストリーミング
-      const chatStream = await streamDeepseek(apiKey, conversation, model);
+      const chatStream = await streamDeepseek(apiKey, conversation, model, {
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+      });
       chatStreamRef.current = chatStream;
 
       let partialReasoningContent = "";
@@ -217,6 +258,16 @@ export function useChatWindow(threadId: string, apiKey: string) {
     setInput,
     model,
     setModel,
+    frequencyPenalty,
+    setFrequencyPenalty,
+    presencePenalty,
+    setPresencePenalty,
+    temperature,
+    setTemperature,
+    topP,
+    setTopP,
+    maxTokens,
+    setMaxTokens,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,

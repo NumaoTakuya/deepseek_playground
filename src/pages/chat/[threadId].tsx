@@ -1,8 +1,9 @@
 // src/pages/chat/[threadId].tsx
 import React from "react";
 import { useRouter } from "next/router";
-import ChatWindow from "../../components/chat/ChatWindow";
 import Head from "next/head";
+import { Box } from "@mui/material";
+import ChatWindow from "../../components/chat/ChatWindow";
 
 /**
  * 既存スレッドのチャットページ
@@ -56,7 +57,9 @@ export default function ThreadPage() {
           content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
         />
       </Head>
-      <ChatWindow threadId={threadId} />
+      <Box sx={{ height: "100vh", overflow: "hidden" }}>
+        <ChatWindow threadId={threadId} />
+      </Box>
     </>
   );
 }

@@ -1,15 +1,6 @@
 // src/components/chat/InputSection.tsx
 
-import {
-  Box,
-  TextField,
-  IconButton,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Alert,
-} from "@mui/material";
+import { Box, TextField, IconButton, Alert } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import StopIcon from "@mui/icons-material/Stop"; // ← 追加
 import { useApiKey } from "../../contexts/ApiKeyContext";
@@ -19,8 +10,6 @@ interface InputSectionProps {
   setInput: (input: string) => void;
   handleSend: () => void;
   handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  model: string;
-  handleModelChange: (model: string) => void;
   // 追加: thinking中かどうか (ボタンアイコン切替)
   assistantThinking?: boolean;
 }
@@ -30,8 +19,6 @@ export default function InputSection({
   setInput,
   handleSend,
   handleKeyDown,
-  model,
-  handleModelChange,
   assistantThinking = false,
 }: InputSectionProps) {
   const { apiKey } = useApiKey();
@@ -53,49 +40,6 @@ export default function InputSection({
       )}
 
       <Box display="flex" gap={1} sx={{ m: 0 }}>
-        <FormControl
-          variant="outlined"
-          margin="none"
-          size="small"
-          sx={{
-            minWidth: 160,
-            backgroundColor: "transparent",
-            "& .MuiOutlinedInput-root": {
-              backgroundColor: "transparent",
-              "& fieldset": { borderColor: "var(--color-border)" },
-              "&:hover fieldset": { borderColor: "var(--color-hover)" },
-              "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
-              "& .MuiSelect-select": {
-                display: "inline-block",
-                width: "120px",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                color: "var(--color-text)",
-                padding: "6px 8px",
-              },
-            },
-            "& .MuiFormLabel-root": {
-              backgroundColor: "transparent",
-              color: "var(--color-subtext)",
-            },
-            "& .MuiInputLabel-root.Mui-focused": {
-              color: "var(--color-text)",
-            },
-          }}
-        >
-          <InputLabel shrink>Model</InputLabel>
-          <Select
-            label="Model"
-            value={model}
-            onChange={(e) => handleModelChange(e.target.value as string)}
-            autoWidth={false}
-          >
-            <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
-            <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
-          </Select>
-        </FormControl>
-
         <TextField
           margin="none"
           multiline

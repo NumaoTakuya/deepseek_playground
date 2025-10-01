@@ -11,6 +11,8 @@ import {
   MenuItem,
   Select,
   CircularProgress,
+  Slider,
+  Button,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -99,6 +101,19 @@ export default function ChatHomePage() {
     "You are a helpful assistant."
   );
   const [showSystemBox, setShowSystemBox] = useState(false);
+  const [showParametersBox, setShowParametersBox] = useState(false);
+  const [frequencyPenalty, setFrequencyPenalty] = useState(0);
+  const [presencePenalty, setPresencePenalty] = useState(0);
+  const [temperature, setTemperature] = useState(1);
+  const [topP, setTopP] = useState(1);
+  const [maxTokens, setMaxTokens] = useState(1024);
+  const resetParameters = () => {
+    setFrequencyPenalty(0);
+    setPresencePenalty(0);
+    setTemperature(1);
+    setTopP(1);
+    setMaxTokens(1024);
+  };
 
   // user's first message
   const [userInput, setUserInput] = useState("");
@@ -132,6 +147,20 @@ export default function ChatHomePage() {
       localStorage.setItem(`thread-${newThreadId}-model`, model);
       localStorage.setItem(`thread-${newThreadId}-systemInput`, systemInput);
       localStorage.setItem(`thread-${newThreadId}-inputValue`, inputValue);
+      localStorage.setItem(
+        `thread-${newThreadId}-frequencyPenalty`,
+        String(frequencyPenalty)
+      );
+      localStorage.setItem(
+        `thread-${newThreadId}-presencePenalty`,
+        String(presencePenalty)
+      );
+      localStorage.setItem(
+        `thread-${newThreadId}-temperature`,
+        String(temperature)
+      );
+      localStorage.setItem(`thread-${newThreadId}-topP`, String(topP));
+      localStorage.setItem(`thread-${newThreadId}-maxTokens`, String(maxTokens));
 
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
@@ -146,6 +175,11 @@ export default function ChatHomePage() {
           await updateDoc(doc(db, "threads", newThreadId), {
             title,
             model,
+            frequencyPenalty,
+            presencePenalty,
+            temperature,
+            topP,
+            maxTokens,
           });
         })
         .catch(console.error);
@@ -348,6 +382,266 @@ export default function ChatHomePage() {
                     "& .MuiOutlinedInput-input": { color: "var(--color-text)" },
                   }}
                 />
+              </Box>
+            )}
+
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "var(--color-panel)",
+                color: "var(--color-text)",
+                p: 1,
+                mb: 2,
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Parameters
+              </Typography>
+              <IconButton
+                onClick={() => setShowParametersBox(!showParametersBox)}
+                sx={{ color: "var(--color-text)", ml: "auto" }}
+              >
+                {showParametersBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Box>
+
+            {showParametersBox && (
+              <Box
+                sx={{
+                  backgroundColor: "var(--color-panel)",
+                  p: 2,
+                  borderRadius: 1,
+                  mb: 3,
+                }}
+              >
+                <Box sx={{ mb: 3 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)" }}
+                    >
+                      Frequency Penalty
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--color-subtext)" }}
+                    >
+                      {frequencyPenalty.toFixed(1)}
+                    </Typography>
+                  </Box>
+                  <Slider
+                    value={frequencyPenalty}
+                    onChange={(_, value) =>
+                      setFrequencyPenalty(Array.isArray(value) ? value[0] : value)
+                    }
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                    sx={{ color: "var(--color-primary)" }}
+                    aria-label="frequency penalty"
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)" }}
+                  >
+                    Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing repeated lines.
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)" }}
+                    >
+                      Presence Penalty
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--color-subtext)" }}
+                    >
+                      {presencePenalty.toFixed(1)}
+                    </Typography>
+                  </Box>
+                  <Slider
+                    value={presencePenalty}
+                    onChange={(_, value) =>
+                      setPresencePenalty(Array.isArray(value) ? value[0] : value)
+                    }
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                    sx={{ color: "var(--color-primary)" }}
+                    aria-label="presence penalty"
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)" }}
+                  >
+                    Number between -2.0 and 2.0. Positive values encourage new topics by penalizing tokens that appeared earlier in the conversation.
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)" }}
+                    >
+                      Temperature
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--color-subtext)" }}
+                    >
+                      {temperature.toFixed(1)}
+                    </Typography>
+                  </Box>
+                  <Slider
+                    value={temperature}
+                    onChange={(_, value) =>
+                      setTemperature(Array.isArray(value) ? value[0] : value)
+                    }
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    sx={{ color: "var(--color-primary)" }}
+                    aria-label="temperature"
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)" }}
+                  >
+                    Choose a sampling temperature between 0 and 2. Higher values increase randomness; lower values make results more deterministic.
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)" }}
+                    >
+                      Top P
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--color-subtext)" }}
+                    >
+                      {topP.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Slider
+                    value={topP}
+                    onChange={(_, value) =>
+                      setTopP(Array.isArray(value) ? value[0] : value)
+                    }
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    sx={{ color: "var(--color-primary)" }}
+                    aria-label="top p"
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)" }}
+                  >
+                    Nucleus sampling keeps tokens within the top cumulative probability mass. For example, 0.1 means only tokens in the top 10% mass are considered.
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)" }}
+                    >
+                      Max Tokens
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--color-subtext)" }}
+                    >
+                      {maxTokens}
+                    </Typography>
+                  </Box>
+                  <Slider
+                    value={maxTokens}
+                    onChange={(_, value) =>
+                      setMaxTokens(Array.isArray(value) ? value[0] : value)
+                    }
+                    min={1}
+                    max={4096}
+                    step={64}
+                    sx={{ color: "var(--color-primary)" }}
+                    aria-label="max tokens"
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)" }}
+                  >
+                    Limits the number of tokens that can be generated. Refer to the model documentation for recommended defaults and maximum values.
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    mt: 3,
+                    gap: 2,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>
+                    Tools and other elements will be implemented in future updates.
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={resetParameters}
+                    sx={{ color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  >
+                    Reset
+                  </Button>
+                </Box>
               </Box>
             )}
 
