@@ -9,6 +9,7 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 
 import type { Message } from "../../types";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 interface MessageListProps {
   messages: Message[];
@@ -50,6 +51,7 @@ export default function MessageList({
   assistantDraft,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
+  const { t } = useTranslation();
 
   const toggleCoT = (messageId: string) => {
     setExpandedCoTs((prev) => ({
@@ -78,12 +80,18 @@ export default function MessageList({
         const thinkingText = hasThinkingContent
           ? (rawThinkingContent as string).trim()
           : "";
+        const roleLabel =
+          msg.role === "assistant"
+            ? t("chat.roles.assistant")
+            : msg.role === "user"
+            ? t("chat.roles.user")
+            : msg.role;
 
         return (
           <Box className="bubble-container" key={msg.id}>
             <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
               <div className="bubble-label">
-                {msg.role}
+                {roleLabel}
               </div>
 
               {isAssistant && hasThinkingContent && (
@@ -118,8 +126,8 @@ export default function MessageList({
                       }}
                     >
                       {isCoTExpanded
-                        ? "Collapse Chain of Thoughts"
-                        : "Expand Chain of Thoughts"}
+                        ? t("chat.cot.collapse")
+                        : t("chat.cot.expand")}
                     </span>
                   </Box>
                   <Collapse in={isCoTExpanded}>
@@ -145,7 +153,7 @@ export default function MessageList({
               {showThinking && (
                 <Box display="flex" alignItems="center" gap={1} mt={1}>
                   <CircularProgress size={16} thickness={5} />
-                  <span>Thinking...</span>
+                  <span>{t("chat.messages.thinking")}</span>
                 </Box>
               )}
             </Box>

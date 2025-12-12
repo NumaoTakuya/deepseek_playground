@@ -23,6 +23,7 @@ import { useApiKey } from "../../contexts/ApiKeyContext";
 import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 interface Props {
   threadId: string;
@@ -30,6 +31,7 @@ interface Props {
 
 export default function ChatWindow({ threadId }: Props) {
   const { apiKey } = useApiKey();
+  const { t } = useTranslation();
   const {
     messages,
     input,
@@ -55,10 +57,10 @@ export default function ChatWindow({ threadId }: Props) {
     assistantMsgId,
     assistantCoT,
     assistantDraft,
+    errorMessage,
   } = useChatWindow(threadId, apiKey);
 
   const [isFirstTime, setIsFirstTime] = useState(true);
-  const [error] = useState(""); // 警告メッセージ用の状態
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
@@ -195,12 +197,25 @@ export default function ChatWindow({ threadId }: Props) {
     }
   }, [model, input, systemPrompt, isFirstTime, handleSend]);
 
+  const emailAddress = "numaothe@gmail.com";
+  const githubUrl = "https://github.com/NumaoTakuya/deepseek_playground";
+  const EMAIL_PLACEHOLDER = "__EMAIL_LINK__";
+  const GITHUB_PLACEHOLDER = "__GITHUB_LINK__";
+  const bannerText = t("chat.banner.update", {
+    email: EMAIL_PLACEHOLDER,
+    github: GITHUB_PLACEHOLDER,
+  });
+  const [bannerBeforeEmail, bannerAfterEmailRaw] = bannerText.split(EMAIL_PLACEHOLDER);
+  const [bannerBetweenLinks, bannerAfterGithub = ""] = (bannerAfterEmailRaw || "").split(
+    GITHUB_PLACEHOLDER
+  );
+
   return (
     <Box display="flex" height="100%" position="relative">
       <Box flex="1" display="flex" flexDirection="column" minWidth={0}>
-        {error && (
-          <Alert severity="warning" sx={{ mx: 2, my: 1 }}>
-            {error}
+        {errorMessage && (
+          <Alert severity="error" sx={{ mx: 2, my: 1 }}>
+            {errorMessage}
           </Alert>
         )}
 
@@ -234,26 +249,22 @@ export default function ChatWindow({ threadId }: Props) {
             }}
           >
             <Typography variant="body2" sx={{ flex: 1 }}>
-              🔧 Update (Dec 12): We fixed a bug triggered by Deepseek&apos;s API
-              changes. Similar issues might return, so please send feedback to
-              {" "}
+              {bannerBeforeEmail}
               <Box
                 component="a"
-                href="mailto:numaothe@gmail.com"
+                href={`mailto:${emailAddress}`}
                 sx={{
                   color: "var(--color-primary)",
                   fontWeight: 600,
                   textDecoration: "underline",
                 }}
               >
-                numaothe@gmail.com
+                {emailAddress}
               </Box>
-              {" "}
-              or open an issue on
-              {" "}
+              {bannerBetweenLinks}
               <Box
                 component="a"
-                href="https://github.com/NumaoTakuya/deepseek_playground"
+                href={githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 sx={{
@@ -262,14 +273,13 @@ export default function ChatWindow({ threadId }: Props) {
                   textDecoration: "underline",
                 }}
               >
-                GitHub
+                {t("common.github")}
               </Box>
-              {" "}
-              if you notice anything odd.
+              {bannerAfterGithub}
             </Typography>
             <IconButton
               size="small"
-              aria-label="Dismiss update message"
+              aria-label={t("chat.banner.dismiss")}
               onClick={() => {
                 setShowUpdateBanner(false);
                 if (typeof window !== "undefined") {
@@ -311,13 +321,13 @@ export default function ChatWindow({ threadId }: Props) {
             onClick={toggleSidebar}
             size="small"
             sx={{ color: "var(--color-text)" }}
-            aria-label={isSidebarOpen ? "Collapse controls" : "Expand controls"}
+            aria-label={isSidebarOpen ? t("chat.controls.collapse") : t("chat.controls.expand")}
           >
             {isSidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </IconButton>
           {isSidebarOpen && (
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Chat Settings
+              {t("chat.controls.chatSettings")}
             </Typography>
           )}
         </Box>
@@ -345,10 +355,12 @@ export default function ChatWindow({ threadId }: Props) {
                   },
                 }}
               >
-                <InputLabel id="chat-settings-model-label">Model</InputLabel>
+                <InputLabel id="chat-settings-model-label">
+                  {t("common.model")}
+                </InputLabel>
                 <Select
                   labelId="chat-settings-model-label"
-                  label="Model"
+                  label={t("common.model")}
                   value={model}
                   onChange={(e) =>
                     handleModelChangeWrapper(e.target.value as string)
@@ -382,7 +394,7 @@ export default function ChatWindow({ threadId }: Props) {
                 }}
               >
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Parameters
+                  {t("common.parameters")}
                 </Typography>
                 <IconButton
                   onClick={() => setShowParametersBox((prev) => !prev)}
@@ -407,7 +419,7 @@ export default function ChatWindow({ threadId }: Props) {
                         variant="subtitle2"
                         sx={{ color: "var(--color-text)" }}
                       >
-                        Frequency Penalty
+                        {t("common.frequencyPenalty")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -433,9 +445,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Number between -2.0 and 2.0. Positive values penalize new
-                      tokens based on their existing frequency in the text so
-                      far, decreasing repeated lines.
+                      {t("common.frequencyPenaltyDescription")}
                     </Typography>
                   </Box>
 
@@ -452,7 +462,7 @@ export default function ChatWindow({ threadId }: Props) {
                         variant="subtitle2"
                         sx={{ color: "var(--color-text)" }}
                       >
-                        Presence Penalty
+                        {t("common.presencePenalty")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -478,9 +488,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Number between -2.0 and 2.0. Positive values encourage
-                      new topics by penalizing tokens that appeared earlier in
-                      the conversation.
+                      {t("common.presencePenaltyDescription")}
                     </Typography>
                   </Box>
 
@@ -497,7 +505,7 @@ export default function ChatWindow({ threadId }: Props) {
                         variant="subtitle2"
                         sx={{ color: "var(--color-text)" }}
                       >
-                        Temperature
+                        {t("common.temperature")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -521,9 +529,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Choose a sampling temperature between 0 and 2. Higher
-                      values increase randomness; lower values make results more
-                      deterministic.
+                      {t("common.temperatureDescription")}
                     </Typography>
                   </Box>
 
@@ -540,7 +546,7 @@ export default function ChatWindow({ threadId }: Props) {
                         variant="subtitle2"
                         sx={{ color: "var(--color-text)" }}
                       >
-                        Top P
+                        {t("common.topP")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -564,9 +570,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Nucleus sampling keeps tokens within the top cumulative
-                      probability mass. For example, 0.1 means only tokens in
-                      the top 10% mass are considered.
+                      {t("common.topPDescription")}
                     </Typography>
                   </Box>
 
@@ -583,7 +587,7 @@ export default function ChatWindow({ threadId }: Props) {
                         variant="subtitle2"
                         sx={{ color: "var(--color-text)" }}
                       >
-                        Max Tokens
+                        {t("common.maxTokens")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -607,9 +611,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Limits the number of tokens that can be generated. Refer
-                      to the model documentation for recommended defaults and
-                      maximum values.
+                      {t("common.maxTokensDescription")}
                     </Typography>
                   </Box>
 
@@ -626,8 +628,7 @@ export default function ChatWindow({ threadId }: Props) {
                       variant="caption"
                       sx={{ color: "var(--color-subtext)" }}
                     >
-                      Tools and other elements will be implemented in future
-                      updates.
+                      {t("common.toolsInfo")}
                     </Typography>
                     <Button
                       size="small"
@@ -639,7 +640,7 @@ export default function ChatWindow({ threadId }: Props) {
                         minWidth: "64px",
                       }}
                     >
-                      Reset
+                      {t("common.reset")}
                     </Button>
                   </Box>
                 </Box>

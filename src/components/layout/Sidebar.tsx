@@ -24,6 +24,8 @@ import { useRouter } from "next/router";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
+import LanguageSelector from "../common/LanguageSelector";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -68,6 +70,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { apiKey, setApiKey } = useApiKey(); // Context から取得
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { darkMode, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value);
@@ -163,13 +166,13 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           }}
           onClick={handleTitleClick}
         >
-          Deepseek Playground
+          {t("common.appName")}
         </Typography>
       </Box>
 
       {/* APIキー入力 (type=password) */}
       <TextField
-        label="Deepseek API Key"
+        label={t("common.deepseekApiKey")}
         type="password"
         value={apiKey}
         onChange={handleApiKeyChange}
@@ -215,7 +218,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           }}
           onClick={handleNewThread}
         >
-          New Thread
+          {t("common.newThread")}
         </Button>
       )}
 
@@ -247,7 +250,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             fullWidth
             onClick={handleOpenSettings}
             startIcon={<SettingsIcon />}
-            aria-label="Open settings"
+            aria-label={t("sidebar.openSettings")}
             sx={{
               color: "var(--color-text)",
               borderColor: "var(--color-border)",
@@ -264,7 +267,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         ) : (
           <IconButton
             onClick={handleOpenSettings}
-            aria-label="Open settings"
+            aria-label={t("sidebar.openSettings")}
             sx={{
               color: "var(--color-text)",
               border: "1px solid var(--color-border)",
@@ -295,7 +298,9 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           },
         }}
       >
-        <DialogTitle sx={{ fontWeight: 600, pb: 1 }}>Settings</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, pb: 1 }}>
+          {t("common.settings")}
+        </DialogTitle>
         <DialogContent>
           <FormControlLabel
             control={
@@ -311,9 +316,15 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 }}
               />
             }
-            label="Dark Mode"
+            label={t("common.darkMode")}
             sx={{ color: "var(--color-text)" }}
           />
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="caption" sx={{ mb: 1, display: "block", color: "var(--color-subtext)" }}>
+              {t("common.language")}
+            </Typography>
+            <LanguageSelector fullWidth />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: "space-between" }}>
           <Button
@@ -330,9 +341,9 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
               },
             }}
           >
-            Logout
+            {t("common.logout")}
           </Button>
-          <Button onClick={handleCloseSettings}>Close</Button>
+          <Button onClick={handleCloseSettings}>{t("common.close")}</Button>
         </DialogActions>
       </Dialog>
     </Box>

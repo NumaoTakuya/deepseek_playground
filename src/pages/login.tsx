@@ -4,10 +4,13 @@ import { signInWithGoogle, incrementUserCount } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { Box, Typography, Button } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
+import LanguageSelector from "../components/common/LanguageSelector";
+import { useTranslation } from "../contexts/LanguageContext";
 
 export default function Login() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!loading && user) {
@@ -44,7 +47,7 @@ export default function Login() {
           fontSize: "1.1rem",
         }}
       >
-        Loading...
+        {t("login.loading")}
       </Box>
     );
 
@@ -57,8 +60,12 @@ export default function Login() {
         minHeight: "100vh",
         backgroundColor: "var(--color-bg)",
         color: textColor,
+        position: "relative",
       }}
     >
+      <Box sx={{ position: "absolute", top: 16, right: 16 }}>
+        <LanguageSelector disableLabel size="small" />
+      </Box>
       {/* 左カラム：大きな背景＆テキスト */}
       <Box
         sx={{
@@ -105,7 +112,7 @@ export default function Login() {
                 lineHeight: 1.2,
               }}
             >
-              Welcome
+              {t("login.heroTitle")}
             </Typography>
           </Box>
 
@@ -117,9 +124,9 @@ export default function Login() {
               fontSize: { xs: "1rem", sm: "1.125rem" },
             }}
           >
-            Experience flexible AI chat with Deepseek.
+            {t("login.heroLine1")}
             <br />
-            Set your system prompt, chat freely, and have fun.
+            {t("login.heroLine2")}
           </Typography>
         </Box>
       </Box>
@@ -155,7 +162,7 @@ export default function Login() {
               fontSize: { xs: "1.25rem", sm: "1.5rem" },
             }}
           >
-            Sign In
+            {t("login.cardTitle")}
           </Typography>
           <Typography
             variant="body1"
@@ -165,9 +172,9 @@ export default function Login() {
               fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
           >
-            Your comfort and security matter to us.
+            {t("login.cardBody1")}
             <br />
-            Please sign in to continue.
+            {t("login.cardBody2")}
           </Typography>
           <Button
             variant="contained"
@@ -186,7 +193,7 @@ export default function Login() {
               fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
           >
-            Login with Google
+            {t("login.googleButton")}
           </Button>
         </Box>
       </Box>

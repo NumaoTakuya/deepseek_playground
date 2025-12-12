@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
+import { useTranslation } from "../contexts/LanguageContext";
 
 interface Props {
   open: boolean; // Whether the dialog is open
@@ -34,6 +35,7 @@ export default function ApiKeyOnboardingDialog({
 }: Props) {
   const [step, setStep] = useState(1);
   const [tempKey, setTempKey] = useState("");
+  const { t } = useTranslation();
 
   const handleNext = () => setStep((prev) => prev + 1);
   const handleBack = () => setStep((prev) => prev - 1);
@@ -84,7 +86,7 @@ export default function ApiKeyOnboardingDialog({
             }}
           />
         }
-        label="Do not show this again"
+        label={t("onboarding.checkbox")}
         sx={{
           color: "var(--color-text)",
           ml: 0,
@@ -115,23 +117,18 @@ export default function ApiKeyOnboardingDialog({
       {step === 1 && (
         <>
           <TitleWithClose>
-            1. Hello &amp; Welcome to Deepseek Playground! 🎉
+            {t("onboarding.step1.title")}
           </TitleWithClose>
           <DialogContent>
-            <Typography sx={{ mb: 2 }}>
-              We&apos;re thrilled to have you here! To start crafting AI
-              responses, you&apos;ll need a Deepseek API key. Don&apos;t
-              worry&mdash;your key is <strong>only stored locally</strong> in
-              your browser. We never send it anywhere else.
-            </Typography>
+            <Typography sx={{ mb: 2 }}>{t("onboarding.step1.body")}</Typography>
           </DialogContent>
           {renderFooter(
             <>
               <Button onClick={handleCancel} sx={{ mr: 1 }}>
-                Cancel
+                {t("onboarding.actions.cancel")}
               </Button>
               <Button variant="contained" onClick={handleNext}>
-                Next
+                {t("onboarding.actions.next")}
               </Button>
             </>
           )}
@@ -141,7 +138,7 @@ export default function ApiKeyOnboardingDialog({
       {step === 2 && (
         <>
           <TitleWithClose>
-            2. Generate Your Deepseek API Key 🔑
+            {t("onboarding.step2.title")}
           </TitleWithClose>
           <DialogContent>
             {/* Replace with your own GIF or image */}
@@ -159,11 +156,7 @@ export default function ApiKeyOnboardingDialog({
               }}
             />
 
-            <Typography sx={{ mb: 2 }}>
-              Head over to Deepseek&apos;s console, then click{" "}
-              <strong>&quot;Create new API key&quot;</strong> to get your shiny
-              new key. Once you&apos;ve copied it, pop back here!
-            </Typography>
+            <Typography sx={{ mb: 2 }}>{t("onboarding.step2.body")}</Typography>
 
             {/* "Go to Deepseek Page" button */}
             <Button
@@ -183,18 +176,18 @@ export default function ApiKeyOnboardingDialog({
                 },
               }}
             >
-              Go to Deepseek Page
+              {t("onboarding.step2.button")}
             </Button>
 
             <Typography variant="body2" sx={{ color: "var(--color-subtext)" }}>
-              Pro tip: You can always create multiple keys if you like.
+              {t("onboarding.step2.tip")}
             </Typography>
           </DialogContent>
           {renderFooter(
             <>
-              <Button onClick={handleBack}>Back</Button>
+              <Button onClick={handleBack}>{t("onboarding.actions.back")}</Button>
               <Button variant="contained" onClick={handleNext}>
-                Next
+                {t("onboarding.actions.next")}
               </Button>
             </>
           )}
@@ -204,14 +197,10 @@ export default function ApiKeyOnboardingDialog({
       {step === 3 && (
         <>
           <TitleWithClose>
-            3. Paste Your Brand-New Key! 🚀
+            {t("onboarding.step3.title")}
           </TitleWithClose>
           <DialogContent>
-            <Typography sx={{ mb: 2 }}>
-              Almost there! Just drop your freshly-generated Deepseek key below.
-              We&apos;ll keep it <strong>safely stored</strong> in your browser
-              so you can focus on building awesome stuff.
-            </Typography>
+            <Typography sx={{ mb: 2 }}>{t("onboarding.step3.body")}</Typography>
 
             <TextField
               fullWidth
@@ -242,12 +231,12 @@ export default function ApiKeyOnboardingDialog({
                 fontSize: "0.85rem",
               }}
             >
-              We don&apos;t send your key to any servers. Pinky promise. 🤞
+              {t("onboarding.step3.note")}
             </Typography>
           </DialogContent>
           {renderFooter(
             <>
-              <Button onClick={handleBack}>Back</Button>
+              <Button onClick={handleBack}>{t("onboarding.actions.back")}</Button>
               <Button
                 variant="contained"
                 onClick={handleFinish}
@@ -264,7 +253,7 @@ export default function ApiKeyOnboardingDialog({
                   },
                 }}
               >
-                Finish
+                {t("onboarding.actions.finish")}
               </Button>
             </>
           )}

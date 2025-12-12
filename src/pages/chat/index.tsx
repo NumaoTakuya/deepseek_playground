@@ -26,6 +26,7 @@ import { callDeepseek } from "../../services/deepseek";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 export default function ChatHomePage() {
   const router = useRouter();
@@ -107,6 +108,7 @@ export default function ChatHomePage() {
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
   const [maxTokens, setMaxTokens] = useState(1024);
+  const { t } = useTranslation();
   const resetParameters = () => {
     setFrequencyPenalty(0);
     setPresencePenalty(0);
@@ -129,7 +131,7 @@ export default function ChatHomePage() {
     setError("");
     if (!apiKey.trim()) {
       setError(
-        "No API Key provided. Enter it in the sidebar. You can obtain it from https://platform.deepseek.com/api_keys"
+        `${t("chat.errors.apiKeyMissing")} ${t("chat.errors.apiKeyHint")} ${t("chat.errors.apiKeyLinkLabel")}`
       );
       return;
     }
@@ -185,7 +187,7 @@ export default function ChatHomePage() {
         .catch(console.error);
     } catch (err) {
       console.error("Error in handleSend:", err);
-      setError("Error occurred while creating the thread.");
+      setError(t("chat.errors.threadCreation"));
     }
   };
 
@@ -208,19 +210,12 @@ export default function ChatHomePage() {
         onDontShowAgainChange={handleDontShowAgainChange}
       />
       <Head>
-        <title>Create a New Chat - Deepseek Playground</title>
-        {/* OGPやmetaタグは元のコードを残す */}
-        <meta
-          name="description"
-          content="Create a new chat conversation on Deepseek Playground."
-        />
-        <meta
-          property="og:title"
-          content="Create a New Chat - Deepseek Playground"
-        />
+        <title>{t("chat.new.meta.title")}</title>
+        <meta name="description" content={t("chat.new.meta.description")} />
+        <meta property="og:title" content={t("chat.new.meta.title")} />
         <meta
           property="og:description"
-          content="Start a new conversation using Deepseek. Save messages in Firestore, adjust system prompts."
+          content={t("chat.new.meta.preview")}
         />
         <meta
           property="og:image"
@@ -233,13 +228,10 @@ export default function ChatHomePage() {
         <meta property="og:type" content="website" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="Create a New Chat - Deepseek Playground"
-        />
+        <meta name="twitter:title" content={t("chat.new.meta.title")} />
         <meta
           name="twitter:description"
-          content="Start a new conversation using Deepseek."
+          content={t("chat.new.meta.twitter")}
         />
         <meta
           name="twitter:image"
@@ -270,8 +262,7 @@ export default function ChatHomePage() {
           >
             <CircularProgress />
             <div>
-              Creating new thread... it may take a few minutes if prompt is
-              long.
+              {t("chat.new.loading")}
             </div>
           </Box>
         ) : (
@@ -279,7 +270,7 @@ export default function ChatHomePage() {
             {/* モデル選択 */}
             <Box mb={2}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                Choose Model
+                {t("chat.new.chooseModel")}
               </Typography>
               <FormControl
                 variant="outlined"
@@ -305,10 +296,10 @@ export default function ChatHomePage() {
                 }}
               >
                 <InputLabel shrink sx={{ color: "var(--color-subtext)" }}>
-                  Model
+                  {t("common.model")}
                 </InputLabel>
                 <Select
-                  label="Model"
+                  label={t("common.model")}
                   value={model}
                   onChange={(e) => {
                     const selectedModel = e.target.value as string;
@@ -343,7 +334,7 @@ export default function ChatHomePage() {
               }}
             >
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                System Prompt
+                {t("common.systemPrompt")}
               </Typography>
               <IconButton
                 onClick={() => setShowSystemBox(!showSystemBox)}
@@ -368,7 +359,7 @@ export default function ChatHomePage() {
                   minRows={2}
                   value={systemInput}
                   onChange={(e) => setSystemInput(e.target.value)}
-                  label="Edit your system prompt"
+                  label={t("chat.new.editSystemPrompt")}
                   variant="outlined"
                   sx={{
                     "& .MuiOutlinedInput-root": {
@@ -397,7 +388,7 @@ export default function ChatHomePage() {
               }}
             >
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Parameters
+                {t("common.parameters")}
               </Typography>
               <IconButton
                 onClick={() => setShowParametersBox(!showParametersBox)}
@@ -429,7 +420,7 @@ export default function ChatHomePage() {
                       variant="subtitle2"
                       sx={{ color: "var(--color-text)" }}
                     >
-                      Frequency Penalty
+                      {t("common.frequencyPenalty")}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -453,7 +444,7 @@ export default function ChatHomePage() {
                     variant="caption"
                     sx={{ color: "var(--color-subtext)" }}
                   >
-                    Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing repeated lines.
+                    {t("common.frequencyPenaltyDescription")}
                   </Typography>
                 </Box>
 
@@ -470,7 +461,7 @@ export default function ChatHomePage() {
                       variant="subtitle2"
                       sx={{ color: "var(--color-text)" }}
                     >
-                      Presence Penalty
+                      {t("common.presencePenalty")}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -494,7 +485,7 @@ export default function ChatHomePage() {
                     variant="caption"
                     sx={{ color: "var(--color-subtext)" }}
                   >
-                    Number between -2.0 and 2.0. Positive values encourage new topics by penalizing tokens that appeared earlier in the conversation.
+                    {t("common.presencePenaltyDescription")}
                   </Typography>
                 </Box>
 
@@ -511,7 +502,7 @@ export default function ChatHomePage() {
                       variant="subtitle2"
                       sx={{ color: "var(--color-text)" }}
                     >
-                      Temperature
+                      {t("common.temperature")}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -535,7 +526,7 @@ export default function ChatHomePage() {
                     variant="caption"
                     sx={{ color: "var(--color-subtext)" }}
                   >
-                    Choose a sampling temperature between 0 and 2. Higher values increase randomness; lower values make results more deterministic.
+                    {t("common.temperatureDescription")}
                   </Typography>
                 </Box>
 
@@ -552,7 +543,7 @@ export default function ChatHomePage() {
                       variant="subtitle2"
                       sx={{ color: "var(--color-text)" }}
                     >
-                      Top P
+                      {t("common.topP")}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -576,7 +567,7 @@ export default function ChatHomePage() {
                     variant="caption"
                     sx={{ color: "var(--color-subtext)" }}
                   >
-                    Nucleus sampling keeps tokens within the top cumulative probability mass. For example, 0.1 means only tokens in the top 10% mass are considered.
+                    {t("common.topPDescription")}
                   </Typography>
                 </Box>
 
@@ -593,7 +584,7 @@ export default function ChatHomePage() {
                       variant="subtitle2"
                       sx={{ color: "var(--color-text)" }}
                     >
-                      Max Tokens
+                      {t("common.maxTokens")}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -617,7 +608,7 @@ export default function ChatHomePage() {
                     variant="caption"
                     sx={{ color: "var(--color-subtext)" }}
                   >
-                    Limits the number of tokens that can be generated. Refer to the model documentation for recommended defaults and maximum values.
+                    {t("common.maxTokensDescription")}
                   </Typography>
                 </Box>
 
@@ -631,7 +622,7 @@ export default function ChatHomePage() {
                   }}
                 >
                   <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>
-                    Tools and other elements will be implemented in future updates.
+                    {t("common.toolsInfo")}
                   </Typography>
                   <Button
                     size="small"
@@ -639,7 +630,7 @@ export default function ChatHomePage() {
                     onClick={resetParameters}
                     sx={{ color: "var(--color-text)", borderColor: "var(--color-border)" }}
                   >
-                    Reset
+                    {t("common.reset")}
                   </Button>
                 </Box>
               </Box>
@@ -647,7 +638,7 @@ export default function ChatHomePage() {
 
             {/* ユーザーの最初のメッセージ */}
             <Typography variant="h6" sx={{ mb: 1 }}>
-              Your First Message
+              {t("chat.labels.firstMessage")}
             </Typography>
 
             <Box display="flex" alignItems="center" gap={1}>
@@ -656,7 +647,7 @@ export default function ChatHomePage() {
                 minRows={1}
                 maxRows={6}
                 fullWidth
-                label="Type your first message (Shift+Enter for newline)"
+                label={t("chat.placeholders.firstMessage")}
                 variant="outlined"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}

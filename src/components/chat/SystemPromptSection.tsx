@@ -1,5 +1,6 @@
 // src/components/chat/SystemPromptSection.tsx
 import { TextField } from "@mui/material";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 interface SystemPromptSectionProps {
   systemPrompt: string;
@@ -10,6 +11,7 @@ export default function SystemPromptSection({
   systemPrompt,
   setSystemPrompt,
 }: SystemPromptSectionProps) {
+  const { t } = useTranslation();
   return (
     <TextField
       fullWidth
@@ -17,7 +19,7 @@ export default function SystemPromptSection({
       minRows={2}
       value={systemPrompt}
       onChange={(e) => setSystemPrompt(e.target.value)}
-      label="System Prompt"
+      label={t("common.systemPrompt")}
       variant="outlined"
       sx={{
         "& .MuiOutlinedInput-root": {

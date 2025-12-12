@@ -4,6 +4,7 @@ import { Box, TextField, IconButton, Alert } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import StopIcon from "@mui/icons-material/Stop"; // ← 追加
 import { useApiKey } from "../../contexts/ApiKeyContext";
+import { useTranslation } from "../../contexts/LanguageContext";
 
 interface InputSectionProps {
   input: string;
@@ -22,19 +23,20 @@ export default function InputSection({
   assistantThinking = false,
 }: InputSectionProps) {
   const { apiKey } = useApiKey();
+  const { t } = useTranslation();
 
   return (
     <Box p={2}>
       {!apiKey?.trim() && (
         <Alert severity="error" sx={{ borderRadius: 0 }}>
-          No API Key provided. Enter it in the sidebar. You can obtain it from{" "}
+          {t("chat.errors.apiKeyMissing")} {t("chat.errors.apiKeyHint")} {" "}
           <a
             href="https://platform.deepseek.com/api_keys"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--color-text)", textDecoration: "underline" }}
           >
-            https://platform.deepseek.com/api_keys
+            {t("chat.errors.apiKeyLinkLabel")}
           </a>
         </Alert>
       )}
@@ -46,7 +48,7 @@ export default function InputSection({
           minRows={1}
           maxRows={6}
           fullWidth
-          label="Type your message (Shift+Enter for newline)"
+          label={t("chat.placeholders.message")}
           variant="outlined"
           value={input}
           onChange={(e) => setInput(e.target.value)}

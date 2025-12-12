@@ -8,6 +8,8 @@ import {
   CardContent,
   Grid,
 } from "@mui/material";
+import LanguageSelector from "../components/common/LanguageSelector";
+import { useTranslation } from "../contexts/LanguageContext";
 
 export default function DonatePage() {
   const accentColor = "var(--color-primary)";
@@ -16,6 +18,7 @@ export default function DonatePage() {
   const subtextColor = "var(--color-subtext)";
   const panelBg = "var(--color-panel)";
   const heroOverlay = "var(--hero-overlay)";
+  const { t } = useTranslation();
 
   return (
     <Box
@@ -23,8 +26,12 @@ export default function DonatePage() {
         backgroundColor: "var(--color-bg)",
         color: textColor,
         minHeight: "100vh",
+        position: "relative",
       }}
     >
+      <Box sx={{ position: "absolute", top: 16, right: 16 }}>
+        <LanguageSelector disableLabel size="small" />
+      </Box>
       {/* Hero-ish Top Section */}
       <Box
         sx={{
@@ -62,7 +69,7 @@ export default function DonatePage() {
                 fontSize: { xs: "1.8rem", sm: "2.125rem" },
               }}
             >
-            Support Our Unofficial Project
+            {t("donate.heroTitle")}
           </Typography>
           <Typography
             variant="body1"
@@ -73,9 +80,7 @@ export default function DonatePage() {
                 fontSize: { xs: "0.9rem", sm: "1rem" },
               }}
             >
-              This project is non-profit and open-source. Your donation helps
-              cover server costs and keeps our Deepseek Playground running freely
-            for everyone.
+              {t("donate.heroSubtitle")}
           </Typography>
         </Container>
       </Box>
@@ -90,7 +95,7 @@ export default function DonatePage() {
             fontSize: { xs: "1.8rem", sm: "2rem" },
           }}
         >
-          Donate &amp; Help Us Grow
+          {t("donate.sectionTitle")}
         </Typography>
 
         <Grid container spacing={4} justifyContent="center">
@@ -108,7 +113,7 @@ export default function DonatePage() {
                   variant="h5"
                   sx={{ fontWeight: 600, mb: 2, color: textColor }}
                 >
-                  Small Support
+                  {t("donate.cardSmallTitle")}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -118,8 +123,7 @@ export default function DonatePage() {
                     fontSize: { xs: "0.9rem", sm: "1rem" },
                   }}
                 >
-                  Contribute <strong>$1</strong> to help with basic server
-                  maintenance.
+                  {t("donate.cardSmallBody", { amount: 1 })}
                 </Typography>
                 <Button
                   variant="contained"
@@ -131,7 +135,7 @@ export default function DonatePage() {
                     fontWeight: 600,
                   }}
                 >
-                  Donate $1
+                  {t("donate.button", { amount: 1 })}
                 </Button>
               </CardContent>
             </Card>
@@ -150,7 +154,7 @@ export default function DonatePage() {
                   variant="h5"
                   sx={{ fontWeight: 600, mb: 2, color: textColor }}
                 >
-                  Steady Boost
+                  {t("donate.cardMediumTitle")}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -160,8 +164,7 @@ export default function DonatePage() {
                     fontSize: { xs: "0.9rem", sm: "1rem" },
                   }}
                 >
-                  Contribute <strong>$10</strong> to cover a decent chunk of
-                  monthly costs.
+                  {t("donate.cardMediumBody", { amount: 10 })}
                 </Typography>
                 <Button
                   variant="contained"
@@ -173,7 +176,7 @@ export default function DonatePage() {
                     fontWeight: 600,
                   }}
                 >
-                  Donate $10
+                  {t("donate.button", { amount: 10 })}
                 </Button>
               </CardContent>
             </Card>
@@ -192,7 +195,7 @@ export default function DonatePage() {
                   variant="h5"
                   sx={{ fontWeight: 600, mb: 2, color: textColor }}
                 >
-                  Major Contribution
+                  {t("donate.cardLargeTitle")}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -202,8 +205,7 @@ export default function DonatePage() {
                     fontSize: { xs: "0.9rem", sm: "1rem" },
                   }}
                 >
-                  Contribute <strong>$100</strong> or more to significantly
-                  support our hosting and development efforts.
+                  {t("donate.cardLargeBody", { amount: 100 })}
                 </Typography>
                 <Button
                   variant="contained"
@@ -215,7 +217,7 @@ export default function DonatePage() {
                     fontWeight: 600,
                   }}
                 >
-                  Donate $100
+                  {t("donate.button", { amount: 100 })}
                 </Button>
               </CardContent>
             </Card>
@@ -234,10 +236,7 @@ export default function DonatePage() {
               fontSize: { xs: "0.9rem", sm: "1rem" },
             }}
           >
-            Your donation is completely voluntary. We appreciate any
-            contribution, no matter how small. By supporting this unofficial,
-            open-source project, you help us maintain and improve the service
-            for everyone who wants to explore AI capabilities using Deepseek.
+            {t("donate.moreInfoPrimary")}
           </Typography>
           <Typography
             variant="body1"
@@ -248,7 +247,7 @@ export default function DonatePage() {
               fontSize: { xs: "0.9rem", sm: "1rem" },
             }}
           >
-            Thank you for being part of our community!
+            {t("donate.moreInfoSecondary")}
           </Typography>
         </Box>
       </Container>

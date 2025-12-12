@@ -27,6 +27,8 @@ import Head from "next/head";
 import { useApiKey } from "../contexts/ApiKeyContext";
 import { streamDeepseek } from "../services/deepseek";
 import { SelectChangeEvent } from "@mui/material/Select";
+import LanguageSelector from "../components/common/LanguageSelector";
+import { useTranslation } from "../contexts/LanguageContext";
 
 export default function LandingPage() {
   const [userCount, setUserCount] = useState(0);
@@ -46,6 +48,7 @@ export default function LandingPage() {
   const streamRef = useRef<
     Awaited<ReturnType<typeof streamDeepseek>> | null
   >(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchUserCount = async () => {
@@ -104,12 +107,12 @@ export default function LandingPage() {
     }
 
     if (!apiKey.trim()) {
-      setTestError("Please enter your Deepseek API key first.");
+      setTestError(t("landing.quickTest.error.missingKey"));
       return;
     }
 
     if (!testInput.trim()) {
-      setTestError("Please enter a prompt to send to the API.");
+      setTestError(t("landing.quickTest.error.missingPrompt"));
       return;
     }
 
@@ -161,9 +164,7 @@ export default function LandingPage() {
       if (error instanceof Error && error.name === "AbortError") {
         aborted = true;
       } else {
-        setTestError(
-          "Failed to fetch a response. Check your API key and try again."
-        );
+        setTestError(t("landing.quickTest.error.generic"));
       }
     } finally {
       setTestLoading(false);
@@ -217,16 +218,10 @@ export default function LandingPage() {
   return (
     <>
       <Head>
-        <title>Deepseek Playground (Unofficial)</title>
-        <meta
-          name="description"
-          content="An open-source unofficial AI chat playground using Deepseek. Create new chats, customize system prompts, and get quick AI responses."
-        />
-        <meta property="og:title" content="Deepseek Playground (Unofficial)" />
-        <meta
-          property="og:description"
-          content="Try out an AI chat with your own Deepseek API key. Non-official, built with Next.js & Firebase."
-        />
+        <title>{t("common.appNameUnofficial")}</title>
+        <meta name="description" content={t("landing.meta.description")} />
+        <meta property="og:title" content={t("common.appNameUnofficial")} />
+        <meta property="og:description" content={t("landing.meta.preview")} />
         <meta
           property="og:image"
           content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
@@ -237,11 +232,8 @@ export default function LandingPage() {
         />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Deepseek Playground (Unofficial)" />
-        <meta
-          name="twitter:description"
-          content="Experience AI chat with custom system prompts. Non-official, user-friendly interface."
-        />
+        <meta name="twitter:title" content={t("common.appNameUnofficial")} />
+        <meta name="twitter:description" content={t("landing.meta.twitter")} />
         <meta
           name="twitter:image"
           content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
@@ -262,7 +254,7 @@ export default function LandingPage() {
             boxShadow: "none",
           }}
         >
-          <Toolbar>
+          <Toolbar sx={{ flexWrap: "wrap", gap: 1 }}>
             {/* アイコン画像を左に配置 */}
             <Box
               component="img"
@@ -271,38 +263,50 @@ export default function LandingPage() {
               sx={{ width: 28, height: 28, mr: 1 }}
             />
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-              Deepseek Playground (Unofficial)
+              {t("common.appNameUnofficial")}
             </Typography>
-            <Button
-              onClick={handleLogin}
+            <Box
               sx={{
-                fontSize: "1.1rem",
-                borderRadius: "2rem",
-                color: "#ffffff",
-                textTransform: "none",
-                fontWeight: 600,
-                mr: 2,
-                px: 3,
-                py: 1,
-                backgroundColor: accentColor,
-                "&:hover": { backgroundColor: accentHover },
-              }}
-              endIcon={<ArrowOutwardIcon />}
-            >
-              Try Freely
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={handleDonate}
-              sx={{
-                color: textColor,
-                borderColor: textColor,
-                textTransform: "none",
-                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1,
               }}
             >
-              Donate
-            </Button>
+              <LanguageSelector
+                disableLabel
+                sx={{ minWidth: 140, mr: { xs: 0, sm: 1 } }}
+              />
+              <Button
+                onClick={handleLogin}
+                sx={{
+                  fontSize: "1.1rem",
+                  borderRadius: "2rem",
+                  color: "#ffffff",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1,
+                  backgroundColor: accentColor,
+                  "&:hover": { backgroundColor: accentHover },
+                }}
+                endIcon={<ArrowOutwardIcon />}
+              >
+                {t("common.actions.try")}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleDonate}
+                sx={{
+                  color: textColor,
+                  borderColor: textColor,
+                  textTransform: "none",
+                  fontWeight: 600,
+                }}
+              >
+                {t("common.actions.donate")}
+              </Button>
+            </Box>
           </Toolbar>
         </AppBar>
 
@@ -353,7 +357,7 @@ export default function LandingPage() {
                   textShadow: heroTitleShadow,
                 }}
               >
-                Deepseek Playground
+                {t("common.appName")}
               </Typography>
             </Box>
             <Typography
@@ -365,8 +369,7 @@ export default function LandingPage() {
                 color: textColor,
               }}
             >
-              A free testing platform for developers who want to use the
-              Deepseek API
+              {t("landing.hero.tagline")}
             </Typography>
             <Button
               variant="contained"
@@ -384,7 +387,7 @@ export default function LandingPage() {
               }}
               endIcon={<ArrowOutwardIcon />}
             >
-              Try Freely
+              {t("common.actions.try")}
             </Button>
             <Typography
               variant="body1"
@@ -394,7 +397,7 @@ export default function LandingPage() {
                 textShadow: heroSubtitleShadow,
               }}
             >
-              {userCount} users are already exploring!
+              {t("landing.hero.userCount", { count: userCount.toLocaleString() })}
             </Typography>
           </Container>
         </Box>
@@ -456,10 +459,10 @@ export default function LandingPage() {
                     variant="h4"
                     sx={{ fontWeight: 700, color: textColor }}
                   >
-                    Quick API Test
+                    {t("landing.quickTest.title")}
                   </Typography>
                   <Typography variant="body1" sx={{ color: subtextColor }}>
-                    Your API key lives only in this browser.
+                    {t("landing.quickTest.subtitle")}
                   </Typography>
                 </Box>
 
@@ -481,7 +484,7 @@ export default function LandingPage() {
                     }}
                   >
                     <TextField
-                      label="Deepseek API Key"
+                      label={t("common.deepseekApiKey")}
                       type="password"
                       value={apiKey}
                       onChange={handleApiKeyChange}
@@ -501,11 +504,11 @@ export default function LandingPage() {
                           "&.Mui-focused": { color: textColor },
                         }}
                       >
-                        Model
+                        {t("common.model")}
                       </InputLabel>
                       <Select
                         value={testModel}
-                        label="Model"
+                        label={t("common.model")}
                         onChange={handleModelChange}
                         sx={selectSx}
                       >
@@ -532,7 +535,7 @@ export default function LandingPage() {
                     }}
                   >
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      System Prompt
+                      {t("common.systemPrompt")}
                     </Typography>
                     <IconButton
                       onClick={toggleSystemPrompt}
@@ -544,8 +547,8 @@ export default function LandingPage() {
                   </Box>
                   {showSystemPrompt && (
                     <TextField
-                      label="System Prompt"
-                      placeholder="Guide the assistant's behavior..."
+                      label={t("common.systemPrompt")}
+                      placeholder={t("common.systemPromptPlaceholder")}
                       multiline
                       minRows={2}
                       fullWidth
@@ -566,8 +569,8 @@ export default function LandingPage() {
                     }}
                   >
                     <TextField
-                      label="Prompt"
-                      placeholder="Ask anything..."
+                      label={t("common.prompt")}
+                      placeholder={t("common.promptPlaceholder")}
                       fullWidth
                       value={testInput}
                       onChange={handleTestInputChange}
@@ -593,7 +596,7 @@ export default function LandingPage() {
                         height: { sm: 56 },
                       }}
                     >
-                      Get API Response
+                      {t("common.getApiResponse")}
                     </Button>
                   </Box>
 
@@ -625,7 +628,7 @@ export default function LandingPage() {
                         variant="subtitle2"
                         sx={{ color: subtextColor, mb: 1 }}
                       >
-                        Thinking
+                        {t("common.thinking")}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -651,7 +654,7 @@ export default function LandingPage() {
                         variant="subtitle2"
                         sx={{ color: subtextColor, mb: 1 }}
                       >
-                        Response
+                        {t("common.response")}
                       </Typography>
                       {testResponse ? (
                         <Typography
@@ -671,7 +674,7 @@ export default function LandingPage() {
                         >
                           <CircularProgress size={16} thickness={5} />
                           <Typography variant="body2" sx={{ color: subtextColor }}>
-                            Waiting for response...
+                            {t("common.waitingForResponse")}
                           </Typography>
                         </Box>
                       )}
@@ -718,7 +721,7 @@ export default function LandingPage() {
                     variant="h4"
                     sx={{ fontWeight: 700, color: textColor }}
                   >
-                    Unlock More by Registering
+                    {t("landing.register.title")}
                   </Typography>
                   <Box
                     component="ul"
@@ -741,13 +744,13 @@ export default function LandingPage() {
                     }}
                   >
                     <Typography component="li" variant="body1">
-                      Persist your chat history securely
+                      {t("landing.register.bulletHistory")}
                     </Typography>
                     <Typography component="li" variant="body1">
-                      Continue rich multi-turn conversations
+                      {t("landing.register.bulletMultiTurn")}
                     </Typography>
                     <Typography component="li" variant="body1">
-                      Organize multiple threads with ease
+                      {t("landing.register.bulletThreads")}
                     </Typography>
                   </Box>
                   <Box sx={{ display: "flex", justifyContent: "center", width: "100%" }}>
@@ -767,7 +770,7 @@ export default function LandingPage() {
                       }}
                       endIcon={<ArrowOutwardIcon />}
                     >
-                      Try Freely
+                      {t("common.actions.try")}
                     </Button>
                   </Box>
                 </Box>
@@ -787,7 +790,7 @@ export default function LandingPage() {
               color: textColor,
             }}
           >
-            Features
+            {t("landing.features.title")}
           </Typography>
           <Box
             sx={{
@@ -809,11 +812,10 @@ export default function LandingPage() {
                   variant="h6"
                   sx={{ fontWeight: 600, mb: 1, color: textColor }}
                 >
-                  Use Your Own API Key
+                  {t("landing.features.apiKeyTitle")}
                 </Typography>
                 <Typography variant="body2" sx={{ color: subtextColor }}>
-                  Bring your personal Deepseek key, stored locally on your
-                  device to keep it secure.
+                  {t("landing.features.apiKeyBody")}
                 </Typography>
               </CardContent>
             </Card>
@@ -830,11 +832,10 @@ export default function LandingPage() {
                   variant="h6"
                   sx={{ fontWeight: 600, mb: 1, color: textColor }}
                 >
-                  System Message Support
+                  {t("landing.features.systemMessageTitle")}
                 </Typography>
                 <Typography variant="body2" sx={{ color: subtextColor }}>
-                  Fine-tune your AI assistant’s behavior with a dedicated system
-                  role message.
+                  {t("landing.features.systemMessageBody")}
                 </Typography>
               </CardContent>
             </Card>
@@ -851,11 +852,10 @@ export default function LandingPage() {
                   variant="h6"
                   sx={{ fontWeight: 600, mb: 1, color: textColor }}
                 >
-                  Open-Source
+                  {t("landing.features.openSourceTitle")}
                 </Typography>
                 <Typography variant="body2" sx={{ color: subtextColor }}>
-                  Fully transparent and customizable. Contribute or adapt the
-                  code to suit your needs.
+                  {t("landing.features.openSourceBody")}
                 </Typography>
               </CardContent>
             </Card>
@@ -866,11 +866,10 @@ export default function LandingPage() {
         <Box sx={{ backgroundColor: "var(--color-sidebar)", py: 4 }}>
           <Container maxWidth="lg" sx={{ textAlign: "center" }}>
             <Typography variant="body2" sx={{ color: subtextColor, mb: 1 }}>
-              This project is <strong>unofficial</strong> and not affiliated
-              with Deepseek Inc.
+              {t("landing.footer.unofficial")}
             </Typography>
             <Typography variant="body2" sx={{ color: subtextColor, mb: 2 }}>
-              If you have any questions or find any bugs, please contact us at:
+              {t("landing.footer.contact")}
             </Typography>
             <Typography
               variant="body2"
@@ -893,7 +892,7 @@ export default function LandingPage() {
               }}
               variant="outlined"
             >
-              GitHub Repository
+              {t("landing.footer.github")}
             </Button>
           </Container>
         </Box>

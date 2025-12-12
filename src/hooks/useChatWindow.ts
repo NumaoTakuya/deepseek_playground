@@ -10,6 +10,7 @@ import {
 } from "../services/message";
 import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
+import { useTranslation } from "../contexts/LanguageContext";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -48,6 +49,8 @@ export function useChatWindow(threadId: string, apiKey: string) {
    *  - Firestoreに書くのは最後1回
    */
   const [assistantDraft, setAssistantDraft] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
@@ -132,6 +135,8 @@ export function useChatWindow(threadId: string, apiKey: string) {
       return;
     }
     if (!input.trim()) return;
+
+    setErrorMessage(null);
 
     const userText = input.trim();
     const startTime = Date.now();
@@ -245,6 +250,9 @@ export function useChatWindow(threadId: string, apiKey: string) {
       }
     } catch (err) {
       console.error("handleSend error (stream)", err);
+      const msg =
+        err instanceof Error ? err.message : t("chat.errors.stream");
+      setErrorMessage(msg);
       // メッセージ送信失敗イベント
       if (analytics) {
         logEvent(analytics, "message_send_failure", {
@@ -288,5 +296,6 @@ export function useChatWindow(threadId: string, apiKey: string) {
     assistantMsgId,
     assistantCoT,
     assistantDraft,
+    errorMessage,
   };
 }
