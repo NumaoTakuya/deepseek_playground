@@ -2,19 +2,13 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Language } from "../i18n/translations";
+import { supportedLanguages } from "../i18n/translations";
 
 export type ThemeMode = "light" | "dark";
 
 const DEFAULT_THEME: ThemeMode = "dark";
 export const DEFAULT_LANGUAGE: Language = "en";
-const SUPPORTED_LANGUAGES: Language[] = [
-  "en",
-  "zh",
-  "hi",
-  "ja",
-  "ru",
-  "de",
-];
+const SUPPORTED_LANGUAGES: Language[] = supportedLanguages;
 
 interface UserPreferencesDocument {
   theme?: ThemeMode;

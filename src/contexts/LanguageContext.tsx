@@ -7,7 +7,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { translations, type Language, type TranslationKey } from "../i18n/translations";
+import {
+  translations,
+  supportedLanguages,
+  type Language,
+  type TranslationKey,
+} from "../i18n/translations";
 import { useAuth } from "./AuthContext";
 import {
   DEFAULT_LANGUAGE,
@@ -37,7 +42,30 @@ function resolveStoredLanguage(): Language {
     console.error("Failed to read language from localStorage:", error);
   }
 
+  const detected = detectLanguageFromNavigator();
+  if (detected) {
+    return detected;
+  }
+
   return DEFAULT_LANGUAGE;
+}
+
+function detectLanguageFromNavigator(): Language | null {
+  if (typeof navigator === "undefined") {
+    return null;
+  }
+
+  const locale = navigator.language || navigator.languages?.[0];
+  if (!locale) {
+    return null;
+  }
+
+  const normalized = locale.toLowerCase();
+  const primary = normalized.split("-")[0];
+  const candidates = [normalized, primary];
+
+  const match = supportedLanguages.find((lang) => candidates.includes(lang));
+  return (match as Language | undefined) ?? null;
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {

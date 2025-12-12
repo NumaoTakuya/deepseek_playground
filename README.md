@@ -75,6 +75,7 @@ yarn dev
 
 - Deepseek API calls now proxy through the Next.js backend after a provider-side browser restriction caused runtime failures
 - Added an in-app banner asking users to report future regressions to `numaothe@gmail.com` or GitHub
+- Introduced full i18n with English, Chinese, Hindi, Japanese, Russian, and German plus per-user language preferences stored in Firestore
 
 ### v0.2.1 (2025-10-01)
 

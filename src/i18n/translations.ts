@@ -762,3 +762,5 @@ export const languageOptions: { value: Language; label: string }[] = [
   { value: "ru", label: "Русский" },
   { value: "de", label: "Deutsch" },
 ];
+
+export const supportedLanguages = languageOptions.map((opt) => opt.value);
