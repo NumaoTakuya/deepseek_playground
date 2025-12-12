@@ -71,6 +71,11 @@ yarn dev
 
 ## Release Notes
 
+### v0.2.2 (2025-12-12)
+
+- Deepseek API calls now proxy through the Next.js backend after a provider-side browser restriction caused runtime failures
+- Added an in-app banner asking users to report future regressions to `numaothe@gmail.com` or GitHub
+
 ### v0.2.1 (2025-10-01)
 
 - Resolved all **security vulnerabilities** detected by `yarn audit` and Dependabot

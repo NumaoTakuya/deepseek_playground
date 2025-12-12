@@ -17,6 +17,7 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import CloseIcon from "@mui/icons-material/Close";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import SystemPromptSection from "./SystemPromptSection";
@@ -60,6 +61,7 @@ export default function ChatWindow({ threadId }: Props) {
   const [error] = useState(""); // 警告メッセージ用の状態
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showParametersBox, setShowParametersBox] = useState(false);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
 
   const sidebarWidth = isSidebarOpen ? 360 : 48;
 
@@ -94,6 +96,13 @@ export default function ChatWindow({ threadId }: Props) {
 
   // ローカルストレージから初期値を読み込む
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const dismissed = window.localStorage.getItem(
+        "dec12UpdateDismissed"
+      );
+      setShowUpdateBanner(dismissed !== "true");
+    }
+
     const storedModel = localStorage.getItem(`thread-${threadId}-model`);
     const storedInput = localStorage.getItem(`thread-${threadId}-inputValue`);
     const storedSystemInput = localStorage.getItem(
@@ -210,6 +219,72 @@ export default function ChatWindow({ threadId }: Props) {
           handleKeyDown={handleKeyDown}
           assistantThinking={assistantThinking}
         />
+
+        {showUpdateBanner && (
+          <Box
+            sx={{
+              borderTop: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-panel)",
+              color: "var(--color-text)",
+              px: 2,
+              py: 1.5,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 1,
+            }}
+          >
+            <Typography variant="body2" sx={{ flex: 1 }}>
+              🔧 Update (Dec 12): We fixed a bug triggered by Deepseek&apos;s API
+              changes. Similar issues might return, so please send feedback to
+              {" "}
+              <Box
+                component="a"
+                href="mailto:numaothe@gmail.com"
+                sx={{
+                  color: "var(--color-primary)",
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                }}
+              >
+                numaothe@gmail.com
+              </Box>
+              {" "}
+              or open an issue on
+              {" "}
+              <Box
+                component="a"
+                href="https://github.com/NumaoTakuya/deepseek_playground"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "var(--color-primary)",
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                }}
+              >
+                GitHub
+              </Box>
+              {" "}
+              if you notice anything odd.
+            </Typography>
+            <IconButton
+              size="small"
+              aria-label="Dismiss update message"
+              onClick={() => {
+                setShowUpdateBanner(false);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem(
+                    "dec12UpdateDismissed",
+                    "true"
+                  );
+                }
+              }}
+              sx={{ color: "var(--color-text)" }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
       </Box>
 
       <Box
