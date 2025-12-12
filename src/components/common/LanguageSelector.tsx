@@ -1,5 +1,6 @@
 import { FormControl, InputLabel, MenuItem, Select, type SelectChangeEvent } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
+import type { SystemStyleObject } from "@mui/system";
 import { languageOptions, type Language } from "../../i18n/translations";
 import { useTranslation } from "../../contexts/LanguageContext";
 
@@ -28,7 +29,7 @@ export default function LanguageSelector({
     setLanguage(event.target.value as Language);
   };
 
-  const baseStyles: SxProps<Theme> = {
+  const baseStyles: SystemStyleObject<Theme> = {
     minWidth: fullWidth ? undefined : 140,
     "& .MuiOutlinedInput-root": {
       backgroundColor: "var(--color-panel)",
@@ -41,13 +42,14 @@ export default function LanguageSelector({
     "& .MuiInputLabel-root.Mui-focused": { color: "var(--color-text)" },
   };
 
+  const mergedSx: SxProps<Theme> = sx
+    ? Array.isArray(sx)
+      ? [baseStyles, ...sx]
+      : [baseStyles, sx]
+    : baseStyles;
+
   return (
-    <FormControl
-      size={size}
-      variant={variant}
-      fullWidth={fullWidth}
-      sx={[baseStyles, sx]}
-    >
+    <FormControl size={size} variant={variant} fullWidth={fullWidth} sx={mergedSx}>
       {!disableLabel && variant !== "standard" && (
         <InputLabel>{resolvedLabel}</InputLabel>
       )}
