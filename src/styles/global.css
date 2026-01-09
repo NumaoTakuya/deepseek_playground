@@ -190,6 +190,17 @@ body {
 .bubble-container .finish-reason {
   font-size: 0.75rem;
   color: var(--color-subtext);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bubble-container .finish-reason-length {
+  color: #c62828;
+}
+
+.bubble-container .finish-reason-warning {
+  color: #c62828;
 }
 .branch-marker {
   display: flex;

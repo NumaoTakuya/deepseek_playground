@@ -285,6 +285,7 @@ export default function MessageList({
         const finishReason = isStreaming
           ? assistantFinishReason
           : msg.finish_reason ?? null;
+        const isLengthFinish = finishReason === "length";
         const roleLabel =
           msg.role === "assistant"
             ? t("chat.roles.assistant")
@@ -425,8 +426,19 @@ export default function MessageList({
                 {!isEditing && (
                   <div className="bubble-footer">
                   {isAssistant && finishReason ? (
-                    <div className="finish-reason">
-                      finish_reason: {finishReason}
+                    <div
+                      className={`finish-reason${
+                        isLengthFinish ? " finish-reason-length" : ""
+                      }`}
+                    >
+                      <span>
+                        {t("chat.finishReason.label", { reason: finishReason })}
+                      </span>
+                      {isLengthFinish && (
+                        <span className="finish-reason-warning">
+                          {t("chat.finishReason.lengthWarning")}
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <span />
