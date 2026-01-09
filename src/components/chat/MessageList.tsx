@@ -17,6 +17,7 @@ interface MessageListProps {
   waitingForFirstChunk: boolean;
   assistantCoT?: string | null;
   assistantDraft?: string;
+  assistantFinishReason?: string | null;
 }
 
 /**
@@ -43,15 +44,77 @@ function formatQuote(text: string): string {
   return quotedParagraphs.join("\n\n");
 }
 
+type MarkdownBlockProps = {
+  text: string;
+  remarkPlugins: unknown[];
+  rehypePlugins: unknown[];
+};
+
+type MarkdownBlockState = {
+  hasError: boolean;
+  lastText: string;
+};
+
+class MarkdownBlock extends React.Component<MarkdownBlockProps, MarkdownBlockState> {
+  state: MarkdownBlockState = {
+    hasError: false,
+    lastText: this.props.text,
+  };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("[markdown] render failed, falling back to plain text", error);
+  }
+
+  componentDidUpdate(prevProps: MarkdownBlockProps) {
+    if (prevProps.text !== this.props.text) {
+      this.setState({ hasError: false, lastText: this.props.text });
+    }
+  }
+
+  render() {
+    const { text, remarkPlugins, rehypePlugins } = this.props;
+    if (this.state.hasError) {
+      return (
+        <Box className="react-markdown" sx={{ whiteSpace: "pre-wrap" }}>
+          {text}
+        </Box>
+      );
+    }
+    return (
+      <ReactMarkdown
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
+        className="react-markdown"
+      >
+        {text}
+      </ReactMarkdown>
+    );
+  }
+}
+
 export default function MessageList({
   messages,
   streamingAssistantId,
   waitingForFirstChunk,
   assistantCoT,
   assistantDraft,
+  assistantFinishReason,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
   const { t } = useTranslation();
+  const katexPlugins = [
+    [
+      rehypeKatex,
+      {
+        throwOnError: false,
+        strict: "ignore",
+      },
+    ],
+  ];
 
   const toggleCoT = (messageId: string) => {
     setExpandedCoTs((prev) => ({
@@ -80,6 +143,9 @@ export default function MessageList({
         const thinkingText = hasThinkingContent
           ? (rawThinkingContent as string).trim()
           : "";
+        const finishReason = isStreaming
+          ? assistantFinishReason
+          : msg.finish_reason ?? null;
         const roleLabel =
           msg.role === "assistant"
             ? t("chat.roles.assistant")
@@ -89,72 +155,73 @@ export default function MessageList({
 
         return (
           <Box className="bubble-container" key={msg.id}>
-            <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
-              <div className="bubble-label">
-                {roleLabel}
-              </div>
+            <Box className={`bubble-stack ${isAssistant ? "assistant" : "user"}`}>
+              <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
+                <div className="bubble-label">{roleLabel}</div>
 
-              {isAssistant && hasThinkingContent && (
-                <Box sx={{ mt: 1 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      cursor: "pointer",
-                      color: "#666",
-                      "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
-                      borderRadius: 1,
-                      p: 0.5,
-                      width: "fit-content",
-                    }}
-                    onClick={() => toggleCoT(msg.id)}
-                  >
-                    <IconButton
-                      size="small"
+                {isAssistant && hasThinkingContent && (
+                  <Box sx={{ mt: 1 }}>
+                    <Box
                       sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        color: "#666",
+                        "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
+                        borderRadius: 1,
                         p: 0.5,
-                        color: "inherit",
-                        "&:hover": { backgroundColor: "transparent" },
+                        width: "fit-content",
                       }}
+                      onClick={() => toggleCoT(msg.id)}
                     >
-                      {isCoTExpanded ? <ExpandLess /> : <ExpandMore />}
-                    </IconButton>
-                    <span
-                      style={{
-                        fontSize: "0.8rem",
-                        userSelect: "none",
-                      }}
-                    >
-                      {isCoTExpanded
-                        ? t("chat.cot.collapse")
-                        : t("chat.cot.expand")}
-                    </span>
+                      <IconButton
+                        size="small"
+                        sx={{
+                          p: 0.5,
+                          color: "inherit",
+                          "&:hover": { backgroundColor: "transparent" },
+                        }}
+                      >
+                        {isCoTExpanded ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                      <span
+                        style={{
+                          fontSize: "0.8rem",
+                          userSelect: "none",
+                        }}
+                      >
+                        {isCoTExpanded
+                          ? t("chat.cot.collapse")
+                          : t("chat.cot.expand")}
+                      </span>
+                    </Box>
+                    <Collapse in={isCoTExpanded}>
+                      <MarkdownBlock
+                        text={formatQuote(thinkingText)}
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={katexPlugins}
+                      />
+                    </Collapse>
                   </Box>
-                  <Collapse in={isCoTExpanded}>
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                      className="react-markdown"
-                    >
-                      {formatQuote(thinkingText)}
-                    </ReactMarkdown>
-                  </Collapse>
-                </Box>
-              )}
+                )}
 
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                className="react-markdown"
-              >
-                {convertedText}
-              </ReactMarkdown>
+                <MarkdownBlock
+                  text={convertedText}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={katexPlugins}
+                />
 
-              {showThinking && (
-                <Box display="flex" alignItems="center" gap={1} mt={1}>
-                  <CircularProgress size={16} thickness={5} />
-                  <span>{t("chat.messages.thinking")}</span>
-                </Box>
+                {showThinking && (
+                  <Box display="flex" alignItems="center" gap={1} mt={1}>
+                    <CircularProgress size={16} thickness={5} />
+                    <span>{t("chat.messages.thinking")}</span>
+                  </Box>
+                )}
+              </Box>
+              {isAssistant && finishReason && (
+                <div className="finish-reason">
+                  finish_reason: {finishReason}
+                </div>
               )}
             </Box>
           </Box>

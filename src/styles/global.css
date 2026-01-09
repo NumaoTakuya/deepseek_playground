@@ -108,6 +108,18 @@ body {
   display: flex;
   margin-bottom: 8px;
 }
+.bubble-stack {
+  display: flex;
+  flex-direction: column;
+}
+.bubble-stack.user {
+  margin-left: auto;
+  align-items: flex-end;
+}
+.bubble-stack.assistant {
+  margin-right: auto;
+  align-items: flex-start;
+}
 .bubble {
   max-width: 70%;
   padding: 10px 14px;
@@ -152,4 +164,10 @@ body {
 /* 通常の段落との余白調整 */
 .bubble .react-markdown p {
   margin: 8px 0;
+}
+
+.bubble-container .finish-reason {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--color-subtext);
 }

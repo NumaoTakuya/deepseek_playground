@@ -18,6 +18,7 @@ export interface Message {
   role: "system" | "assistant" | "user";
   content: string; // メッセージ本文
   thinking_content?: string | null;
+  finish_reason?: string | null;
   createdAt?: Timestamp;
 }
 

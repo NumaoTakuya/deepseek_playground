@@ -28,7 +28,8 @@ export async function createMessage(
   threadId: string,
   role: Message["role"],
   content: string,
-  thinkingContent?: string | null
+  thinkingContent?: string | null,
+  finishReason?: string | null
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
@@ -40,6 +41,9 @@ export async function createMessage(
     };
     if (thinkingContent !== undefined) {
       payload.thinking_content = thinkingContent;
+    }
+    if (finishReason !== undefined) {
+      payload.finish_reason = finishReason;
     }
 
     const docRef = await addDoc(messagesRef, payload);
@@ -180,19 +184,24 @@ export async function updateMessage(
   threadId: string,
   messageId: string,
   content?: string,
-  thinkingContent?: string | null
+  thinkingContent?: string | null,
+  finishReason?: string | null
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
     const updatePayload: {
       content?: string;
       thinking_content?: string | null;
+      finish_reason?: string | null;
     } = {};
     if (content !== undefined) {
       updatePayload.content = content;
     }
     if (thinkingContent !== undefined) {
       updatePayload.thinking_content = thinkingContent;
+    }
+    if (finishReason !== undefined) {
+      updatePayload.finish_reason = finishReason;
     }
     if (Object.keys(updatePayload).length === 0) {
       return;

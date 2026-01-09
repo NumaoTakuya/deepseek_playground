@@ -49,6 +49,9 @@ export function useChatWindow(threadId: string, apiKey: string) {
    *  - Firestoreに書くのは最後1回
    */
   const [assistantDraft, setAssistantDraft] = useState("");
+  const [assistantFinishReason, setAssistantFinishReason] = useState<
+    string | null
+  >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
 
@@ -153,6 +156,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     setWaitingForFirstChunk(true);
     setAssistantCoT(null);
     setAssistantDraft("");
+    setAssistantFinishReason(null);
 
     try {
       // 1) systemPromptをFirestoreへ
@@ -197,6 +201,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
 
       let partialReasoningContent = "";
       let partialContent = "";
+      let finalFinishReason: string | null = null;
       let first = true;
 
       for await (const chunk of chatStream) {
@@ -206,9 +211,15 @@ export function useChatWindow(threadId: string, apiKey: string) {
         }
 
         const delta = chunk.choices[0]?.delta as Delta;
+        const finishReason = chunk.choices[0]?.finish_reason;
         const delta_reasoning_content = delta.reasoning_content ?? "";
         const delta_content = delta.content ?? "";
+        if (finishReason) {
+          finalFinishReason = finishReason;
+          setAssistantFinishReason(finishReason);
+        }
         if (delta_reasoning_content) {
+          console.log("[stream] reasoning delta", delta_reasoning_content);
           partialReasoningContent += delta_reasoning_content;
           if (first) {
             setWaitingForFirstChunk(false);
@@ -217,6 +228,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
           setAssistantCoT(partialReasoningContent);
         }
         if (delta_content) {
+          console.log("[stream] content delta", delta_content);
           partialContent += delta_content;
           if (first) {
             setWaitingForFirstChunk(false);
@@ -234,9 +246,11 @@ export function useChatWindow(threadId: string, apiKey: string) {
         threadId,
         newAssistantMsgId,
         partialContent,
-        finalThinkingContent
+        finalThinkingContent,
+        finalFinishReason
       );
       setAssistantCoT(finalThinkingContent);
+      setAssistantFinishReason(finalFinishReason);
 
       // メッセージ送信成功イベント
       if (analytics) {
@@ -266,6 +280,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
       setAssistantThinking(false);
       chatStreamRef.current = null;
       setAssistantMsgId(null);
+      setAssistantFinishReason(null);
     }
   }
 
@@ -296,6 +311,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     assistantMsgId,
     assistantCoT,
     assistantDraft,
+    assistantFinishReason,
     errorMessage,
   };
 }
