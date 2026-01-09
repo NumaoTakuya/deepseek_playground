@@ -26,6 +26,7 @@ function extractMessage(error: unknown): string {
 export const config = {
   api: {
     bodyParser: true,
+    responseLimit: false,
   },
 };
 
@@ -69,13 +70,17 @@ export default async function handler(
     req.on("close", handleAbort);
 
     res.writeHead(200, {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-cache",
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
       "Transfer-Encoding": "chunked",
     });
+    res.flushHeaders();
 
     for await (const chunk of stream) {
       res.write(`${JSON.stringify(chunk)}\n`);
+      res.flush?.();
     }
     res.end();
   } catch (error) {

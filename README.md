@@ -76,6 +76,7 @@ yarn dev
 - Display `finish_reason` under assistant bubbles to clarify why a stream ended
 - Added copy, regenerate, and branch action buttons on chat messages
 - Added a scroll-to-bottom button in chat threads
+- Fixed streaming chunks being buffered and appearing in batches by adjusting the proxy response headers (NDJSON + no-buffering)
 
 ### v0.2.2 (2025-12-12)
 

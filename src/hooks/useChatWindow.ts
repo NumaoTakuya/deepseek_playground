@@ -230,7 +230,7 @@ export function useChatWindow(
           setAssistantFinishReason(finishReason);
         }
         if (delta_reasoning_content) {
-          console.log("[stream] reasoning delta", delta_reasoning_content);
+          // console.log("[stream] reasoning delta", delta_reasoning_content);
           partialReasoningContent += delta_reasoning_content;
           if (first) {
             setWaitingForFirstChunk(false);
@@ -239,7 +239,7 @@ export function useChatWindow(
           setAssistantCoT(partialReasoningContent);
         }
         if (delta_content) {
-          console.log("[stream] content delta", delta_content);
+          // console.log("[stream] content delta", delta_content);
           partialContent += delta_content;
           if (first) {
             setWaitingForFirstChunk(false);
