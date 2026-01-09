@@ -15,6 +15,7 @@ import {
   ContentCopy,
   Edit,
   Refresh,
+  CallSplit,
 } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,6 +35,7 @@ interface MessageListProps {
   assistantFinishReason?: string | null;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onRegenerateMessage?: (messageId: string) => Promise<void>;
+  onBranchMessage?: (messageId: string) => Promise<void>;
 }
 
 /**
@@ -121,6 +123,7 @@ export default function MessageList({
   assistantFinishReason,
   onEditMessage,
   onRegenerateMessage,
+  onBranchMessage,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
   const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
@@ -174,6 +177,21 @@ export default function MessageList({
       setCopiedState((prev) => ({ ...prev, [key]: false }));
       delete copyTimeoutsRef.current[key];
     }, 1500);
+  };
+
+  const formatTimestamp = (value: Message["createdAt"]) => {
+    if (!value) return "";
+    if (typeof value === "object" && "toDate" in value) {
+      return value.toDate().toLocaleString();
+    }
+    return "";
+  };
+
+  const formatBranchTimestamp = (value?: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString();
   };
 
   const startEditing = (messageId: string, content: string) => {
@@ -239,9 +257,10 @@ export default function MessageList({
           : t("chat.copy.thinking");
 
         return (
-          <Box className="bubble-container" key={msg.id}>
-            <Box className={`bubble-stack ${isAssistant ? "assistant" : "user"}`}>
-              <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
+          <React.Fragment key={msg.id}>
+            <Box className="bubble-container">
+              <Box className={`bubble-stack ${isAssistant ? "assistant" : "user"}`}>
+                <Box className={`bubble ${isAssistant ? "assistant" : "user"}`}>
                 <div className="bubble-label">{roleLabel}</div>
 
                 {isAssistant && hasThinkingContent && (
@@ -359,8 +378,8 @@ export default function MessageList({
                   </Box>
                 )}
               </Box>
-              {!isEditing && (
-                <div className="bubble-footer">
+                {!isEditing && (
+                  <div className="bubble-footer">
                   {isAssistant && finishReason ? (
                     <div className="finish-reason">
                       finish_reason: {finishReason}
@@ -378,6 +397,18 @@ export default function MessageList({
                           onClick={() => startEditing(msg.id, msg.content)}
                         >
                           <Edit fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {isAssistant && (
+                      <Tooltip title={t("chat.branch")}>
+                        <IconButton
+                          size="small"
+                          className="copy-button"
+                          aria-label="Branch thread"
+                          onClick={() => onBranchMessage?.(msg.id)}
+                        >
+                          <CallSplit fontSize="inherit" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -407,10 +438,26 @@ export default function MessageList({
                       </IconButton>
                     </Tooltip>
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
+              </Box>
             </Box>
-          </Box>
+            {isAssistant && msg.branch_thread_id && (
+              <div className="branch-divider">
+                <span className="branch-marker-line" />
+                <span className="branch-marker-text">
+                  {t("chat.branch.marker", {
+                    title: msg.branch_thread_title ?? "",
+                    date:
+                      formatBranchTimestamp(msg.branch_created_at) ||
+                      formatTimestamp(msg.createdAt) ||
+                      t("chat.branch.unknownDate"),
+                  })}
+                </span>
+                <span className="branch-marker-line" />
+              </div>
+            )}
+          </React.Fragment>
         );
       })}
     </Box>

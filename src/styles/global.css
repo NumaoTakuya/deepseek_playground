@@ -191,3 +191,29 @@ body {
   font-size: 0.75rem;
   color: var(--color-subtext);
 }
+.branch-marker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-subtext);
+  font-size: 0.75rem;
+  margin: 12px 0;
+}
+.branch-marker-line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-border);
+}
+.branch-marker-text {
+  white-space: nowrap;
+}
+.branch-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-subtext);
+  font-size: 0.75rem;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+}

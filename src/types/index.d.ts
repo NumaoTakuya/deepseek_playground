@@ -9,6 +9,10 @@ export interface Thread {
   title: string; // トーク（スレッド）のタイトル
   createdAt?: Timestamp; // 作成日時 (サーバータイムスタンプなど)
   updatedAt?: Timestamp; // 更新日時 (サーバータイムスタンプなど)
+  parentThreadId?: string;
+  branchFromMessageId?: string;
+  branchFromTitle?: string;
+  branchedAt?: Timestamp;
 }
 
 // チャットメッセージの型を定義したい場合
@@ -19,6 +23,11 @@ export interface Message {
   content: string; // メッセージ本文
   thinking_content?: string | null;
   finish_reason?: string | null;
+  kind?: "branch_marker";
+  branch_thread_id?: string;
+  branch_thread_title?: string;
+  branch_from_message_id?: string;
+  branch_created_at?: string;
   createdAt?: Timestamp;
 }
 

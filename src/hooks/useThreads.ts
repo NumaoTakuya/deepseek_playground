@@ -17,6 +17,10 @@ export interface Thread {
   title: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+  parentThreadId?: string;
+  branchFromMessageId?: string;
+  branchFromTitle?: string;
+  branchedAt?: Timestamp;
 }
 
 /** ログイン中のユーザーの threads をリアルタイム取得 */

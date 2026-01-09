@@ -30,7 +30,15 @@ export async function createMessage(
   role: Message["role"],
   content: string,
   thinkingContent?: string | null,
-  finishReason?: string | null
+  finishReason?: string | null,
+  meta?: {
+    kind?: Message["kind"];
+    branchThreadId?: string;
+    branchThreadTitle?: string;
+    branchFromMessageId?: string;
+    createdAtOverride?: Message["createdAt"];
+    branchCreatedAt?: string;
+  }
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
@@ -38,13 +46,28 @@ export async function createMessage(
       threadId,
       role,
       content,
-      createdAt: serverTimestamp(),
+      createdAt: meta?.createdAtOverride ?? serverTimestamp(),
     };
     if (thinkingContent !== undefined) {
       payload.thinking_content = thinkingContent;
     }
     if (finishReason !== undefined) {
       payload.finish_reason = finishReason;
+    }
+    if (meta?.kind) {
+      payload.kind = meta.kind;
+    }
+    if (meta?.branchThreadId) {
+      payload.branch_thread_id = meta.branchThreadId;
+    }
+    if (meta?.branchThreadTitle) {
+      payload.branch_thread_title = meta.branchThreadTitle;
+    }
+    if (meta?.branchFromMessageId) {
+      payload.branch_from_message_id = meta.branchFromMessageId;
+    }
+    if (meta?.branchCreatedAt) {
+      payload.branch_created_at = meta.branchCreatedAt;
     }
 
     const docRef = await addDoc(messagesRef, payload);
@@ -186,7 +209,13 @@ export async function updateMessage(
   messageId: string,
   content?: string,
   thinkingContent?: string | null,
-  finishReason?: string | null
+  finishReason?: string | null,
+  meta?: {
+    branchThreadId?: string;
+    branchThreadTitle?: string;
+    branchFromMessageId?: string;
+    branchCreatedAt?: string;
+  }
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
@@ -194,6 +223,10 @@ export async function updateMessage(
       content?: string;
       thinking_content?: string | null;
       finish_reason?: string | null;
+      branch_thread_id?: string;
+      branch_thread_title?: string;
+      branch_from_message_id?: string;
+      branch_created_at?: string;
     } = {};
     if (content !== undefined) {
       updatePayload.content = content;
@@ -203,6 +236,18 @@ export async function updateMessage(
     }
     if (finishReason !== undefined) {
       updatePayload.finish_reason = finishReason;
+    }
+    if (meta?.branchThreadId !== undefined) {
+      updatePayload.branch_thread_id = meta.branchThreadId;
+    }
+    if (meta?.branchThreadTitle !== undefined) {
+      updatePayload.branch_thread_title = meta.branchThreadTitle;
+    }
+    if (meta?.branchFromMessageId !== undefined) {
+      updatePayload.branch_from_message_id = meta.branchFromMessageId;
+    }
+    if (meta?.branchCreatedAt !== undefined) {
+      updatePayload.branch_created_at = meta.branchCreatedAt;
     }
     if (Object.keys(updatePayload).length === 0) {
       return;

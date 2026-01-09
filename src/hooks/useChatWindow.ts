@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { db, analytics, logEvent } from "../services/firebase";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
   listenMessages,
   createMessage,
@@ -12,15 +12,21 @@ import {
 import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
+import { createThread } from "../services/thread";
 
 type ChatRole = "system" | "user" | "assistant";
 
-export function useChatWindow(threadId: string, apiKey: string) {
+export function useChatWindow(
+  threadId: string,
+  apiKey: string,
+  userId?: string
+) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [systemPrompt, setSystemPrompt] = useState(
     "You are a helpful assistant."
   );
   const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
+  const [threadTitle, setThreadTitle] = useState("New Chat");
   const [model, setModel] = useState("deepseek-chat");
   const [input, setInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
@@ -86,6 +92,7 @@ export function useChatWindow(threadId: string, apiKey: string) {
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as {
+          title?: string;
           model?: string;
           frequencyPenalty?: number;
           presencePenalty?: number;
@@ -94,6 +101,9 @@ export function useChatWindow(threadId: string, apiKey: string) {
           maxTokens?: number;
         };
         setModel(data.model ?? "deepseek-chat");
+        if (typeof data.title === "string") {
+          setThreadTitle(data.title);
+        }
         if (typeof data.frequencyPenalty === "number") {
           setFrequencyPenalty(data.frequencyPenalty);
         }
@@ -409,6 +419,87 @@ export function useChatWindow(threadId: string, apiKey: string) {
     }
   }
 
+  async function handleBranchMessage(messageId: string): Promise<string | null> {
+    if (!userId) {
+      setErrorMessage(t("chat.errors.branch"));
+      return null;
+    }
+
+    const targetIndex = messages.findIndex((msg) => msg.id === messageId);
+    if (targetIndex === -1) return null;
+    const target = messages[targetIndex];
+    if (target.role !== "assistant") return null;
+
+    const branchTitle = `Branch - ${threadTitle}`;
+    const branchCreatedAt = new Date().toISOString();
+
+    try {
+      const newThreadId = await createThread(userId, branchTitle);
+      await updateDoc(doc(db, "threads", newThreadId), {
+        parentThreadId: threadId,
+        branchFromMessageId: messageId,
+        branchFromTitle: threadTitle,
+        branchedAt: serverTimestamp(),
+        model,
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+      });
+
+      await createMessage(newThreadId, "system", systemPrompt);
+
+      const seedMessages = messages
+        .slice(0, targetIndex + 1)
+        .filter((msg) => msg.role !== "system");
+      for (const msg of seedMessages) {
+        const branchMeta =
+          msg.id === messageId
+            ? {
+                branchThreadId: newThreadId,
+                branchThreadTitle: branchTitle,
+                branchFromMessageId: messageId,
+                branchCreatedAt,
+              }
+            : undefined;
+        if (msg.role === "assistant") {
+          await createMessage(
+            newThreadId,
+            msg.role,
+            msg.content,
+            msg.thinking_content ?? null,
+            msg.finish_reason ?? null,
+            branchMeta
+          );
+        } else {
+          await createMessage(newThreadId, msg.role, msg.content);
+        }
+      }
+
+      await updateMessage(
+        threadId,
+        messageId,
+        undefined,
+        undefined,
+        undefined,
+        {
+          branchThreadId: newThreadId,
+          branchThreadTitle: branchTitle,
+          branchFromMessageId: messageId,
+          branchCreatedAt,
+        }
+      );
+      return newThreadId;
+    } catch (err) {
+      console.error("handleBranchMessage error", err);
+      const msg =
+        err instanceof Error ? err.message : t("chat.errors.branch");
+      setErrorMessage(msg);
+      return null;
+    }
+  }
+
   async function handleRegenerateMessage(messageId: string) {
     if (assistantThinking && chatStreamRef.current) {
       chatStreamRef.current.abort();
@@ -558,5 +649,6 @@ export function useChatWindow(threadId: string, apiKey: string) {
     errorMessage,
     handleEditMessage,
     handleRegenerateMessage,
+    handleBranchMessage,
   };
 }

@@ -20,6 +20,8 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import CloseIcon from "@mui/icons-material/Close";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { useRouter } from "next/router";
 import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
@@ -30,7 +32,9 @@ interface Props {
 }
 
 export default function ChatWindow({ threadId }: Props) {
+  const router = useRouter();
   const { apiKey } = useApiKey();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const {
     messages,
@@ -61,7 +65,15 @@ export default function ChatWindow({ threadId }: Props) {
     errorMessage,
     handleEditMessage,
     handleRegenerateMessage,
-  } = useChatWindow(threadId, apiKey);
+    handleBranchMessage,
+  } = useChatWindow(threadId, apiKey, user?.uid);
+
+  const handleBranchMessageAndNavigate = async (messageId: string) => {
+    const newThreadId = await handleBranchMessage(messageId);
+    if (newThreadId) {
+      router.push(`/chat/${newThreadId}`);
+    }
+  };
 
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -231,6 +243,7 @@ export default function ChatWindow({ threadId }: Props) {
           waitingForFirstChunk={waitingForFirstChunk}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
+          onBranchMessage={handleBranchMessageAndNavigate}
         />
 
         <InputSection
