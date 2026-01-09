@@ -10,6 +10,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  writeBatch,
   type WithFieldValue,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app"; // 追加（エラーハンドリング用）
@@ -233,4 +234,13 @@ export async function updateMessage(
     }
     throw error;
   }
+}
+
+export async function deleteMessages(threadId: string, messageIds: string[]) {
+  if (messageIds.length === 0) return;
+  const batch = writeBatch(db);
+  for (const messageId of messageIds) {
+    batch.delete(doc(db, "threads", threadId, "messages", messageId));
+  }
+  await batch.commit();
 }

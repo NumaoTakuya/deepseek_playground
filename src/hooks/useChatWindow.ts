@@ -7,6 +7,7 @@ import {
   listenMessages,
   createMessage,
   updateMessage,
+  deleteMessages,
 } from "../services/message";
 import { streamDeepseek } from "../services/deepseek";
 import type { Message } from "../types/index";
@@ -284,6 +285,130 @@ export function useChatWindow(threadId: string, apiKey: string) {
     }
   }
 
+  async function handleEditMessage(messageId: string, newContent: string) {
+    const trimmed = newContent.trim();
+    if (!trimmed) return;
+
+    if (assistantThinking && chatStreamRef.current) {
+      chatStreamRef.current.abort();
+    }
+
+    setErrorMessage(null);
+    setAssistantThinking(true);
+    setWaitingForFirstChunk(true);
+    setAssistantCoT(null);
+    setAssistantDraft("");
+    setAssistantFinishReason(null);
+
+    const targetIndex = messages.findIndex((msg) => msg.id === messageId);
+    if (targetIndex === -1) {
+      setAssistantThinking(false);
+      return;
+    }
+    const target = messages[targetIndex];
+    if (target.role !== "user") {
+      setAssistantThinking(false);
+      return;
+    }
+
+    try {
+      await updateMessage(threadId, messageId, trimmed);
+
+      const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
+      await deleteMessages(threadId, toDelete);
+
+      const newAssistantMsgId = await createMessage(threadId, "assistant", "");
+      setAssistantMsgId(newAssistantMsgId);
+
+      const conversation = [
+        { role: "system", content: systemPrompt },
+        ...messages
+          .slice(0, targetIndex + 1)
+          .filter((m) => m.role !== "system")
+          .map((m) => ({
+            role: m.role,
+            content: m.id === messageId ? trimmed : m.content,
+          })),
+      ] as { role: ChatRole; content: string }[];
+
+      await updateDoc(doc(db, "threads", threadId), {
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+      });
+
+      const chatStream = await streamDeepseek(apiKey, conversation, model, {
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+      });
+      chatStreamRef.current = chatStream;
+
+      let partialReasoningContent = "";
+      let partialContent = "";
+      let finalFinishReason: string | null = null;
+      let first = true;
+
+      for await (const chunk of chatStream) {
+        interface Delta {
+          reasoning_content?: string;
+          content?: string;
+        }
+
+        const delta = chunk.choices[0]?.delta as Delta;
+        const finishReason = chunk.choices[0]?.finish_reason;
+        const delta_reasoning_content = delta.reasoning_content ?? "";
+        const delta_content = delta.content ?? "";
+        if (finishReason) {
+          finalFinishReason = finishReason;
+          setAssistantFinishReason(finishReason);
+        }
+        if (delta_reasoning_content) {
+          partialReasoningContent += delta_reasoning_content;
+          if (first) {
+            setWaitingForFirstChunk(false);
+            first = false;
+          }
+          setAssistantCoT(partialReasoningContent);
+        }
+        if (delta_content) {
+          partialContent += delta_content;
+          if (first) {
+            setWaitingForFirstChunk(false);
+            first = false;
+          }
+          setAssistantDraft(partialContent);
+        }
+      }
+
+      const finalThinkingContent = partialReasoningContent.trim()
+        ? partialReasoningContent
+        : null;
+      await updateMessage(
+        threadId,
+        newAssistantMsgId,
+        partialContent,
+        finalThinkingContent,
+        finalFinishReason
+      );
+      setAssistantCoT(finalThinkingContent);
+      setAssistantFinishReason(finalFinishReason);
+    } catch (err) {
+      console.error("handleEditMessage error (stream)", err);
+      const msg =
+        err instanceof Error ? err.message : t("chat.errors.stream");
+      setErrorMessage(msg);
+    } finally {
+      setAssistantThinking(false);
+      chatStreamRef.current = null;
+      setAssistantMsgId(null);
+    }
+  }
+
   return {
     messages,
     input,
@@ -313,5 +438,6 @@ export function useChatWindow(threadId: string, apiKey: string) {
     assistantDraft,
     assistantFinishReason,
     errorMessage,
+    handleEditMessage,
   };
 }

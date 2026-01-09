@@ -129,6 +129,11 @@ body {
   width: 100%;
   margin-top: 4px;
 }
+.bubble-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .bubble-footer .copy-button {
   padding: 4px;
   color: var(--color-subtext);

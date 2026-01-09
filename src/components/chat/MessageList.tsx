@@ -1,7 +1,15 @@
 // src/components/chat/MessageList.tsx
 import React, { useRef, useState } from "react";
-import { Box, CircularProgress, Collapse, IconButton, Tooltip } from "@mui/material";
-import { ExpandMore, ExpandLess, ContentCopy } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Collapse,
+  IconButton,
+  TextField,
+  Tooltip,
+} from "@mui/material";
+import { ExpandMore, ExpandLess, ContentCopy, Edit } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -18,6 +26,7 @@ interface MessageListProps {
   assistantCoT?: string | null;
   assistantDraft?: string;
   assistantFinishReason?: string | null;
+  onEditMessage?: (messageId: string, content: string) => Promise<void>;
 }
 
 /**
@@ -103,9 +112,13 @@ export default function MessageList({
   assistantCoT,
   assistantDraft,
   assistantFinishReason,
+  onEditMessage,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
   const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
   const copyTimeoutsRef = useRef<Record<string, number>>({});
   const { t } = useTranslation();
   const katexPlugins = [
@@ -155,6 +168,29 @@ export default function MessageList({
     }, 1500);
   };
 
+  const startEditing = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditingValue(content);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingValue("");
+  };
+
+  const submitEditing = async (messageId: string) => {
+    if (!onEditMessage) return;
+    const content = editingValue;
+    setEditingMessageId(null);
+    setEditingValue("");
+    setEditingPendingId(messageId);
+    try {
+      await onEditMessage(messageId, content);
+    } finally {
+      setEditingPendingId(null);
+    }
+  };
+
   return (
     <Box flex="1" overflow="auto" p={2}>
       {messages.map((msg) => {
@@ -165,6 +201,7 @@ export default function MessageList({
         const textToShow = isStreaming ? assistantDraft ?? "" : msg.content;
         const showThinking = isStreaming && waitingForFirstChunk;
         const convertedText = convertRoundBracketsToDollar(textToShow);
+        const isEditing = editingMessageId === msg.id;
         const rawThinkingContent = isStreaming
           ? assistantCoT
           : msg.thinking_content ?? null;
@@ -268,11 +305,44 @@ export default function MessageList({
                   </Box>
                 )}
 
-                <MarkdownBlock
-                  text={convertedText}
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={katexPlugins}
-                />
+                {msg.role === "user" && isEditing ? (
+                  <Box sx={{ mt: 0.5 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      size="small"
+                      value={editingValue}
+                      onChange={(event) => setEditingValue(event.target.value)}
+                    />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 1,
+                        mt: 1,
+                      }}
+                    >
+                      <Button size="small" onClick={cancelEditing}>
+                        {t("common.cancel")}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => void submitEditing(msg.id)}
+                        disabled={editingPendingId === msg.id}
+                      >
+                        {t("common.send")}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <MarkdownBlock
+                    text={convertedText}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={katexPlugins}
+                  />
+                )}
 
                 {showThinking && (
                   <Box display="flex" alignItems="center" gap={1} mt={1}>
@@ -281,28 +351,44 @@ export default function MessageList({
                   </Box>
                 )}
               </Box>
-              <div className="bubble-footer">
-                {isAssistant && finishReason ? (
-                  <div className="finish-reason">
-                    finish_reason: {finishReason}
+              {!isEditing && (
+                <div className="bubble-footer">
+                  {isAssistant && finishReason ? (
+                    <div className="finish-reason">
+                      finish_reason: {finishReason}
+                    </div>
+                  ) : (
+                    <span />
+                  )}
+                  <div className="bubble-actions">
+                    {msg.role === "user" && (
+                      <Tooltip title={t("common.edit")}>
+                        <IconButton
+                          size="small"
+                          className="copy-button"
+                          aria-label="Edit message"
+                          onClick={() => startEditing(msg.id, msg.content)}
+                        >
+                          <Edit fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title={messageCopyLabel}>
+                      <IconButton
+                        size="small"
+                        className="copy-button"
+                        aria-label="Copy message"
+                        onClick={() => {
+                          void copyToClipboard(textToShow);
+                          markCopied(copyMessageKey);
+                        }}
+                      >
+                        <ContentCopy fontSize="inherit" />
+                      </IconButton>
+                    </Tooltip>
                   </div>
-                ) : (
-                  <span />
-                )}
-                <Tooltip title={messageCopyLabel}>
-                  <IconButton
-                    size="small"
-                    className="copy-button"
-                    aria-label="Copy message"
-                    onClick={() => {
-                      void copyToClipboard(textToShow);
-                      markCopied(copyMessageKey);
-                    }}
-                  >
-                    <ContentCopy fontSize="inherit" />
-                  </IconButton>
-                </Tooltip>
-              </div>
+                </div>
+              )}
             </Box>
           </Box>
         );
