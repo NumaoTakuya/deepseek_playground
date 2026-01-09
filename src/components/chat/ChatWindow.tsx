@@ -60,6 +60,7 @@ export default function ChatWindow({ threadId }: Props) {
     assistantFinishReason,
     errorMessage,
     handleEditMessage,
+    handleRegenerateMessage,
   } = useChatWindow(threadId, apiKey);
 
   const [isFirstTime, setIsFirstTime] = useState(true);
@@ -229,6 +230,7 @@ export default function ChatWindow({ threadId }: Props) {
           assistantFinishReason={assistantFinishReason}
           waitingForFirstChunk={waitingForFirstChunk}
           onEditMessage={handleEditMessage}
+          onRegenerateMessage={handleRegenerateMessage}
         />
 
         <InputSection

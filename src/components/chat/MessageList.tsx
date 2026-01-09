@@ -9,7 +9,13 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { ExpandMore, ExpandLess, ContentCopy, Edit } from "@mui/icons-material";
+import {
+  ExpandMore,
+  ExpandLess,
+  ContentCopy,
+  Edit,
+  Refresh,
+} from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -27,6 +33,7 @@ interface MessageListProps {
   assistantDraft?: string;
   assistantFinishReason?: string | null;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
+  onRegenerateMessage?: (messageId: string) => Promise<void>;
 }
 
 /**
@@ -113,6 +120,7 @@ export default function MessageList({
   assistantDraft,
   assistantFinishReason,
   onEditMessage,
+  onRegenerateMessage,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
   const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
@@ -370,6 +378,18 @@ export default function MessageList({
                           onClick={() => startEditing(msg.id, msg.content)}
                         >
                           <Edit fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {isAssistant && (
+                      <Tooltip title={t("chat.regenerate")}>
+                        <IconButton
+                          size="small"
+                          className="copy-button"
+                          aria-label="Regenerate message"
+                          onClick={() => onRegenerateMessage?.(msg.id)}
+                        >
+                          <Refresh fontSize="inherit" />
                         </IconButton>
                       </Tooltip>
                     )}
