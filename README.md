@@ -74,6 +74,8 @@ yarn dev
 ### v0.2.3 (2026-01-10)
 
 - Display `finish_reason` under assistant bubbles to clarify why a stream ended
+- Added copy, regenerate, and branch action buttons on chat messages
+- Added a scroll-to-bottom button in chat threads
 
 ### v0.2.2 (2025-12-12)
 
