@@ -1,7 +1,7 @@
 // src/components/chat/MessageList.tsx
-import React, { useState } from "react";
-import { Box, CircularProgress, Collapse, IconButton } from "@mui/material";
-import { ExpandMore, ExpandLess } from "@mui/icons-material";
+import React, { useRef, useState } from "react";
+import { Box, CircularProgress, Collapse, IconButton, Tooltip } from "@mui/material";
+import { ExpandMore, ExpandLess, ContentCopy } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -105,6 +105,8 @@ export default function MessageList({
   assistantFinishReason,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
+  const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
+  const copyTimeoutsRef = useRef<Record<string, number>>({});
   const { t } = useTranslation();
   const katexPlugins = [
     [
@@ -121,6 +123,36 @@ export default function MessageList({
       ...prev,
       [messageId]: !(prev[messageId] ?? true),
     }));
+  };
+
+  const copyToClipboard = async (text: string) => {
+    if (!text) return;
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.top = "-1000px";
+    textarea.style.left = "-1000px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  };
+
+  const markCopied = (key: string) => {
+    setCopiedState((prev) => ({ ...prev, [key]: true }));
+    const existing = copyTimeoutsRef.current[key];
+    if (existing) {
+      window.clearTimeout(existing);
+    }
+    copyTimeoutsRef.current[key] = window.setTimeout(() => {
+      setCopiedState((prev) => ({ ...prev, [key]: false }));
+      delete copyTimeoutsRef.current[key];
+    }, 1500);
   };
 
   return (
@@ -152,6 +184,14 @@ export default function MessageList({
             : msg.role === "user"
             ? t("chat.roles.user")
             : msg.role;
+        const copyMessageKey = `${msg.id}-content`;
+        const copyThinkingKey = `${msg.id}-thinking`;
+        const messageCopyLabel = copiedState[copyMessageKey]
+          ? t("chat.copy.content.copied")
+          : t("chat.copy.content");
+        const thinkingCopyLabel = copiedState[copyThinkingKey]
+          ? t("chat.copy.thinking.copied")
+          : t("chat.copy.thinking");
 
         return (
           <Box className="bubble-container" key={msg.id}>
@@ -165,35 +205,58 @@ export default function MessageList({
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        cursor: "pointer",
-                        color: "#666",
-                        "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
-                        borderRadius: 1,
-                        p: 0.5,
-                        width: "fit-content",
+                        gap: 0.5,
                       }}
-                      onClick={() => toggleCoT(msg.id)}
                     >
-                      <IconButton
-                        size="small"
+                      <Box
                         sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          color: "#666",
+                          "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
+                          borderRadius: 1,
                           p: 0.5,
-                          color: "inherit",
-                          "&:hover": { backgroundColor: "transparent" },
+                          width: "fit-content",
                         }}
+                        onClick={() => toggleCoT(msg.id)}
                       >
-                        {isCoTExpanded ? <ExpandLess /> : <ExpandMore />}
-                      </IconButton>
-                      <span
-                        style={{
-                          fontSize: "0.8rem",
-                          userSelect: "none",
-                        }}
-                      >
-                        {isCoTExpanded
-                          ? t("chat.cot.collapse")
-                          : t("chat.cot.expand")}
-                      </span>
+                        <IconButton
+                          size="small"
+                          sx={{
+                            p: 0.5,
+                            color: "inherit",
+                            "&:hover": { backgroundColor: "transparent" },
+                          }}
+                        >
+                          {isCoTExpanded ? <ExpandLess /> : <ExpandMore />}
+                        </IconButton>
+                        <span
+                          style={{
+                            fontSize: "0.8rem",
+                            userSelect: "none",
+                          }}
+                        >
+                          {isCoTExpanded
+                            ? t("chat.cot.collapse")
+                            : t("chat.cot.expand")}
+                        </span>
+                      </Box>
+                      <Tooltip title={thinkingCopyLabel}>
+                        <IconButton
+                          size="small"
+                          className="copy-button"
+                          sx={{ color: "var(--color-subtext)" }}
+                          aria-label="Copy thinking content"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void copyToClipboard(thinkingText);
+                            markCopied(copyThinkingKey);
+                          }}
+                        >
+                          <ContentCopy fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                     <Collapse in={isCoTExpanded}>
                       <MarkdownBlock
@@ -218,11 +281,28 @@ export default function MessageList({
                   </Box>
                 )}
               </Box>
-              {isAssistant && finishReason && (
-                <div className="finish-reason">
-                  finish_reason: {finishReason}
-                </div>
-              )}
+              <div className="bubble-footer">
+                {isAssistant && finishReason ? (
+                  <div className="finish-reason">
+                    finish_reason: {finishReason}
+                  </div>
+                ) : (
+                  <span />
+                )}
+                <Tooltip title={messageCopyLabel}>
+                  <IconButton
+                    size="small"
+                    className="copy-button"
+                    aria-label="Copy message"
+                    onClick={() => {
+                      void copyToClipboard(textToShow);
+                      markCopied(copyMessageKey);
+                    }}
+                  >
+                    <ContentCopy fontSize="inherit" />
+                  </IconButton>
+                </Tooltip>
+              </div>
             </Box>
           </Box>
         );
