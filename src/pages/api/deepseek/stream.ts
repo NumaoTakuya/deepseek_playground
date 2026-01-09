@@ -34,6 +34,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<void> {
+  const flushableRes = res as NextApiResponse & { flush?: () => void };
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Method Not Allowed" });
@@ -80,7 +81,7 @@ export default async function handler(
 
     for await (const chunk of stream) {
       res.write(`${JSON.stringify(chunk)}\n`);
-      res.flush?.();
+      flushableRes.flush?.();
     }
     res.end();
   } catch (error) {

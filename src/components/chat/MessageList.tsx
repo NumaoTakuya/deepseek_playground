@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import type { Pluggable } from "unified";
 
 import type { Message } from "../../types";
 import { useTranslation } from "../../contexts/LanguageContext";
@@ -66,8 +67,8 @@ function formatQuote(text: string): string {
 
 type MarkdownBlockProps = {
   text: string;
-  remarkPlugins: unknown[];
-  rehypePlugins: unknown[];
+  remarkPlugins: Pluggable[];
+  rehypePlugins: Pluggable[];
 };
 
 type MarkdownBlockState = {
@@ -138,7 +139,7 @@ export default function MessageList({
   const isAtBottomRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
-  const katexPlugins = [
+  const katexPlugins: Pluggable[] = [
     [
       rehypeKatex,
       {
