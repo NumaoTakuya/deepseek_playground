@@ -217,3 +217,15 @@ body {
   margin-bottom: 8px;
   width: 100%;
 }
+.scroll-to-bottom-inline {
+  background-color: var(--color-bg);
+  color: var(--color-subtext);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+}
+.scroll-to-bottom-inline:hover {
+  background-color: var(--color-panel);
+}

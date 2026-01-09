@@ -18,6 +18,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import CloseIcon from "@mui/icons-material/Close";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -79,6 +80,8 @@ export default function ChatWindow({ threadId }: Props) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
   const sidebarWidth = isSidebarOpen ? 360 : 48;
 
@@ -234,17 +237,59 @@ export default function ChatWindow({ threadId }: Props) {
           </Alert>
         )}
 
-        <MessageList
-          messages={messages}
-          streamingAssistantId={assistantMsgId}
-          assistantCoT={assistantCoT}
-          assistantDraft={assistantDraft}
-          assistantFinishReason={assistantFinishReason}
-          waitingForFirstChunk={waitingForFirstChunk}
-          onEditMessage={handleEditMessage}
-          onRegenerateMessage={handleRegenerateMessage}
-          onBranchMessage={handleBranchMessageAndNavigate}
-        />
+        <Box
+          flex="1"
+          minHeight={0}
+          position="relative"
+          display="flex"
+          flexDirection="column"
+        >
+          <MessageList
+            messages={messages}
+            streamingAssistantId={assistantMsgId}
+            assistantCoT={assistantCoT}
+            assistantDraft={assistantDraft}
+            assistantFinishReason={assistantFinishReason}
+            waitingForFirstChunk={waitingForFirstChunk}
+            onEditMessage={handleEditMessage}
+            onRegenerateMessage={handleRegenerateMessage}
+            onBranchMessage={handleBranchMessageAndNavigate}
+            onScrollStateChange={setIsAtBottom}
+            onRegisterScrollToBottom={(fn) => {
+              scrollToBottomRef.current = fn;
+            }}
+          />
+
+          {!isAtBottom && (
+            <Box
+              sx={{
+                position: "absolute",
+                left: "50%",
+                transform: "translateX(-50%)",
+                bottom: 16,
+                zIndex: 2,
+              }}
+            >
+              <IconButton
+                className="scroll-to-bottom-inline"
+                color="inherit"
+                aria-label={t("chat.scrollToBottom")}
+                onClick={() => scrollToBottomRef.current(true)}
+                sx={{
+                  color: "var(--color-subtext)",
+                  backgroundColor: "var(--color-bg)",
+                  border: "1px solid var(--color-border)",
+                  boxShadow: "none",
+                  "&:hover": {
+                    backgroundColor: "var(--color-panel)",
+                  },
+                }}
+              >
+                <ArrowDownwardIcon fontSize="inherit" sx={{ color: "inherit" }} />
+              </IconButton>
+            </Box>
+          )}
+        </Box>
 
         <InputSection
           input={input}

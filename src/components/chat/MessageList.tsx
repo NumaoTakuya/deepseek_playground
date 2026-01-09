@@ -36,6 +36,8 @@ interface MessageListProps {
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onRegenerateMessage?: (messageId: string) => Promise<void>;
   onBranchMessage?: (messageId: string) => Promise<void>;
+  onScrollStateChange?: (isAtBottom: boolean) => void;
+  onRegisterScrollToBottom?: (fn: (smooth?: boolean) => void) => void;
 }
 
 /**
@@ -124,6 +126,8 @@ export default function MessageList({
   onEditMessage,
   onRegenerateMessage,
   onBranchMessage,
+  onScrollStateChange,
+  onRegisterScrollToBottom,
 }: MessageListProps) {
   const [expandedCoTs, setExpandedCoTs] = useState<Record<string, boolean>>({});
   const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
@@ -131,6 +135,8 @@ export default function MessageList({
   const [editingValue, setEditingValue] = useState("");
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
   const copyTimeoutsRef = useRef<Record<string, number>>({});
+  const isAtBottomRef = useRef(true);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const katexPlugins = [
     [
@@ -217,10 +223,48 @@ export default function MessageList({
     }
   };
 
+  const updateIsAtBottom = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const threshold = 48;
+    const atBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      threshold;
+    isAtBottomRef.current = atBottom;
+    onScrollStateChange?.(atBottom);
+  };
+
+  const scrollToBottom = (smooth = false) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  };
+
+  React.useEffect(() => {
+    onRegisterScrollToBottom?.(scrollToBottom);
+  }, [onRegisterScrollToBottom]);
+
+  React.useEffect(() => {
+    if (isAtBottomRef.current) {
+      scrollToBottom(false);
+    }
+    updateIsAtBottom();
+  }, [messages, assistantDraft, assistantCoT, waitingForFirstChunk]);
+
   return (
-    <Box flex="1" overflow="auto" p={2}>
-      {messages.map((msg) => {
-        if (msg.role === "system") return null;
+    <Box flex="1" minHeight={0} position="relative">
+      <Box
+        ref={scrollRef}
+        onScroll={updateIsAtBottom}
+        height="100%"
+        overflow="auto"
+        p={2}
+      >
+        {messages.map((msg) => {
+          if (msg.role === "system") return null;
 
         const isAssistant = msg.role === "assistant";
         const isStreaming = isAssistant && msg.id === streamingAssistantId;
@@ -459,7 +503,8 @@ export default function MessageList({
             )}
           </React.Fragment>
         );
-      })}
+        })}
+      </Box>
     </Box>
   );
 }
