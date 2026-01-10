@@ -299,6 +299,15 @@ export function useChatWindow(
     const trimmed = newContent.trim();
     if (!trimmed) return;
 
+    const currentSettings = {
+      model,
+      frequencyPenalty,
+      presencePenalty,
+      temperature,
+      topP,
+      maxTokens,
+    };
+
     if (assistantThinking && chatStreamRef.current) {
       chatStreamRef.current.abort();
     }
@@ -322,6 +331,7 @@ export function useChatWindow(
     }
 
     try {
+      await handleSystemPromptUpdate();
       await updateMessage(threadId, messageId, trimmed);
 
       const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
@@ -342,20 +352,26 @@ export function useChatWindow(
       ] as { role: ChatRole; content: string }[];
 
       await updateDoc(doc(db, "threads", threadId), {
-        frequencyPenalty,
-        presencePenalty,
-        temperature,
-        topP,
-        maxTokens,
+        model: currentSettings.model,
+        frequencyPenalty: currentSettings.frequencyPenalty,
+        presencePenalty: currentSettings.presencePenalty,
+        temperature: currentSettings.temperature,
+        topP: currentSettings.topP,
+        maxTokens: currentSettings.maxTokens,
       });
 
-      const chatStream = await streamDeepseek(apiKey, conversation, model, {
-        frequencyPenalty,
-        presencePenalty,
-        temperature,
-        topP,
-        maxTokens,
-      });
+      const chatStream = await streamDeepseek(
+        apiKey,
+        conversation,
+        currentSettings.model,
+        {
+          frequencyPenalty: currentSettings.frequencyPenalty,
+          presencePenalty: currentSettings.presencePenalty,
+          temperature: currentSettings.temperature,
+          topP: currentSettings.topP,
+          maxTokens: currentSettings.maxTokens,
+        }
+      );
       chatStreamRef.current = chatStream;
 
       let partialReasoningContent = "";
@@ -501,6 +517,15 @@ export function useChatWindow(
   }
 
   async function handleRegenerateMessage(messageId: string) {
+    const currentSettings = {
+      model,
+      frequencyPenalty,
+      presencePenalty,
+      temperature,
+      topP,
+      maxTokens,
+    };
+
     if (assistantThinking && chatStreamRef.current) {
       chatStreamRef.current.abort();
     }
@@ -524,6 +549,7 @@ export function useChatWindow(
     }
 
     try {
+      await handleSystemPromptUpdate();
       const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
       await deleteMessages(threadId, toDelete);
 
@@ -541,20 +567,26 @@ export function useChatWindow(
       ] as { role: ChatRole; content: string }[];
 
       await updateDoc(doc(db, "threads", threadId), {
-        frequencyPenalty,
-        presencePenalty,
-        temperature,
-        topP,
-        maxTokens,
+        model: currentSettings.model,
+        frequencyPenalty: currentSettings.frequencyPenalty,
+        presencePenalty: currentSettings.presencePenalty,
+        temperature: currentSettings.temperature,
+        topP: currentSettings.topP,
+        maxTokens: currentSettings.maxTokens,
       });
 
-      const chatStream = await streamDeepseek(apiKey, conversation, model, {
-        frequencyPenalty,
-        presencePenalty,
-        temperature,
-        topP,
-        maxTokens,
-      });
+      const chatStream = await streamDeepseek(
+        apiKey,
+        conversation,
+        currentSettings.model,
+        {
+          frequencyPenalty: currentSettings.frequencyPenalty,
+          presencePenalty: currentSettings.presencePenalty,
+          temperature: currentSettings.temperature,
+          topP: currentSettings.topP,
+          maxTokens: currentSettings.maxTokens,
+        }
+      );
       chatStreamRef.current = chatStream;
 
       let partialReasoningContent = "";
