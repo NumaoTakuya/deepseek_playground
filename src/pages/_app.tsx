@@ -10,6 +10,7 @@ import { ApiKeyProvider } from "../contexts/ApiKeyContext";
 import { initializeUserCount, logEvent, analytics } from "../services/firebase";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { LanguageProvider } from "../contexts/LanguageContext";
+import { Analytics } from "@vercel/analytics/react";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -52,6 +53,7 @@ function MyApp({ Component, pageProps }: AppProps) {
                 <Component {...pageProps} />
               </Layout>
             )}
+            <Analytics />
           </ApiKeyProvider>
         </ThemeProvider>
       </LanguageProvider>

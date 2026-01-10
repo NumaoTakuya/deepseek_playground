@@ -28,6 +28,7 @@ export const config = {
     bodyParser: true,
     responseLimit: false,
   },
+  maxDuration: 300,
 };
 
 export default async function handler(
@@ -73,6 +74,7 @@ export default async function handler(
     res.writeHead(200, {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
+      "Content-Encoding": "identity",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
       "Transfer-Encoding": "chunked",
