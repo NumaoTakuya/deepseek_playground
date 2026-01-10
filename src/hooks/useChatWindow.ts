@@ -61,10 +61,39 @@ export function useChatWindow(
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
+  const settingsRef = useRef({
+    model,
+    frequencyPenalty,
+    presencePenalty,
+    temperature,
+    topP,
+    maxTokens,
+    systemPrompt,
+  });
 
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
   > | null>(null);
+
+  useEffect(() => {
+    settingsRef.current = {
+      model,
+      frequencyPenalty,
+      presencePenalty,
+      temperature,
+      topP,
+      maxTokens,
+      systemPrompt,
+    };
+  }, [
+    model,
+    frequencyPenalty,
+    presencePenalty,
+    temperature,
+    topP,
+    maxTokens,
+    systemPrompt,
+  ]);
 
   // -- メッセージ購読 --
   useEffect(() => {
@@ -299,14 +328,7 @@ export function useChatWindow(
     const trimmed = newContent.trim();
     if (!trimmed) return;
 
-    const currentSettings = {
-      model,
-      frequencyPenalty,
-      presencePenalty,
-      temperature,
-      topP,
-      maxTokens,
-    };
+    const currentSettings = settingsRef.current;
 
     if (assistantThinking && chatStreamRef.current) {
       chatStreamRef.current.abort();
@@ -341,7 +363,7 @@ export function useChatWindow(
       setAssistantMsgId(newAssistantMsgId);
 
       const conversation = [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: currentSettings.systemPrompt },
         ...messages
           .slice(0, targetIndex + 1)
           .filter((m) => m.role !== "system")
@@ -517,14 +539,7 @@ export function useChatWindow(
   }
 
   async function handleRegenerateMessage(messageId: string) {
-    const currentSettings = {
-      model,
-      frequencyPenalty,
-      presencePenalty,
-      temperature,
-      topP,
-      maxTokens,
-    };
+    const currentSettings = settingsRef.current;
 
     if (assistantThinking && chatStreamRef.current) {
       chatStreamRef.current.abort();
@@ -556,7 +571,7 @@ export function useChatWindow(
       setAssistantMsgId(messageId);
 
       const conversation = [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: currentSettings.systemPrompt },
         ...messages
           .slice(0, targetIndex)
           .filter((m) => m.role !== "system")
