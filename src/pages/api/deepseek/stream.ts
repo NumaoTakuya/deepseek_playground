@@ -28,7 +28,7 @@ export const config = {
     bodyParser: true,
     responseLimit: false,
   },
-  maxDuration: 300,
+  maxDuration: 60,
 };
 
 export default async function handler(
