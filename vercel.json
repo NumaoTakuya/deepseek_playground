@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/deepseek/stream": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   }
 }

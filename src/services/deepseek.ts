@@ -280,7 +280,7 @@ export async function callDeepseek(
   parameters?: DeepseekParameters
 ): Promise<string> {
   if (isBrowser) {
-    return callDeepseekViaApi({ apiKey, messages, model, parameters });
+    return callDeepseekServer(apiKey, messages, model, parameters);
   }
   return callDeepseekServer(apiKey, messages, model, parameters);
 }
@@ -323,7 +323,7 @@ export async function streamDeepseek(
   parameters?: DeepseekParameters
 ): Promise<DeepseekStream> {
   if (isBrowser) {
-    return streamDeepseekViaApi({ apiKey, messages, model, parameters });
+    return streamDeepseekServer(apiKey, messages, model, parameters);
   }
   return streamDeepseekServer(apiKey, messages, model, parameters);
 }
