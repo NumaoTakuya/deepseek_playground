@@ -15,6 +15,7 @@ import {
   TextField,
   Switch,
   Divider,
+  Collapse,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -517,7 +518,7 @@ export default function ChatWindow({ threadId }: Props) {
                 </IconButton>
               </Box>
 
-              {showParametersBox && (
+              <Collapse in={showParametersBox} timeout={200} unmountOnExit>
                 <Box sx={{ p: 2 }}>
                   <Box sx={{ mb: 3 }}>
                     <Box
@@ -736,28 +737,28 @@ export default function ChatWindow({ threadId }: Props) {
                       mt: 3,
                       gap: 2,
                     }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "var(--color-subtext)" }}
                     >
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "var(--color-subtext)" }}
-                      >
-                        {t("common.toolsInfo")}
-                      </Typography>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={resetParameters}
-                        sx={{
-                          color: "var(--color-text)",
-                          borderColor: "var(--color-border)",
-                          minWidth: "64px",
-                        }}
-                      >
-                        {t("common.reset")}
-                      </Button>
-                    </Box>
+                      {t("common.toolsInfo")}
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={resetParameters}
+                      sx={{
+                        color: "var(--color-text)",
+                        borderColor: "var(--color-border)",
+                        minWidth: "64px",
+                      }}
+                    >
+                      {t("common.reset")}
+                    </Button>
                   </Box>
-                )}
+                </Box>
+              </Collapse>
             </Box>
 
             <Box
@@ -786,7 +787,7 @@ export default function ChatWindow({ threadId }: Props) {
                 </IconButton>
               </Box>
 
-              {showAdvancedBox && (
+              <Collapse in={showAdvancedBox} timeout={200} unmountOnExit>
                 <Box sx={{ p: 2 }}>
                   <Box
                     sx={{
@@ -843,7 +844,7 @@ export default function ChatWindow({ threadId }: Props) {
                       {showToolsBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                     </IconButton>
                   </Box>
-                  {showToolsBox && (
+                  <Collapse in={showToolsBox} timeout={200} unmountOnExit>
                     <Box
                       sx={{
                         pl: 2,
@@ -954,9 +955,9 @@ export default function ChatWindow({ threadId }: Props) {
                         {t("common.strictModeDescription")}
                       </Typography>
                     </Box>
-                  )}
+                  </Collapse>
                 </Box>
-              )}
+              </Collapse>
             </Box>
           </Box>
         )}

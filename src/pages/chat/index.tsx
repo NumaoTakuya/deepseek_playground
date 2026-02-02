@@ -15,6 +15,7 @@ import {
   Button,
   Switch,
   Divider,
+  Collapse,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -421,7 +422,7 @@ export default function ChatHomePage() {
               </IconButton>
             </Box>
 
-            {showSystemBox && (
+            <Collapse in={showSystemBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
                   backgroundColor: "var(--color-panel)",
@@ -451,7 +452,7 @@ export default function ChatHomePage() {
                   }}
                 />
               </Box>
-            )}
+            </Collapse>
 
             <Box
               sx={{
@@ -475,7 +476,7 @@ export default function ChatHomePage() {
               </IconButton>
             </Box>
 
-            {showParametersBox && (
+            <Collapse in={showParametersBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
                   backgroundColor: "var(--color-panel)",
@@ -710,8 +711,8 @@ export default function ChatHomePage() {
                     {t("common.reset")}
                   </Button>
                 </Box>
-                </Box>
-              )}
+              </Box>
+            </Collapse>
 
             <Box
               sx={{
@@ -735,7 +736,7 @@ export default function ChatHomePage() {
               </IconButton>
             </Box>
 
-            {showAdvancedBox && (
+            <Collapse in={showAdvancedBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
                   backgroundColor: "var(--color-panel)",
@@ -799,7 +800,7 @@ export default function ChatHomePage() {
                     {showToolsBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
                 </Box>
-                {showToolsBox && (
+                <Collapse in={showToolsBox} timeout={200} unmountOnExit>
                   <Box
                     sx={{
                       pl: 2,
@@ -912,9 +913,9 @@ export default function ChatHomePage() {
                       {t("common.strictModeDescription")}
                     </Typography>
                   </Box>
-                )}
+                </Collapse>
               </Box>
-            )}
+            </Collapse>
 
             {/* ユーザーの最初のメッセージ */}
             <Typography variant="h6" sx={{ mb: 1 }}>
