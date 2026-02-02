@@ -119,6 +119,7 @@ export default function ChatHomePage() {
     string | null
   >(null);
   const [jsonOutput, setJsonOutput] = useState(false);
+  const [showToolsBox, setShowToolsBox] = useState(false);
   const { t } = useTranslation();
   const resetParameters = () => {
     setFrequencyPenalty(0);
@@ -771,124 +772,147 @@ export default function ChatHomePage() {
                   {t("common.jsonOutputDescription")}
                 </Typography>
                 <Divider sx={{ my: 2, borderColor: "var(--color-border)" }} />
-                <Typography
-                  variant="subtitle2"
-                  sx={{ color: "var(--color-text)", fontWeight: 600, mb: 1 }}
-                >
-                  {t("common.tools")}
-                </Typography>
                 <Box
                   sx={{
-                    pl: 2,
-                    borderLeft: "1px solid var(--color-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    color: "var(--color-text)",
+                    mb: 1,
                   }}
                 >
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={5}
-                    value={toolsJson}
-                    onChange={(e) => {
-                      setToolsJson(e.target.value);
-                      if (toolsJsonError) {
-                        setToolsJsonError(null);
-                        setError("");
-                      }
-                    }}
-                    label={t("common.toolsJson")}
-                    placeholder={t("common.toolsJsonPlaceholder")}
-                    error={Boolean(toolsJsonError)}
-                    helperText={
-                      toolsJsonError ?? t("common.toolsJsonDescription")
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                  >
+                    {t("common.tools")}
+                  </Typography>
+                  <IconButton
+                    onClick={() => setShowToolsBox((prev) => !prev)}
+                    size="small"
+                    sx={{ color: "var(--color-text)", ml: "auto" }}
+                    aria-label={
+                      showToolsBox
+                        ? t("chat.controls.collapse")
+                        : t("chat.controls.expand")
                     }
-                    variant="outlined"
-                    sx={{
-                      mb: 2,
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: "var(--color-border)" },
-                        "&:hover fieldset": { borderColor: "var(--color-hover)" },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "var(--color-hover)",
-                        },
-                      },
-                      "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
-                      "& .MuiOutlinedInput-input": {
-                        color: "var(--color-text)",
-                        fontFamily:
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
-                      },
-                      "& .MuiFormHelperText-root": {
-                        color: "var(--color-subtext)",
-                      },
-                    }}
-                  />
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={4}
-                    value={toolHandlersJson}
-                    onChange={(e) => {
-                      setToolHandlersJson(e.target.value);
-                      if (toolHandlersJsonError) {
-                        setToolHandlersJsonError(null);
-                        setError("");
-                      }
-                    }}
-                    label={t("common.toolHandlersJson")}
-                    placeholder={t("common.toolHandlersJsonPlaceholder")}
-                    error={Boolean(toolHandlersJsonError)}
-                    helperText={
-                      toolHandlersJsonError ??
-                      t("common.toolHandlersJsonDescription")
-                    }
-                    variant="outlined"
-                    sx={{
-                      mb: 2,
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: "var(--color-border)" },
-                        "&:hover fieldset": { borderColor: "var(--color-hover)" },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "var(--color-hover)",
-                        },
-                      },
-                      "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
-                      "& .MuiOutlinedInput-input": {
-                        color: "var(--color-text)",
-                        fontFamily:
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
-                      },
-                      "& .MuiFormHelperText-root": {
-                        color: "var(--color-subtext)",
-                      },
-                    }}
-                  />
+                  >
+                    {showToolsBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+                {showToolsBox && (
                   <Box
                     sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                      gap: 1,
+                      pl: 2,
+                      borderLeft: "1px solid var(--color-border)",
                     }}
                   >
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ color: "var(--color-text)", fontWeight: 600 }}
-                    >
-                      {t("common.strictMode")}
-                    </Typography>
-                    <Switch
-                      checked={toolsStrict}
-                      onChange={(e) => setToolsStrict(e.target.checked)}
-                      color="primary"
+                    <TextField
+                      fullWidth
+                      multiline
+                      minRows={5}
+                      value={toolsJson}
+                      onChange={(e) => {
+                        setToolsJson(e.target.value);
+                        if (toolsJsonError) {
+                          setToolsJsonError(null);
+                          setError("");
+                        }
+                      }}
+                      label={t("common.toolsJson")}
+                      placeholder={t("common.toolsJsonPlaceholder")}
+                      error={Boolean(toolsJsonError)}
+                      helperText={
+                        toolsJsonError ?? t("common.toolsJsonDescription")
+                      }
+                      variant="outlined"
+                      sx={{
+                        mb: 2,
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: "var(--color-border)" },
+                          "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "var(--color-hover)",
+                          },
+                        },
+                        "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                        "& .MuiOutlinedInput-input": {
+                          color: "var(--color-text)",
+                          fontFamily:
+                            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                        },
+                        "& .MuiFormHelperText-root": {
+                          color: "var(--color-subtext)",
+                        },
+                      }}
                     />
+                    <TextField
+                      fullWidth
+                      multiline
+                      minRows={4}
+                      value={toolHandlersJson}
+                      onChange={(e) => {
+                        setToolHandlersJson(e.target.value);
+                        if (toolHandlersJsonError) {
+                          setToolHandlersJsonError(null);
+                          setError("");
+                        }
+                      }}
+                      label={t("common.toolHandlersJson")}
+                      placeholder={t("common.toolHandlersJsonPlaceholder")}
+                      error={Boolean(toolHandlersJsonError)}
+                      helperText={
+                        toolHandlersJsonError ??
+                        t("common.toolHandlersJsonDescription")
+                      }
+                      variant="outlined"
+                      sx={{
+                        mb: 2,
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: "var(--color-border)" },
+                          "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "var(--color-hover)",
+                          },
+                        },
+                        "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                        "& .MuiOutlinedInput-input": {
+                          color: "var(--color-text)",
+                          fontFamily:
+                            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                        },
+                        "& .MuiFormHelperText-root": {
+                          color: "var(--color-subtext)",
+                        },
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                      >
+                        {t("common.strictMode")}
+                      </Typography>
+                      <Switch
+                        checked={toolsStrict}
+                        onChange={(e) => setToolsStrict(e.target.checked)}
+                        color="primary"
+                      />
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "var(--color-subtext)", display: "block" }}
+                    >
+                      {t("common.strictModeDescription")}
+                    </Typography>
                   </Box>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "var(--color-subtext)", display: "block" }}
-                  >
-                    {t("common.strictModeDescription")}
-                  </Typography>
-                </Box>
+                )}
               </Box>
             )}
 
