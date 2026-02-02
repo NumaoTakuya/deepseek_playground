@@ -105,12 +105,21 @@ export default function ChatWindow({ threadId }: Props) {
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
+  const getMaxTokensDefaults = (selectedModel: string) => {
+    if (selectedModel === "deepseek-reasoner") {
+      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
+    }
+    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
+  };
+
+  const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
+
   const resetParameters = () => {
     setFrequencyPenalty(0);
     setPresencePenalty(0);
     setTemperature(1);
     setTopP(1);
-    setMaxTokens(1024);
+    setMaxTokens(defaultMaxTokens);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -716,7 +725,7 @@ export default function ChatWindow({ threadId }: Props) {
                         setMaxTokens(Array.isArray(value) ? value[0] : value)
                       }
                       min={1}
-                      max={4096}
+                      max={maxTokensLimit}
                       step={64}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="max tokens"

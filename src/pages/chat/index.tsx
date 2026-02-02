@@ -100,6 +100,9 @@ export default function ChatHomePage() {
     handleOnboardingClose(shouldSkip);
   };
 
+  // Deepseekモデル選択
+  const [model, setModel] = useState("deepseek-chat");
+
   // system prompt
   const [systemInput, setSystemInput] = useState(
     "You are a helpful assistant."
@@ -111,7 +114,7 @@ export default function ChatHomePage() {
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
-  const [maxTokens, setMaxTokens] = useState(1024);
+  const [maxTokens, setMaxTokens] = useState(4096);
   const [toolsJson, setToolsJson] = useState("");
   const [toolsStrict, setToolsStrict] = useState(false);
   const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);
@@ -122,13 +125,34 @@ export default function ChatHomePage() {
   const [jsonOutput, setJsonOutput] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
   const { t } = useTranslation();
+  const getMaxTokensDefaults = (selectedModel: string) => {
+    if (selectedModel === "deepseek-reasoner") {
+      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
+    }
+    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
+  };
+
+  const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
+
   const resetParameters = () => {
     setFrequencyPenalty(0);
     setPresencePenalty(0);
     setTemperature(1);
     setTopP(1);
-    setMaxTokens(1024);
+    setMaxTokens(defaultMaxTokens);
   };
+
+  const previousDefaultMaxTokensRef = React.useRef(defaultMaxTokens);
+
+  useEffect(() => {
+    const previousDefault = previousDefaultMaxTokensRef.current;
+    const shouldReplaceDefault = maxTokens === previousDefault;
+    const shouldClamp = maxTokens > maxTokensLimit;
+    if (shouldReplaceDefault || shouldClamp) {
+      setMaxTokens(Math.min(maxTokensLimit, defaultMaxTokens));
+    }
+    previousDefaultMaxTokensRef.current = defaultMaxTokens;
+  }, [defaultMaxTokens, maxTokens, maxTokensLimit]);
 
   const parseToolsJson = (raw: string) => {
     const trimmed = raw.trim();
@@ -166,9 +190,6 @@ export default function ChatHomePage() {
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Deepseekモデル選択
-  const [model, setModel] = useState("deepseek-chat");
 
   if (!user) return null;
 
@@ -677,7 +698,7 @@ export default function ChatHomePage() {
                       setMaxTokens(Array.isArray(value) ? value[0] : value)
                     }
                     min={1}
-                    max={4096}
+                    max={maxTokensLimit}
                     step={64}
                     sx={{ color: "var(--color-primary)" }}
                     aria-label="max tokens"

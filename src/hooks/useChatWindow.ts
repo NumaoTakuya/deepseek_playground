@@ -44,7 +44,7 @@ export function useChatWindow(
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
-  const [maxTokens, setMaxTokens] = useState(1024);
+  const [maxTokens, setMaxTokens] = useState(4096);
   const [toolsJson, setToolsJson] = useState("");
   const [toolsStrict, setToolsStrict] = useState(false);
   const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);
@@ -77,6 +77,26 @@ export function useChatWindow(
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
+  const getMaxTokensDefaults = (selectedModel: string) => {
+    if (selectedModel === "deepseek-reasoner") {
+      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
+    }
+    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
+  };
+
+  const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
+  const previousDefaultMaxTokensRef = useRef(defaultMaxTokens);
+
+  useEffect(() => {
+    const previousDefault = previousDefaultMaxTokensRef.current;
+    const shouldReplaceDefault = maxTokens === previousDefault;
+    const shouldClamp = maxTokens > maxTokensLimit;
+    if (shouldReplaceDefault || shouldClamp) {
+      setMaxTokens(Math.min(maxTokensLimit, defaultMaxTokens));
+    }
+    previousDefaultMaxTokensRef.current = defaultMaxTokens;
+  }, [defaultMaxTokens, maxTokens, maxTokensLimit]);
+
   const settingsRef = useRef({
     model,
     frequencyPenalty,
