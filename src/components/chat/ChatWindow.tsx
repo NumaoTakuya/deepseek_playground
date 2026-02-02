@@ -68,6 +68,8 @@ export default function ChatWindow({ threadId }: Props) {
     setToolHandlersJsonError,
     jsonOutput,
     setJsonOutput,
+    handleJsonOutputToggle,
+    handleToolsStrictToggle,
     systemPrompt,
     setSystemPrompt,
     model,
@@ -815,7 +817,7 @@ export default function ChatWindow({ threadId }: Props) {
                     </Typography>
                     <Switch
                       checked={jsonOutput}
-                      onChange={(e) => setJsonOutput(e.target.checked)}
+                      onChange={(e) => handleJsonOutputToggle(e.target.checked)}
                       color="primary"
                     />
                   </Box>
@@ -953,7 +955,9 @@ export default function ChatWindow({ threadId }: Props) {
                         </Typography>
                         <Switch
                           checked={toolsStrict}
-                          onChange={(e) => setToolsStrict(e.target.checked)}
+                          onChange={(e) =>
+                            handleToolsStrictToggle(e.target.checked)
+                          }
                           color="primary"
                         />
                       </Box>

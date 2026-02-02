@@ -40,6 +40,9 @@ export default function ChatHomePage() {
   const [hasDismissedThisSession, setHasDismissedThisSession] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const DRAFT_TOOLS_JSON_KEY = "chat-index-draft-toolsJson";
+  const DRAFT_TOOL_HANDLERS_KEY = "chat-index-draft-toolHandlersJson";
+  const DRAFT_INPUT_KEY = "chat-index-draft-input";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -52,6 +55,22 @@ export default function ChatHomePage() {
     }
     setPreferencesLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draftToolsJson = window.localStorage.getItem(DRAFT_TOOLS_JSON_KEY);
+    const draftToolHandlers = window.localStorage.getItem(DRAFT_TOOL_HANDLERS_KEY);
+    const draftInput = window.localStorage.getItem(DRAFT_INPUT_KEY);
+    if (draftToolsJson !== null) {
+      setToolsJson(draftToolsJson);
+    }
+    if (draftToolHandlers !== null) {
+      setToolHandlersJson(draftToolHandlers);
+    }
+    if (draftInput !== null) {
+      setUserInput(draftInput);
+    }
+  }, [DRAFT_INPUT_KEY, DRAFT_TOOL_HANDLERS_KEY, DRAFT_TOOLS_JSON_KEY]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -258,6 +277,9 @@ export default function ChatHomePage() {
         `thread-${newThreadId}-jsonOutput`,
         String(jsonOutput)
       );
+      localStorage.removeItem(DRAFT_TOOLS_JSON_KEY);
+      localStorage.removeItem(DRAFT_TOOL_HANDLERS_KEY);
+      localStorage.removeItem(DRAFT_INPUT_KEY);
 
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
@@ -833,13 +855,14 @@ export default function ChatHomePage() {
                       multiline
                       minRows={5}
                       value={toolsJson}
-                      onChange={(e) => {
-                        setToolsJson(e.target.value);
-                        if (toolsJsonError) {
-                          setToolsJsonError(null);
-                          setError("");
-                        }
-                      }}
+                  onChange={(e) => {
+                    setToolsJson(e.target.value);
+                    localStorage.setItem(DRAFT_TOOLS_JSON_KEY, e.target.value);
+                    if (toolsJsonError) {
+                      setToolsJsonError(null);
+                      setError("");
+                    }
+                  }}
                       label={t("common.toolsJson")}
                       placeholder={t("common.toolsJsonPlaceholder")}
                       error={Boolean(toolsJsonError)}
@@ -872,13 +895,14 @@ export default function ChatHomePage() {
                       multiline
                       minRows={4}
                       value={toolHandlersJson}
-                      onChange={(e) => {
-                        setToolHandlersJson(e.target.value);
-                        if (toolHandlersJsonError) {
-                          setToolHandlersJsonError(null);
-                          setError("");
-                        }
-                      }}
+                  onChange={(e) => {
+                    setToolHandlersJson(e.target.value);
+                    localStorage.setItem(DRAFT_TOOL_HANDLERS_KEY, e.target.value);
+                    if (toolHandlersJsonError) {
+                      setToolHandlersJsonError(null);
+                      setError("");
+                    }
+                  }}
                       label={t("common.toolHandlersJson")}
                       placeholder={t("common.toolHandlersJsonPlaceholder")}
                       error={Boolean(toolHandlersJsonError)}
@@ -952,7 +976,10 @@ export default function ChatHomePage() {
                 label={t("chat.placeholders.firstMessage")}
                 variant="outlined"
                 value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
+                onChange={(e) => {
+                  setUserInput(e.target.value);
+                  localStorage.setItem(DRAFT_INPUT_KEY, e.target.value);
+                }}
                 onKeyDown={handleKeyDownUser}
                 sx={{
                   backgroundColor: "var(--color-panel)",

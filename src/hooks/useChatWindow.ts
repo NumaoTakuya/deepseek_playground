@@ -53,6 +53,8 @@ export function useChatWindow(
     string | null
   >(null);
   const [jsonOutput, setJsonOutput] = useState(false);
+  const toolsJsonDraftRef = useRef(false);
+  const toolHandlersDraftRef = useRef(false);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -114,6 +116,48 @@ export function useChatWindow(
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
   > | null>(null);
+
+  const buildDraftKey = (suffix: string) => `thread-${threadId}-draft-${suffix}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draftToolsJson = window.localStorage.getItem(buildDraftKey("toolsJson"));
+    const draftToolHandlersJson = window.localStorage.getItem(
+      buildDraftKey("toolHandlersJson")
+    );
+    const draftInput = window.localStorage.getItem(buildDraftKey("input"));
+
+    if (draftToolsJson !== null) {
+      toolsJsonDraftRef.current = true;
+      setToolsJson(draftToolsJson);
+    } else {
+      toolsJsonDraftRef.current = false;
+    }
+    if (draftToolHandlersJson !== null) {
+      toolHandlersDraftRef.current = true;
+      setToolHandlersJson(draftToolHandlersJson);
+    } else {
+      toolHandlersDraftRef.current = false;
+    }
+    if (draftInput !== null) {
+      setInput(draftInput);
+    }
+  }, [threadId, setInput, setToolHandlersJson, setToolsJson]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("toolsJson"), toolsJson);
+  }, [threadId, toolsJson]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("toolHandlersJson"), toolHandlersJson);
+  }, [threadId, toolHandlersJson]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("input"), input);
+  }, [threadId, input]);
 
   useEffect(() => {
     settingsRef.current = {
@@ -426,13 +470,16 @@ export function useChatWindow(
         if (typeof data.maxTokens === "number") {
           setMaxTokens(data.maxTokens);
         }
-        if (typeof data.toolsJson === "string") {
+        if (typeof data.toolsJson === "string" && !toolsJsonDraftRef.current) {
           setToolsJson(data.toolsJson);
         }
         if (typeof data.toolsStrict === "boolean") {
           setToolsStrict(data.toolsStrict);
         }
-        if (typeof data.toolHandlersJson === "string") {
+        if (
+          typeof data.toolHandlersJson === "string" &&
+          !toolHandlersDraftRef.current
+        ) {
           setToolHandlersJson(data.toolHandlersJson);
         }
         if (typeof data.jsonOutput === "boolean") {
@@ -456,6 +503,16 @@ export function useChatWindow(
   async function handleModelChange(newModel: string) {
     setModel(newModel);
     await updateDoc(doc(db, "threads", threadId), { model: newModel });
+  }
+
+  async function handleJsonOutputToggle(enabled: boolean) {
+    setJsonOutput(enabled);
+    await updateDoc(doc(db, "threads", threadId), { jsonOutput: enabled });
+  }
+
+  async function handleToolsStrictToggle(enabled: boolean) {
+    setToolsStrict(enabled);
+    await updateDoc(doc(db, "threads", threadId), { toolsStrict: enabled });
   }
 
   // -- 送信 --
@@ -1216,11 +1273,13 @@ export function useChatWindow(
     setToolHandlersJsonError,
     jsonOutput,
     setJsonOutput,
+    handleJsonOutputToggle,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,
     setShowSystemBox,
     handleModelChange,
+    handleToolsStrictToggle,
     handleSend,
     waitingForFirstChunk,
     assistantThinking,
