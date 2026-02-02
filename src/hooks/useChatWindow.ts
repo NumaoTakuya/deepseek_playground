@@ -9,12 +9,20 @@ import {
   updateMessage,
   deleteMessages,
 } from "../services/message";
-import { streamDeepseek } from "../services/deepseek";
+import { streamDeepseek, type ChatCompletionMessageParam } from "../services/deepseek";
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
 
 type ChatRole = "system" | "user" | "assistant";
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
 
 export function useChatWindow(
   threadId: string,
@@ -37,6 +45,13 @@ export function useChatWindow(
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
   const [maxTokens, setMaxTokens] = useState(1024);
+  const [toolsJson, setToolsJson] = useState("");
+  const [toolsStrict, setToolsStrict] = useState(false);
+  const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);
+  const [toolHandlersJson, setToolHandlersJson] = useState("");
+  const [toolHandlersJsonError, setToolHandlersJsonError] = useState<
+    string | null
+  >(null);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -69,6 +84,9 @@ export function useChatWindow(
     topP,
     maxTokens,
     systemPrompt,
+    toolsJson,
+    toolsStrict,
+    toolHandlersJson,
   });
 
   const chatStreamRef = useRef<Awaited<
@@ -83,8 +101,11 @@ export function useChatWindow(
       temperature,
       topP,
       maxTokens,
-      systemPrompt,
-    };
+    systemPrompt,
+    toolsJson,
+    toolsStrict,
+    toolHandlersJson,
+  };
   }, [
     model,
     frequencyPenalty,
@@ -93,7 +114,228 @@ export function useChatWindow(
     topP,
     maxTokens,
     systemPrompt,
+    toolsJson,
+    toolsStrict,
+    toolHandlersJson,
   ]);
+
+  const parseToolsJson = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { tools: undefined };
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed)) {
+        return { error: t("common.toolsJsonInvalid") };
+      }
+      return { tools: parsed };
+    } catch (error) {
+      return { error: t("common.toolsJsonInvalid") };
+    }
+  };
+
+  const parseToolHandlersJson = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { handlers: undefined };
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { error: t("common.toolHandlersJsonInvalid") };
+      }
+      return { handlers: parsed as Record<string, unknown> };
+    } catch (error) {
+      return { error: t("common.toolHandlersJsonInvalid") };
+    }
+  };
+
+  const applyStrictToTools = (tools: unknown[], strict: boolean) => {
+    if (!strict) return tools;
+    return tools.map((tool) => {
+      if (!tool || typeof tool !== "object") return tool;
+      const record = tool as Record<string, unknown>;
+      if (record.type !== "function") return tool;
+      const fn = record.function;
+      if (!fn || typeof fn !== "object") return tool;
+      return {
+        ...record,
+        function: {
+          ...(fn as Record<string, unknown>),
+          strict: true,
+        },
+      };
+    });
+  };
+
+  const buildToolConfig = (rawJson: string, strict: boolean) => {
+    const parsed = parseToolsJson(rawJson);
+    if (parsed.error) {
+      setErrorMessage(parsed.error);
+      setToolsJsonError(parsed.error);
+      return { error: parsed.error };
+    }
+    setToolsJsonError(null);
+    if (!parsed.tools || parsed.tools.length === 0) {
+      return { toolConfig: undefined };
+    }
+    return {
+      toolConfig: {
+        tools: applyStrictToTools(parsed.tools, strict),
+        strict,
+      },
+    };
+  };
+
+  const buildToolHandlers = (rawJson: string) => {
+    const parsed = parseToolHandlersJson(rawJson);
+    if (parsed.error) {
+      setErrorMessage(parsed.error);
+      setToolHandlersJsonError(parsed.error);
+      return { error: parsed.error };
+    }
+    setToolHandlersJsonError(null);
+    return { handlers: parsed.handlers };
+  };
+
+  const resolveToolCalls = async (
+    toolCalls: ToolCall[],
+    handlers: Record<string, unknown> | undefined
+  ) => {
+    if (!handlers) {
+      throw new Error(t("chat.errors.toolHandlersNotConfigured"));
+    }
+
+    const toolMessages = [];
+    for (const toolCall of toolCalls) {
+      const handler = handlers[toolCall.function.name];
+      if (handler === undefined) {
+        throw new Error(
+          t("chat.errors.toolHandlerMissing", {
+            name: toolCall.function.name,
+          })
+        );
+      }
+      let args: unknown = {};
+      try {
+        args = toolCall.function.arguments
+          ? JSON.parse(toolCall.function.arguments)
+          : {};
+      } catch (error) {
+        throw new Error(t("chat.errors.toolArgsInvalid"));
+      }
+
+      const result =
+        typeof handler === "function"
+          ? await (
+              handler as (input: unknown) => Promise<unknown> | unknown
+            )(args)
+          : handler;
+      const content =
+        typeof result === "string" ? result : JSON.stringify(result ?? null);
+      toolMessages.push({
+        role: "tool" as const,
+        tool_call_id: toolCall.id,
+        content,
+      });
+    }
+    return toolMessages;
+  };
+
+  const streamWithToolCalls = async (
+    conversation: { role: ChatRole; content: string }[] | ChatCompletionMessageParam[],
+    modelName: string,
+    parameters: {
+      frequencyPenalty?: number;
+      presencePenalty?: number;
+      temperature?: number;
+      topP?: number;
+      maxTokens?: number;
+    },
+    toolConfig?: { tools?: unknown[]; strict?: boolean }
+  ) => {
+    const chatStream = await streamDeepseek(apiKey, conversation, modelName, parameters, toolConfig);
+    chatStreamRef.current = chatStream;
+
+    let partialReasoningContent = "";
+    let partialContent = "";
+    let finalFinishReason: string | null = null;
+    let first = true;
+    const toolCallsByIndex = new Map<number, ToolCall>();
+
+    for await (const chunk of chatStream) {
+      interface Delta {
+        reasoning_content?: string;
+        content?: string;
+        tool_calls?: Array<{
+          index?: number;
+          id?: string;
+          type?: "function";
+          function?: { name?: string; arguments?: string };
+        }>;
+      }
+
+      const delta = chunk.choices[0]?.delta as Delta;
+      const finishReason = chunk.choices[0]?.finish_reason;
+      const delta_reasoning_content = delta.reasoning_content ?? "";
+      const delta_content = delta.content ?? "";
+      if (finishReason) {
+        finalFinishReason = finishReason;
+        setAssistantFinishReason(finishReason);
+      }
+      if (delta_reasoning_content) {
+        partialReasoningContent += delta_reasoning_content;
+        if (first) {
+          setWaitingForFirstChunk(false);
+          first = false;
+        }
+        setAssistantCoT(partialReasoningContent);
+      }
+      if (delta_content) {
+        partialContent += delta_content;
+        if (first) {
+          setWaitingForFirstChunk(false);
+          first = false;
+        }
+        setAssistantDraft(partialContent);
+      }
+      if (Array.isArray(delta.tool_calls)) {
+        for (const call of delta.tool_calls) {
+          const index = typeof call.index === "number" ? call.index : toolCallsByIndex.size;
+          const existing = toolCallsByIndex.get(index) ?? {
+            id: "",
+            type: "function" as const,
+            function: { name: "", arguments: "" },
+          };
+          if (typeof call.id === "string") {
+            existing.id = call.id;
+          }
+          if (call.type) {
+            existing.type = call.type;
+          }
+          if (call.function?.name) {
+            existing.function.name = call.function.name;
+          }
+          if (typeof call.function?.arguments === "string") {
+            existing.function.arguments += call.function.arguments;
+          }
+          toolCallsByIndex.set(index, existing);
+        }
+      }
+    }
+
+    const toolCalls = Array.from(toolCallsByIndex.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map((entry) => entry[1]);
+
+    return {
+      partialContent,
+      partialReasoningContent,
+      finalFinishReason,
+      toolCalls,
+    };
+  };
 
   // -- メッセージ購読 --
   useEffect(() => {
@@ -128,6 +370,9 @@ export function useChatWindow(
           temperature?: number;
           topP?: number;
           maxTokens?: number;
+          toolsJson?: string;
+          toolsStrict?: boolean;
+          toolHandlersJson?: string;
         };
         setModel(data.model ?? "deepseek-chat");
         if (typeof data.title === "string") {
@@ -147,6 +392,15 @@ export function useChatWindow(
         }
         if (typeof data.maxTokens === "number") {
           setMaxTokens(data.maxTokens);
+        }
+        if (typeof data.toolsJson === "string") {
+          setToolsJson(data.toolsJson);
+        }
+        if (typeof data.toolsStrict === "boolean") {
+          setToolsStrict(data.toolsStrict);
+        }
+        if (typeof data.toolHandlersJson === "string") {
+          setToolHandlersJson(data.toolHandlersJson);
         }
       }
     });
@@ -199,6 +453,18 @@ export function useChatWindow(
     setAssistantFinishReason(null);
 
     try {
+      const tooling = buildToolConfig(toolsJson, toolsStrict);
+      if (tooling.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
+      const handlersResult = buildToolHandlers(toolHandlersJson);
+      if (handlersResult.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
       // 1) systemPromptをFirestoreへ
       await handleSystemPromptUpdate();
 
@@ -227,70 +493,136 @@ export function useChatWindow(
         temperature,
         topP,
         maxTokens,
+        toolsJson,
+        toolsStrict,
+        toolHandlersJson,
       });
 
       // 5) ストリーミング
-      const chatStream = await streamDeepseek(apiKey, conversation, model, {
-        frequencyPenalty,
-        presencePenalty,
-        temperature,
-        topP,
-        maxTokens,
-      });
-      chatStreamRef.current = chatStream;
-
-      let partialReasoningContent = "";
-      let partialContent = "";
-      let finalFinishReason: string | null = null;
-      let first = true;
-
-      for await (const chunk of chatStream) {
-        interface Delta {
-          reasoning_content?: string;
-          content?: string;
-        }
-
-        const delta = chunk.choices[0]?.delta as Delta;
-        const finishReason = chunk.choices[0]?.finish_reason;
-        const delta_reasoning_content = delta.reasoning_content ?? "";
-        const delta_content = delta.content ?? "";
-        if (finishReason) {
-          finalFinishReason = finishReason;
-          setAssistantFinishReason(finishReason);
-        }
-        if (delta_reasoning_content) {
-          // console.log("[stream] reasoning delta", delta_reasoning_content);
-          partialReasoningContent += delta_reasoning_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantCoT(partialReasoningContent);
-        }
-        if (delta_content) {
-          // console.log("[stream] content delta", delta_content);
-          partialContent += delta_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantDraft(partialContent);
-        }
-      }
-
-      // 6) ストリーム完了: Firestoreにまとめて書き込み
-      const finalThinkingContent = partialReasoningContent.trim()
-        ? partialReasoningContent
-        : null;
-      await updateMessage(
-        threadId,
-        newAssistantMsgId,
-        partialContent,
-        finalThinkingContent,
-        finalFinishReason
+      const firstPass = await streamWithToolCalls(
+        conversation,
+        model,
+        {
+          frequencyPenalty,
+          presencePenalty,
+          temperature,
+          topP,
+          maxTokens,
+        },
+        tooling.toolConfig
       );
-      setAssistantCoT(finalThinkingContent);
-      setAssistantFinishReason(finalFinishReason);
+
+      let finalResponseLength = 0;
+
+      if (
+        firstPass.finalFinishReason === "tool_calls" &&
+        firstPass.toolCalls.length > 0
+      ) {
+        const assistantToolMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: firstPass.partialContent ?? "",
+          tool_calls: firstPass.toolCalls,
+        };
+
+        let toolMessages: ChatCompletionMessageParam[];
+        try {
+          toolMessages = await resolveToolCalls(
+            firstPass.toolCalls,
+            handlersResult.handlers
+          );
+        } catch (toolError) {
+          const msg =
+            toolError instanceof Error
+              ? toolError.message
+              : t("chat.errors.toolCallFailed");
+          setErrorMessage(msg);
+          await updateMessage(
+            threadId,
+            newAssistantMsgId,
+            firstPass.partialContent,
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null,
+            firstPass.finalFinishReason
+          );
+          setAssistantCoT(
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null
+          );
+          setAssistantFinishReason(firstPass.finalFinishReason);
+          return;
+        }
+
+        const firstThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          newAssistantMsgId,
+          firstPass.partialContent,
+          firstThinkingContent,
+          firstPass.finalFinishReason
+        );
+
+        const secondAssistantMsgId = await createMessage(
+          threadId,
+          "assistant",
+          ""
+        );
+        setAssistantMsgId(secondAssistantMsgId);
+        setWaitingForFirstChunk(true);
+        setAssistantCoT(null);
+        setAssistantDraft("");
+
+        const secondConversation = [
+          ...conversation,
+          assistantToolMessage,
+          ...toolMessages,
+        ];
+
+        const secondPass = await streamWithToolCalls(
+          secondConversation,
+          model,
+          {
+            frequencyPenalty,
+            presencePenalty,
+            temperature,
+            topP,
+            maxTokens,
+          },
+          tooling.toolConfig
+        );
+
+        const finalThinkingContent = secondPass.partialReasoningContent.trim()
+          ? secondPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          secondAssistantMsgId,
+          secondPass.partialContent,
+          finalThinkingContent,
+          secondPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(secondPass.finalFinishReason);
+        finalResponseLength = secondPass.partialContent.length;
+      } else {
+        // 6) ストリーム完了: Firestoreにまとめて書き込み
+        const finalThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          newAssistantMsgId,
+          firstPass.partialContent,
+          finalThinkingContent,
+          firstPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(firstPass.finalFinishReason);
+        finalResponseLength = firstPass.partialContent.length;
+      }
 
       // メッセージ送信成功イベント
       if (analytics) {
@@ -298,7 +630,7 @@ export function useChatWindow(
           threadId,
           model,
           messageLength: userText.length,
-          responseLength: partialContent.length,
+          responseLength: finalResponseLength,
           duration: Date.now() - startTime,
         });
       }
@@ -353,6 +685,21 @@ export function useChatWindow(
     }
 
     try {
+      const tooling = buildToolConfig(
+        currentSettings.toolsJson,
+        currentSettings.toolsStrict
+      );
+      if (tooling.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
+      const handlersResult = buildToolHandlers(currentSettings.toolHandlersJson);
+      if (handlersResult.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
       await handleSystemPromptUpdate();
       await updateMessage(threadId, messageId, trimmed);
 
@@ -380,10 +727,12 @@ export function useChatWindow(
         temperature: currentSettings.temperature,
         topP: currentSettings.topP,
         maxTokens: currentSettings.maxTokens,
+        toolsJson: currentSettings.toolsJson,
+        toolsStrict: currentSettings.toolsStrict,
+        toolHandlersJson: currentSettings.toolHandlersJson,
       });
 
-      const chatStream = await streamDeepseek(
-        apiKey,
+      const firstPass = await streamWithToolCalls(
         conversation,
         currentSettings.model,
         {
@@ -392,59 +741,116 @@ export function useChatWindow(
           temperature: currentSettings.temperature,
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
-        }
+        },
+        tooling.toolConfig
       );
-      chatStreamRef.current = chatStream;
 
-      let partialReasoningContent = "";
-      let partialContent = "";
-      let finalFinishReason: string | null = null;
-      let first = true;
+      if (
+        firstPass.finalFinishReason === "tool_calls" &&
+        firstPass.toolCalls.length > 0
+      ) {
+        const assistantToolMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: firstPass.partialContent ?? "",
+          tool_calls: firstPass.toolCalls,
+        };
 
-      for await (const chunk of chatStream) {
-        interface Delta {
-          reasoning_content?: string;
-          content?: string;
+        let toolMessages: ChatCompletionMessageParam[];
+        try {
+          toolMessages = await resolveToolCalls(
+            firstPass.toolCalls,
+            handlersResult.handlers
+          );
+        } catch (toolError) {
+          const msg =
+            toolError instanceof Error
+              ? toolError.message
+              : t("chat.errors.toolCallFailed");
+          setErrorMessage(msg);
+          await updateMessage(
+            threadId,
+            newAssistantMsgId,
+            firstPass.partialContent,
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null,
+            firstPass.finalFinishReason
+          );
+          setAssistantCoT(
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null
+          );
+          setAssistantFinishReason(firstPass.finalFinishReason);
+          return;
         }
 
-        const delta = chunk.choices[0]?.delta as Delta;
-        const finishReason = chunk.choices[0]?.finish_reason;
-        const delta_reasoning_content = delta.reasoning_content ?? "";
-        const delta_content = delta.content ?? "";
-        if (finishReason) {
-          finalFinishReason = finishReason;
-          setAssistantFinishReason(finishReason);
-        }
-        if (delta_reasoning_content) {
-          partialReasoningContent += delta_reasoning_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantCoT(partialReasoningContent);
-        }
-        if (delta_content) {
-          partialContent += delta_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantDraft(partialContent);
-        }
+        const firstThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          newAssistantMsgId,
+          firstPass.partialContent,
+          firstThinkingContent,
+          firstPass.finalFinishReason
+        );
+
+        const secondAssistantMsgId = await createMessage(
+          threadId,
+          "assistant",
+          ""
+        );
+        setAssistantMsgId(secondAssistantMsgId);
+        setWaitingForFirstChunk(true);
+        setAssistantCoT(null);
+        setAssistantDraft("");
+
+        const secondConversation = [
+          ...conversation,
+          assistantToolMessage,
+          ...toolMessages,
+        ];
+
+        const secondPass = await streamWithToolCalls(
+          secondConversation,
+          currentSettings.model,
+          {
+            frequencyPenalty: currentSettings.frequencyPenalty,
+            presencePenalty: currentSettings.presencePenalty,
+            temperature: currentSettings.temperature,
+            topP: currentSettings.topP,
+            maxTokens: currentSettings.maxTokens,
+          },
+          tooling.toolConfig
+        );
+
+        const finalThinkingContent = secondPass.partialReasoningContent.trim()
+          ? secondPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          secondAssistantMsgId,
+          secondPass.partialContent,
+          finalThinkingContent,
+          secondPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(secondPass.finalFinishReason);
+      } else {
+        const finalThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          newAssistantMsgId,
+          firstPass.partialContent,
+          finalThinkingContent,
+          firstPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(firstPass.finalFinishReason);
       }
-
-      const finalThinkingContent = partialReasoningContent.trim()
-        ? partialReasoningContent
-        : null;
-      await updateMessage(
-        threadId,
-        newAssistantMsgId,
-        partialContent,
-        finalThinkingContent,
-        finalFinishReason
-      );
-      setAssistantCoT(finalThinkingContent);
-      setAssistantFinishReason(finalFinishReason);
     } catch (err) {
       console.error("handleEditMessage error (stream)", err);
       const msg =
@@ -484,6 +890,9 @@ export function useChatWindow(
         temperature,
         topP,
         maxTokens,
+        toolsJson,
+        toolsStrict,
+        toolHandlersJson,
       });
 
       await createMessage(newThreadId, "system", systemPrompt);
@@ -564,6 +973,21 @@ export function useChatWindow(
     }
 
     try {
+      const tooling = buildToolConfig(
+        currentSettings.toolsJson,
+        currentSettings.toolsStrict
+      );
+      if (tooling.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
+      const handlersResult = buildToolHandlers(currentSettings.toolHandlersJson);
+      if (handlersResult.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
       await handleSystemPromptUpdate();
       const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
       await deleteMessages(threadId, toDelete);
@@ -588,10 +1012,12 @@ export function useChatWindow(
         temperature: currentSettings.temperature,
         topP: currentSettings.topP,
         maxTokens: currentSettings.maxTokens,
+        toolsJson: currentSettings.toolsJson,
+        toolsStrict: currentSettings.toolsStrict,
+        toolHandlersJson: currentSettings.toolHandlersJson,
       });
 
-      const chatStream = await streamDeepseek(
-        apiKey,
+      const firstPass = await streamWithToolCalls(
         conversation,
         currentSettings.model,
         {
@@ -600,59 +1026,116 @@ export function useChatWindow(
           temperature: currentSettings.temperature,
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
-        }
+        },
+        tooling.toolConfig
       );
-      chatStreamRef.current = chatStream;
 
-      let partialReasoningContent = "";
-      let partialContent = "";
-      let finalFinishReason: string | null = null;
-      let first = true;
+      if (
+        firstPass.finalFinishReason === "tool_calls" &&
+        firstPass.toolCalls.length > 0
+      ) {
+        const assistantToolMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: firstPass.partialContent ?? "",
+          tool_calls: firstPass.toolCalls,
+        };
 
-      for await (const chunk of chatStream) {
-        interface Delta {
-          reasoning_content?: string;
-          content?: string;
+        let toolMessages: ChatCompletionMessageParam[];
+        try {
+          toolMessages = await resolveToolCalls(
+            firstPass.toolCalls,
+            handlersResult.handlers
+          );
+        } catch (toolError) {
+          const msg =
+            toolError instanceof Error
+              ? toolError.message
+              : t("chat.errors.toolCallFailed");
+          setErrorMessage(msg);
+          await updateMessage(
+            threadId,
+            messageId,
+            firstPass.partialContent,
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null,
+            firstPass.finalFinishReason
+          );
+          setAssistantCoT(
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null
+          );
+          setAssistantFinishReason(firstPass.finalFinishReason);
+          return;
         }
 
-        const delta = chunk.choices[0]?.delta as Delta;
-        const finishReason = chunk.choices[0]?.finish_reason;
-        const delta_reasoning_content = delta.reasoning_content ?? "";
-        const delta_content = delta.content ?? "";
-        if (finishReason) {
-          finalFinishReason = finishReason;
-          setAssistantFinishReason(finishReason);
-        }
-        if (delta_reasoning_content) {
-          partialReasoningContent += delta_reasoning_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantCoT(partialReasoningContent);
-        }
-        if (delta_content) {
-          partialContent += delta_content;
-          if (first) {
-            setWaitingForFirstChunk(false);
-            first = false;
-          }
-          setAssistantDraft(partialContent);
-        }
+        const firstThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          messageId,
+          firstPass.partialContent,
+          firstThinkingContent,
+          firstPass.finalFinishReason
+        );
+
+        const secondAssistantMsgId = await createMessage(
+          threadId,
+          "assistant",
+          ""
+        );
+        setAssistantMsgId(secondAssistantMsgId);
+        setWaitingForFirstChunk(true);
+        setAssistantCoT(null);
+        setAssistantDraft("");
+
+        const secondConversation = [
+          ...conversation,
+          assistantToolMessage,
+          ...toolMessages,
+        ];
+
+        const secondPass = await streamWithToolCalls(
+          secondConversation,
+          currentSettings.model,
+          {
+            frequencyPenalty: currentSettings.frequencyPenalty,
+            presencePenalty: currentSettings.presencePenalty,
+            temperature: currentSettings.temperature,
+            topP: currentSettings.topP,
+            maxTokens: currentSettings.maxTokens,
+          },
+          tooling.toolConfig
+        );
+
+        const finalThinkingContent = secondPass.partialReasoningContent.trim()
+          ? secondPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          secondAssistantMsgId,
+          secondPass.partialContent,
+          finalThinkingContent,
+          secondPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(secondPass.finalFinishReason);
+      } else {
+        const finalThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          messageId,
+          firstPass.partialContent,
+          finalThinkingContent,
+          firstPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(firstPass.finalFinishReason);
       }
-
-      const finalThinkingContent = partialReasoningContent.trim()
-        ? partialReasoningContent
-        : null;
-      await updateMessage(
-        threadId,
-        messageId,
-        partialContent,
-        finalThinkingContent,
-        finalFinishReason
-      );
-      setAssistantCoT(finalThinkingContent);
-      setAssistantFinishReason(finalFinishReason);
     } catch (err) {
       console.error("handleRegenerateMessage error (stream)", err);
       const msg =
@@ -681,6 +1164,16 @@ export function useChatWindow(
     setTopP,
     maxTokens,
     setMaxTokens,
+    toolsJson,
+    setToolsJson,
+    toolsStrict,
+    setToolsStrict,
+    toolsJsonError,
+    setToolsJsonError,
+    toolHandlersJson,
+    setToolHandlersJson,
+    toolHandlersJsonError,
+    setToolHandlersJsonError,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,

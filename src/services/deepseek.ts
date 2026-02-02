@@ -5,9 +5,20 @@ import type { ChatCompletionChunk } from "openai/resources/chat/completions";
 
 const isBrowser = typeof window !== "undefined";
 
+export type ChatCompletionToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
 export type ChatCompletionMessageParam = {
-  role: "system" | "user" | "assistant";
-  content: string;
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string;
+  tool_call_id?: string;
+  tool_calls?: ChatCompletionToolCall[];
 };
 
 export type DeepseekParameters = {
@@ -16,6 +27,11 @@ export type DeepseekParameters = {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+};
+
+export type DeepseekToolConfig = {
+  tools?: unknown[];
+  strict?: boolean;
 };
 
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
@@ -126,14 +142,19 @@ type DeepseekRequestPayload = {
   messages: ChatCompletionMessageParam[];
   model?: string;
   parameters?: DeepseekParameters;
+  tools?: unknown[];
+  strict?: boolean;
 };
 
 /**
  * Deepseek (OpenAI互換)クライアント生成
  */
-export function createDeepseekClient(apiKey: string) {
+export function createDeepseekClient(
+  apiKey: string,
+  baseURL: string = "https://api.deepseek.com"
+) {
   return new OpenAI({
-    baseURL: "https://api.deepseek.com",
+    baseURL,
     apiKey,
     dangerouslyAllowBrowser: true,
   });
@@ -256,14 +277,20 @@ export async function callDeepseekServer(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
-  parameters?: DeepseekParameters
+  parameters?: DeepseekParameters,
+  toolConfig?: DeepseekToolConfig
 ): Promise<string> {
-  const openai = createDeepseekClient(apiKey);
+  const baseURL = toolConfig?.strict
+    ? "https://api.deepseek.com/beta"
+    : "https://api.deepseek.com";
+  const openai = createDeepseekClient(apiKey, baseURL);
+  const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
 
   try {
     const res = await openai.chat.completions.create({
       model,
       messages,
+      ...(tools && tools.length > 0 ? { tools } : {}),
       ...mapParams(parameters),
     });
     return res.choices[0]?.message?.content ?? "";
@@ -277,12 +304,13 @@ export async function callDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
-  parameters?: DeepseekParameters
+  parameters?: DeepseekParameters,
+  toolConfig?: DeepseekToolConfig
 ): Promise<string> {
   if (isBrowser) {
-    return callDeepseekServer(apiKey, messages, model, parameters);
+    return callDeepseekServer(apiKey, messages, model, parameters, toolConfig);
   }
-  return callDeepseekServer(apiKey, messages, model, parameters);
+  return callDeepseekServer(apiKey, messages, model, parameters, toolConfig);
 }
 
 /**
@@ -295,15 +323,21 @@ export async function streamDeepseekServer(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
-  parameters?: DeepseekParameters
+  parameters?: DeepseekParameters,
+  toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
-  const openai = createDeepseekClient(apiKey);
+  const baseURL = toolConfig?.strict
+    ? "https://api.deepseek.com/beta"
+    : "https://api.deepseek.com";
+  const openai = createDeepseekClient(apiKey, baseURL);
+  const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
 
   try {
     const iterable = await openai.chat.completions.create({
       model,
       messages,
       stream: true,
+      ...(tools && tools.length > 0 ? { tools } : {}),
       ...mapParams(parameters),
     });
     return new DeepseekStreamWrapper(iterable as AbortableStream);
@@ -320,10 +354,11 @@ export async function streamDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
-  parameters?: DeepseekParameters
+  parameters?: DeepseekParameters,
+  toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
   if (isBrowser) {
-    return streamDeepseekServer(apiKey, messages, model, parameters);
+    return streamDeepseekServer(apiKey, messages, model, parameters, toolConfig);
   }
-  return streamDeepseekServer(apiKey, messages, model, parameters);
+  return streamDeepseekServer(apiKey, messages, model, parameters, toolConfig);
 }

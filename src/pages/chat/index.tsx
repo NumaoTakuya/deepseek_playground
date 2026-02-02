@@ -13,6 +13,8 @@ import {
   CircularProgress,
   Slider,
   Button,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -103,11 +105,19 @@ export default function ChatHomePage() {
   );
   const [showSystemBox, setShowSystemBox] = useState(false);
   const [showParametersBox, setShowParametersBox] = useState(false);
+  const [showAdvancedBox, setShowAdvancedBox] = useState(false);
   const [frequencyPenalty, setFrequencyPenalty] = useState(0);
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
   const [maxTokens, setMaxTokens] = useState(1024);
+  const [toolsJson, setToolsJson] = useState("");
+  const [toolsStrict, setToolsStrict] = useState(false);
+  const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);
+  const [toolHandlersJson, setToolHandlersJson] = useState("");
+  const [toolHandlersJsonError, setToolHandlersJsonError] = useState<
+    string | null
+  >(null);
   const { t } = useTranslation();
   const resetParameters = () => {
     setFrequencyPenalty(0);
@@ -115,6 +125,38 @@ export default function ChatHomePage() {
     setTemperature(1);
     setTopP(1);
     setMaxTokens(1024);
+  };
+
+  const parseToolsJson = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { tools: undefined };
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed)) {
+        return { error: t("common.toolsJsonInvalid") };
+      }
+      return { tools: parsed };
+    } catch (error) {
+      return { error: t("common.toolsJsonInvalid") };
+    }
+  };
+
+  const parseToolHandlersJson = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { handlers: undefined };
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { error: t("common.toolHandlersJsonInvalid") };
+      }
+      return { handlers: parsed as Record<string, unknown> };
+    } catch (error) {
+      return { error: t("common.toolHandlersJsonInvalid") };
+    }
   };
 
   // user's first message
@@ -136,6 +178,22 @@ export default function ChatHomePage() {
       return;
     }
     if (!userInput.trim()) return;
+
+    const toolsParsed = parseToolsJson(toolsJson);
+    if (toolsParsed.error) {
+      setToolsJsonError(toolsParsed.error);
+      setError(toolsParsed.error);
+      return;
+    }
+    setToolsJsonError(null);
+
+    const handlersParsed = parseToolHandlersJson(toolHandlersJson);
+    if (handlersParsed.error) {
+      setToolHandlersJsonError(handlersParsed.error);
+      setError(handlersParsed.error);
+      return;
+    }
+    setToolHandlersJsonError(null);
 
     const inputValue = userInput.trim();
     setUserInput("");
@@ -163,6 +221,15 @@ export default function ChatHomePage() {
       );
       localStorage.setItem(`thread-${newThreadId}-topP`, String(topP));
       localStorage.setItem(`thread-${newThreadId}-maxTokens`, String(maxTokens));
+      localStorage.setItem(`thread-${newThreadId}-toolsJson`, toolsJson);
+      localStorage.setItem(
+        `thread-${newThreadId}-toolsStrict`,
+        String(toolsStrict)
+      );
+      localStorage.setItem(
+        `thread-${newThreadId}-toolHandlersJson`,
+        toolHandlersJson
+      );
 
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
@@ -182,6 +249,9 @@ export default function ChatHomePage() {
             temperature,
             topP,
             maxTokens,
+            toolsJson,
+            toolsStrict,
+            toolHandlersJson,
           });
         })
         .catch(console.error);
@@ -633,6 +703,136 @@ export default function ChatHomePage() {
                     {t("common.reset")}
                   </Button>
                 </Box>
+                </Box>
+              )}
+
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "var(--color-panel)",
+                color: "var(--color-text)",
+                p: 1,
+                mb: 2,
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {t("common.advancedSettings")}
+              </Typography>
+              <IconButton
+                onClick={() => setShowAdvancedBox(!showAdvancedBox)}
+                sx={{ color: "var(--color-text)", ml: "auto" }}
+              >
+                {showAdvancedBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Box>
+
+            {showAdvancedBox && (
+              <Box
+                sx={{
+                  backgroundColor: "var(--color-panel)",
+                  p: 2,
+                  borderRadius: 1,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  value={toolsJson}
+                  onChange={(e) => {
+                    setToolsJson(e.target.value);
+                    if (toolsJsonError) {
+                      setToolsJsonError(null);
+                      setError("");
+                    }
+                  }}
+                  label={t("common.toolsJson")}
+                  placeholder={t("common.toolsJsonPlaceholder")}
+                  error={Boolean(toolsJsonError)}
+                  helperText={
+                    toolsJsonError ?? t("common.toolsJsonDescription")
+                  }
+                  variant="outlined"
+                  sx={{
+                    mb: 2,
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": { borderColor: "var(--color-border)" },
+                      "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "var(--color-hover)",
+                      },
+                    },
+                    "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                    "& .MuiOutlinedInput-input": {
+                      color: "var(--color-text)",
+                      fontFamily:
+                        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                    },
+                    "& .MuiFormHelperText-root": {
+                      color: "var(--color-subtext)",
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={4}
+                  value={toolHandlersJson}
+                  onChange={(e) => {
+                    setToolHandlersJson(e.target.value);
+                    if (toolHandlersJsonError) {
+                      setToolHandlersJsonError(null);
+                      setError("");
+                    }
+                  }}
+                  label={t("common.toolHandlersJson")}
+                  placeholder={t("common.toolHandlersJsonPlaceholder")}
+                  error={Boolean(toolHandlersJsonError)}
+                  helperText={
+                    toolHandlersJsonError ??
+                    t("common.toolHandlersJsonDescription")
+                  }
+                  variant="outlined"
+                  sx={{
+                    mb: 2,
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": { borderColor: "var(--color-border)" },
+                      "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "var(--color-hover)",
+                      },
+                    },
+                    "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                    "& .MuiOutlinedInput-input": {
+                      color: "var(--color-text)",
+                      fontFamily:
+                        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                    },
+                    "& .MuiFormHelperText-root": {
+                      color: "var(--color-subtext)",
+                    },
+                  }}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={toolsStrict}
+                      onChange={(e) => setToolsStrict(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={t("common.strictMode")}
+                  sx={{ color: "var(--color-text)" }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ color: "var(--color-subtext)", display: "block" }}
+                >
+                  {t("common.strictModeDescription")}
+                </Typography>
               </Box>
             )}
 

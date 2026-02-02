@@ -12,6 +12,9 @@ import {
   MenuItem,
   Slider,
   Button,
+  TextField,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -52,6 +55,16 @@ export default function ChatWindow({ threadId }: Props) {
     setTopP,
     maxTokens,
     setMaxTokens,
+    toolsJson,
+    setToolsJson,
+    toolsStrict,
+    setToolsStrict,
+    toolsJsonError,
+    setToolsJsonError,
+    toolHandlersJson,
+    setToolHandlersJson,
+    toolHandlersJsonError,
+    setToolHandlersJsonError,
     systemPrompt,
     setSystemPrompt,
     model,
@@ -79,6 +92,7 @@ export default function ChatWindow({ threadId }: Props) {
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showParametersBox, setShowParametersBox] = useState(false);
+  const [showAdvancedBox, setShowAdvancedBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
@@ -141,6 +155,15 @@ export default function ChatWindow({ threadId }: Props) {
     const storedMaxTokens = localStorage.getItem(
       `thread-${threadId}-maxTokens`
     );
+    const storedToolsJson = localStorage.getItem(
+      `thread-${threadId}-toolsJson`
+    );
+    const storedToolsStrict = localStorage.getItem(
+      `thread-${threadId}-toolsStrict`
+    );
+    const storedToolHandlersJson = localStorage.getItem(
+      `thread-${threadId}-toolHandlersJson`
+    );
 
     if (storedModel && storedInput && storedSystemInput) {
       setModel(storedModel);
@@ -193,6 +216,18 @@ export default function ChatWindow({ threadId }: Props) {
       }
       localStorage.removeItem(`thread-${threadId}-maxTokens`);
     }
+    if (storedToolsJson) {
+      setToolsJson(storedToolsJson);
+      localStorage.removeItem(`thread-${threadId}-toolsJson`);
+    }
+    if (storedToolsStrict) {
+      setToolsStrict(storedToolsStrict === "true");
+      localStorage.removeItem(`thread-${threadId}-toolsStrict`);
+    }
+    if (storedToolHandlersJson) {
+      setToolHandlersJson(storedToolHandlersJson);
+      localStorage.removeItem(`thread-${threadId}-toolHandlersJson`);
+    }
   }, [
     threadId,
     setInput,
@@ -204,6 +239,9 @@ export default function ChatWindow({ threadId }: Props) {
     setTemperature,
     setTopP,
     setMaxTokens,
+    setToolsJson,
+    setToolsStrict,
+    setToolHandlersJson,
   ]);
 
   // 初回自動送信
@@ -687,26 +725,152 @@ export default function ChatWindow({ threadId }: Props) {
                       mt: 3,
                       gap: 2,
                     }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "var(--color-subtext)" }}
                     >
-                      {t("common.toolsInfo")}
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={resetParameters}
-                      sx={{
-                        color: "var(--color-text)",
-                        borderColor: "var(--color-border)",
-                        minWidth: "64px",
-                      }}
-                    >
-                      {t("common.reset")}
-                    </Button>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "var(--color-subtext)" }}
+                      >
+                        {t("common.toolsInfo")}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={resetParameters}
+                        sx={{
+                          color: "var(--color-text)",
+                          borderColor: "var(--color-border)",
+                          minWidth: "64px",
+                        }}
+                      >
+                        {t("common.reset")}
+                      </Button>
+                    </Box>
                   </Box>
+                )}
+            </Box>
+
+            <Box
+              sx={{
+                border: "1px solid var(--color-border)",
+                mt: 2,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  backgroundColor: "var(--color-panel)",
+                  color: "var(--color-text)",
+                  p: 1,
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {t("common.advancedSettings")}
+                </Typography>
+                <IconButton
+                  onClick={() => setShowAdvancedBox((prev) => !prev)}
+                  sx={{ color: "var(--color-text)", ml: "auto" }}
+                >
+                  {showAdvancedBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+
+              {showAdvancedBox && (
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={5}
+                    label={t("common.toolsJson")}
+                    placeholder={t("common.toolsJsonPlaceholder")}
+                    value={toolsJson}
+                    onChange={(e) => {
+                      setToolsJson(e.target.value);
+                      if (toolsJsonError) {
+                        setToolsJsonError(null);
+                      }
+                    }}
+                    error={Boolean(toolsJsonError)}
+                    helperText={
+                      toolsJsonError ?? t("common.toolsJsonDescription")
+                    }
+                    variant="outlined"
+                    sx={{
+                      mb: 2,
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": { borderColor: "var(--color-border)" },
+                        "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "var(--color-hover)",
+                        },
+                      },
+                      "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                      "& .MuiOutlinedInput-input": {
+                        color: "var(--color-text)",
+                        fontFamily:
+                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                      },
+                      "& .MuiFormHelperText-root": {
+                        color: "var(--color-subtext)",
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={4}
+                    label={t("common.toolHandlersJson")}
+                    placeholder={t("common.toolHandlersJsonPlaceholder")}
+                    value={toolHandlersJson}
+                    onChange={(e) => {
+                      setToolHandlersJson(e.target.value);
+                      if (toolHandlersJsonError) {
+                        setToolHandlersJsonError(null);
+                      }
+                    }}
+                    error={Boolean(toolHandlersJsonError)}
+                    helperText={
+                      toolHandlersJsonError ??
+                      t("common.toolHandlersJsonDescription")
+                    }
+                    variant="outlined"
+                    sx={{
+                      mb: 2,
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": { borderColor: "var(--color-border)" },
+                        "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "var(--color-hover)",
+                        },
+                      },
+                      "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                      "& .MuiOutlinedInput-input": {
+                        color: "var(--color-text)",
+                        fontFamily:
+                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                      },
+                      "& .MuiFormHelperText-root": {
+                        color: "var(--color-subtext)",
+                      },
+                    }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={toolsStrict}
+                        onChange={(e) => setToolsStrict(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={t("common.strictMode")}
+                    sx={{ color: "var(--color-text)" }}
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "var(--color-subtext)", display: "block" }}
+                  >
+                    {t("common.strictModeDescription")}
+                  </Typography>
                 </Box>
               )}
             </Box>

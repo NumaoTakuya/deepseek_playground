@@ -37,7 +37,12 @@ export default async function handler(
     messages?: ChatCompletionMessageParam[];
     model?: string;
     parameters?: DeepseekParameters;
+    tools?: unknown[];
+    strict?: boolean;
   };
+  const tools = Array.isArray(req.body?.tools) ? req.body.tools : undefined;
+  const strict =
+    typeof req.body?.strict === "boolean" ? req.body.strict : undefined;
 
   if (!apiKey || typeof apiKey !== "string") {
     res.status(400).json({ error: "Missing apiKey" });
@@ -49,7 +54,10 @@ export default async function handler(
   }
 
   try {
-    const content = await callDeepseekServer(apiKey, messages, model, parameters);
+    const content = await callDeepseekServer(apiKey, messages, model, parameters, {
+      tools,
+      strict,
+    });
     res.status(200).json({ content });
   } catch (error) {
     console.error("[api/deepseek/call] Failed to call Deepseek", error);
