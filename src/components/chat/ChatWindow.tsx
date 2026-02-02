@@ -107,6 +107,62 @@ export default function ChatWindow({ threadId }: Props) {
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sidebarOpenKey = `thread-${threadId}-ui-right-sidebar-open`;
+    const paramsOpenKey = `thread-${threadId}-ui-parameters-open`;
+    const advancedOpenKey = `thread-${threadId}-ui-advanced-open`;
+    const toolsOpenKey = `thread-${threadId}-ui-tools-open`;
+    const sidebarOpen = window.localStorage.getItem(sidebarOpenKey);
+    const paramsOpen = window.localStorage.getItem(paramsOpenKey);
+    const advancedOpen = window.localStorage.getItem(advancedOpenKey);
+    const toolsOpen = window.localStorage.getItem(toolsOpenKey);
+    if (sidebarOpen !== null) {
+      setIsSidebarOpen(sidebarOpen === "true");
+    }
+    if (paramsOpen !== null) {
+      setShowParametersBox(paramsOpen === "true");
+    }
+    if (advancedOpen !== null) {
+      setShowAdvancedBox(advancedOpen === "true");
+    }
+    if (toolsOpen !== null) {
+      setShowToolsBox(toolsOpen === "true");
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-right-sidebar-open`,
+      String(isSidebarOpen)
+    );
+  }, [isSidebarOpen, threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-parameters-open`,
+      String(showParametersBox)
+    );
+  }, [showParametersBox, threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-advanced-open`,
+      String(showAdvancedBox)
+    );
+  }, [showAdvancedBox, threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-tools-open`,
+      String(showToolsBox)
+    );
+  }, [showToolsBox, threadId]);
+
   const getMaxTokensDefaults = (selectedModel: string) => {
     if (selectedModel === "deepseek-reasoner") {
       return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };

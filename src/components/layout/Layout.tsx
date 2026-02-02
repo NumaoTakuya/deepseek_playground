@@ -1,5 +1,5 @@
 // src/components/layout/Layout.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import { Box } from "@mui/material";
 
@@ -9,10 +9,24 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const SIDEBAR_OPEN_KEY = "ui-left-sidebar-open";
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
+    if (stored !== null) {
+      setIsSidebarOpen(stored === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SIDEBAR_OPEN_KEY, String(isSidebarOpen));
+  }, [isSidebarOpen]);
 
   return (
     <Box display="flex" height="100vh">

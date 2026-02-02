@@ -43,6 +43,10 @@ export default function ChatHomePage() {
   const DRAFT_TOOLS_JSON_KEY = "chat-index-draft-toolsJson";
   const DRAFT_TOOL_HANDLERS_KEY = "chat-index-draft-toolHandlersJson";
   const DRAFT_INPUT_KEY = "chat-index-draft-input";
+  const UI_SYSTEM_OPEN_KEY = "chat-index-ui-system-open";
+  const UI_PARAMS_OPEN_KEY = "chat-index-ui-parameters-open";
+  const UI_ADVANCED_OPEN_KEY = "chat-index-ui-advanced-open";
+  const UI_TOOLS_OPEN_KEY = "chat-index-ui-tools-open";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -71,6 +75,46 @@ export default function ChatHomePage() {
       setUserInput(draftInput);
     }
   }, [DRAFT_INPUT_KEY, DRAFT_TOOL_HANDLERS_KEY, DRAFT_TOOLS_JSON_KEY]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const systemOpen = window.localStorage.getItem(UI_SYSTEM_OPEN_KEY);
+    const paramsOpen = window.localStorage.getItem(UI_PARAMS_OPEN_KEY);
+    const advancedOpen = window.localStorage.getItem(UI_ADVANCED_OPEN_KEY);
+    const toolsOpen = window.localStorage.getItem(UI_TOOLS_OPEN_KEY);
+    if (systemOpen !== null) {
+      setShowSystemBox(systemOpen === "true");
+    }
+    if (paramsOpen !== null) {
+      setShowParametersBox(paramsOpen === "true");
+    }
+    if (advancedOpen !== null) {
+      setShowAdvancedBox(advancedOpen === "true");
+    }
+    if (toolsOpen !== null) {
+      setShowToolsBox(toolsOpen === "true");
+    }
+  }, [UI_ADVANCED_OPEN_KEY, UI_PARAMS_OPEN_KEY, UI_SYSTEM_OPEN_KEY, UI_TOOLS_OPEN_KEY]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_SYSTEM_OPEN_KEY, String(showSystemBox));
+  }, [showSystemBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_PARAMS_OPEN_KEY, String(showParametersBox));
+  }, [showParametersBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_ADVANCED_OPEN_KEY, String(showAdvancedBox));
+  }, [showAdvancedBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_TOOLS_OPEN_KEY, String(showToolsBox));
+  }, [showToolsBox]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
