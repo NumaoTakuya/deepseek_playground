@@ -49,10 +49,17 @@ export default async function handler(
     parameters?: DeepseekParameters;
     tools?: unknown[];
     strict?: boolean;
+    responseFormat?: { type: "json_object" };
   };
   const tools = Array.isArray(req.body?.tools) ? req.body.tools : undefined;
   const strict =
     typeof req.body?.strict === "boolean" ? req.body.strict : undefined;
+  const responseFormat =
+    req.body?.responseFormat &&
+    typeof req.body.responseFormat === "object" &&
+    req.body.responseFormat.type === "json_object"
+      ? { type: "json_object" as const }
+      : undefined;
 
   if (!apiKey || typeof apiKey !== "string") {
     res.status(400).json({ error: "Missing apiKey" });
@@ -76,6 +83,7 @@ export default async function handler(
     stream = await streamDeepseekServer(apiKey, messages, model, parameters, {
       tools,
       strict,
+      responseFormat,
     });
     req.on("close", handleAbort);
 

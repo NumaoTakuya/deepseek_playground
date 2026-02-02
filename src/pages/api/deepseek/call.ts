@@ -39,10 +39,17 @@ export default async function handler(
     parameters?: DeepseekParameters;
     tools?: unknown[];
     strict?: boolean;
+    responseFormat?: { type: "json_object" };
   };
   const tools = Array.isArray(req.body?.tools) ? req.body.tools : undefined;
   const strict =
     typeof req.body?.strict === "boolean" ? req.body.strict : undefined;
+  const responseFormat =
+    req.body?.responseFormat &&
+    typeof req.body.responseFormat === "object" &&
+    req.body.responseFormat.type === "json_object"
+      ? { type: "json_object" as const }
+      : undefined;
 
   if (!apiKey || typeof apiKey !== "string") {
     res.status(400).json({ error: "Missing apiKey" });
@@ -54,10 +61,17 @@ export default async function handler(
   }
 
   try {
-    const content = await callDeepseekServer(apiKey, messages, model, parameters, {
-      tools,
-      strict,
-    });
+    const content = await callDeepseekServer(
+      apiKey,
+      messages,
+      model,
+      parameters,
+      {
+        tools,
+        strict,
+        responseFormat,
+      }
+    );
     res.status(200).json({ content });
   } catch (error) {
     console.error("[api/deepseek/call] Failed to call Deepseek", error);

@@ -52,6 +52,7 @@ export function useChatWindow(
   const [toolHandlersJsonError, setToolHandlersJsonError] = useState<
     string | null
   >(null);
+  const [jsonOutput, setJsonOutput] = useState(false);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -87,6 +88,7 @@ export function useChatWindow(
     toolsJson,
     toolsStrict,
     toolHandlersJson,
+    jsonOutput,
   });
 
   const chatStreamRef = useRef<Awaited<
@@ -101,11 +103,12 @@ export function useChatWindow(
       temperature,
       topP,
       maxTokens,
-    systemPrompt,
-    toolsJson,
-    toolsStrict,
-    toolHandlersJson,
-  };
+      systemPrompt,
+      toolsJson,
+      toolsStrict,
+      toolHandlersJson,
+      jsonOutput,
+    };
   }, [
     model,
     frequencyPenalty,
@@ -117,6 +120,7 @@ export function useChatWindow(
     toolsJson,
     toolsStrict,
     toolHandlersJson,
+    jsonOutput,
   ]);
 
   const parseToolsJson = (raw: string) => {
@@ -198,6 +202,14 @@ export function useChatWindow(
     setToolHandlersJsonError(null);
     return { handlers: parsed.handlers };
   };
+
+  const buildRequestConfig = (
+    toolConfig: { tools?: unknown[]; strict?: boolean } | undefined,
+    jsonOutputEnabled: boolean
+  ) => ({
+    ...(toolConfig ?? {}),
+    responseFormat: jsonOutputEnabled ? { type: "json_object" } : undefined,
+  });
 
   const resolveToolCalls = async (
     toolCalls: ToolCall[],
@@ -373,6 +385,7 @@ export function useChatWindow(
           toolsJson?: string;
           toolsStrict?: boolean;
           toolHandlersJson?: string;
+          jsonOutput?: boolean;
         };
         setModel(data.model ?? "deepseek-chat");
         if (typeof data.title === "string") {
@@ -401,6 +414,9 @@ export function useChatWindow(
         }
         if (typeof data.toolHandlersJson === "string") {
           setToolHandlersJson(data.toolHandlersJson);
+        }
+        if (typeof data.jsonOutput === "boolean") {
+          setJsonOutput(data.jsonOutput);
         }
       }
     });
@@ -496,6 +512,7 @@ export function useChatWindow(
         toolsJson,
         toolsStrict,
         toolHandlersJson,
+        jsonOutput,
       });
 
       // 5) ストリーミング
@@ -509,7 +526,7 @@ export function useChatWindow(
           topP,
           maxTokens,
         },
-        tooling.toolConfig
+        buildRequestConfig(tooling.toolConfig, jsonOutput)
       );
 
       let finalResponseLength = 0;
@@ -591,7 +608,7 @@ export function useChatWindow(
             topP,
             maxTokens,
           },
-          tooling.toolConfig
+          buildRequestConfig(tooling.toolConfig, jsonOutput)
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -730,6 +747,7 @@ export function useChatWindow(
         toolsJson: currentSettings.toolsJson,
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
+        jsonOutput: currentSettings.jsonOutput,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -742,7 +760,7 @@ export function useChatWindow(
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
         },
-        tooling.toolConfig
+        buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
       );
 
       if (
@@ -822,7 +840,7 @@ export function useChatWindow(
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
           },
-          tooling.toolConfig
+          buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -893,6 +911,7 @@ export function useChatWindow(
         toolsJson,
         toolsStrict,
         toolHandlersJson,
+        jsonOutput,
       });
 
       await createMessage(newThreadId, "system", systemPrompt);
@@ -1015,6 +1034,7 @@ export function useChatWindow(
         toolsJson: currentSettings.toolsJson,
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
+        jsonOutput: currentSettings.jsonOutput,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -1027,7 +1047,7 @@ export function useChatWindow(
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
         },
-        tooling.toolConfig
+        buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
       );
 
       if (
@@ -1107,7 +1127,7 @@ export function useChatWindow(
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
           },
-          tooling.toolConfig
+          buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -1174,6 +1194,8 @@ export function useChatWindow(
     setToolHandlersJson,
     toolHandlersJsonError,
     setToolHandlersJsonError,
+    jsonOutput,
+    setJsonOutput,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,
