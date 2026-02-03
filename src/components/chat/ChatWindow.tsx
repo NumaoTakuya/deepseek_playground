@@ -1,6 +1,6 @@
 // src/components/chat/ChatWindow.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Alert,
@@ -16,6 +16,13 @@ import {
   Switch,
   Divider,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -23,6 +30,10 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import CodeIcon from "@mui/icons-material/Code";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -117,6 +128,12 @@ export default function ChatWindow({ threadId }: Props) {
   const [showFimBox, setShowFimBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [codeViewType, setCodeViewType] = useState<"curl" | "python" | "node">(
+    "curl"
+  );
+  const [isCodeCopied, setIsCodeCopied] = useState(false);
+  const [isStreamEnabled, setIsStreamEnabled] = useState(false);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
   const sidebarWidth = isSidebarOpen ? 360 : 48;
@@ -129,6 +146,502 @@ export default function ChatWindow({ threadId }: Props) {
   const formatCount = (value: number) => value.toLocaleString();
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+
+  const parseStopSequences = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item) => typeof item === "string");
+        }
+      } catch {
+        return undefined;
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  };
+
+  const applyStrictToTools = (tools: unknown[], strict: boolean) => {
+    if (!strict) return tools;
+    return tools.map((tool) => {
+      if (!tool || typeof tool !== "object") return tool;
+      const record = tool as Record<string, unknown>;
+      if (record.type !== "function") return tool;
+      const fn = record.function;
+      if (!fn || typeof fn !== "object") return tool;
+      return {
+        ...record,
+        function: {
+          ...(fn as Record<string, unknown>),
+          strict: true,
+        },
+      };
+    });
+  };
+
+  const toolsForSnippet = useMemo(() => {
+    const trimmed = toolsJson.trim();
+    if (!trimmed) return undefined;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed)) return undefined;
+      const adjusted = applyStrictToTools(parsed, toolsStrict);
+      return adjusted.length > 0 ? adjusted : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [toolsJson, toolsStrict]);
+
+  const stopSequences = useMemo(
+    () => parseStopSequences(stopSequencesRaw),
+    [stopSequencesRaw]
+  );
+
+  const useBeta = prefixCompletionEnabled || (toolsStrict && !!toolsForSnippet);
+
+  type CodeMessage = { role: string; content: string; prefix?: boolean };
+
+  const conversationForSnippet = useMemo(() => {
+    const trimmedSystemPrompt = systemPrompt.trim();
+    const baseMessages: CodeMessage[] = messages
+      .filter((m) => m.role !== "system" && m.kind !== "branch_marker")
+      .filter((m) => m.content && m.content.trim().length > 0)
+      .map((m) => ({ role: m.role, content: m.content }));
+    const seeded =
+      trimmedSystemPrompt.length > 0
+        ? [{ role: "system" as const, content: trimmedSystemPrompt }, ...baseMessages]
+        : baseMessages;
+
+    if (!prefixCompletionEnabled || seeded.length === 0) {
+      return seeded;
+    }
+    const last = seeded[seeded.length - 1];
+    if (last.role === "assistant") {
+      return [
+        ...seeded.slice(0, -1),
+        {
+          ...last,
+          prefix: true,
+        },
+      ];
+    }
+    return [...seeded, { role: "assistant", content: "", prefix: true }];
+  }, [messages, systemPrompt, prefixCompletionEnabled]);
+
+  const lastUserMessage = useMemo(() => {
+    const candidates = messages.filter((m) => m.role === "user");
+    const last = candidates[candidates.length - 1];
+    return last?.content ?? "";
+  }, [messages]);
+
+  const fimActive = fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
+  const normalizedFimMaxTokens = Math.min(4096, Math.max(1, fimMaxTokens));
+
+  const chatPayloadObject = useMemo(() => {
+    const payload: Record<string, unknown> = {
+      model,
+      messages: conversationForSnippet,
+      stream: isStreamEnabled,
+    };
+    if (typeof frequencyPenalty === "number") {
+      payload.frequency_penalty = frequencyPenalty;
+    }
+    if (typeof presencePenalty === "number") {
+      payload.presence_penalty = presencePenalty;
+    }
+    if (typeof temperature === "number") {
+      payload.temperature = temperature;
+    }
+    if (typeof topP === "number") {
+      payload.top_p = topP;
+    }
+    if (typeof maxTokens === "number") {
+      payload.max_tokens = maxTokens;
+    }
+    if (toolsForSnippet) {
+      payload.tools = toolsForSnippet;
+    }
+    if (jsonOutput) {
+      payload.response_format = { type: "json_object" };
+    }
+    if (stopSequences && stopSequences.length > 0) {
+      payload.stop = stopSequences;
+    }
+    return payload;
+  }, [
+    model,
+    conversationForSnippet,
+    isStreamEnabled,
+    frequencyPenalty,
+    presencePenalty,
+    temperature,
+    topP,
+    maxTokens,
+    toolsForSnippet,
+    jsonOutput,
+    stopSequences,
+  ]);
+
+  const fimPayloadObject = useMemo(() => {
+    const promptBase = fimPrefix + (lastUserMessage || "");
+    const payload: Record<string, unknown> = {
+      model,
+      prompt: promptBase,
+      stream: isStreamEnabled,
+      max_tokens: normalizedFimMaxTokens,
+    };
+    if (fimSuffix.trim().length > 0) {
+      payload.suffix = fimSuffix;
+    }
+    return payload;
+  }, [
+    fimPrefix,
+    fimSuffix,
+    lastUserMessage,
+    model,
+    normalizedFimMaxTokens,
+    isStreamEnabled,
+  ]);
+
+  const payloadJson = useMemo(() => {
+    return JSON.stringify(fimActive ? fimPayloadObject : chatPayloadObject, null, 2);
+  }, [fimActive, fimPayloadObject, chatPayloadObject]);
+
+  const escapeForPython = (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+
+  const toPythonLiteral = (value: unknown) => {
+    const json = JSON.stringify(value, null, 2);
+    if (!json) return "None";
+    return json
+      .replace(/\btrue\b/g, "True")
+      .replace(/\bfalse\b/g, "False")
+      .replace(/\bnull\b/g, "None");
+  };
+
+  const indentPython = (value: string, spaces: number) =>
+    value
+      .split("\n")
+      .map((line) => `${" ".repeat(spaces)}${line}`)
+      .join("\n");
+
+  const pythonMessagesSnippet = useMemo(() => {
+    if (conversationForSnippet.length === 0) {
+      return "[]";
+    }
+    const lines = conversationForSnippet.map((message) => {
+      const base = `{"role": "${message.role}", "content": "${escapeForPython(
+        message.content
+      )}"`;
+      if (message.prefix) {
+        return `        ${base}, "prefix": True}`;
+      }
+      return `        ${base}}`;
+    });
+    return `[\n${lines.join(",\n")}\n    ]`;
+  }, [conversationForSnippet]);
+
+  const curlSnippet = useMemo(() => {
+    const baseUrl = fimActive
+      ? "https://api.deepseek.com/beta"
+      : useBeta
+      ? "https://api.deepseek.com/beta"
+      : "https://api.deepseek.com";
+    const endpoint = fimActive
+      ? `${baseUrl}/completions`
+      : `${baseUrl}/chat/completions`;
+    return `curl ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer \${DEEPSEEK_API_KEY}" \\\n  -d '${payloadJson}'`;
+  }, [payloadJson, fimActive, useBeta]);
+
+  const pythonSnippet = useMemo(() => {
+    const pythonTools = toolsForSnippet
+      ? `\n${indentPython(toPythonLiteral(toolsForSnippet), 4)}`
+      : null;
+    const pythonResponseFormat = jsonOutput
+      ? `\n${indentPython(toPythonLiteral({ type: "json_object" }), 4)}`
+      : null;
+    const pythonStop =
+      stopSequences && stopSequences.length > 0
+        ? `\n${indentPython(toPythonLiteral(stopSequences), 4)}`
+        : null;
+    const baseUrl = fimActive
+      ? "https://api.deepseek.com/beta"
+      : useBeta
+      ? "https://api.deepseek.com/beta"
+      : "https://api.deepseek.com";
+    if (fimActive) {
+      if (!isStreamEnabled) {
+        return `# Please install OpenAI SDK first: \`pip3 install openai\`
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
+
+response = client.completions.create(
+    model="${model}",
+    prompt="${escapeForPython(fimPrefix + (lastUserMessage || ""))}",
+    ${fimSuffix.trim().length > 0 ? `suffix="${escapeForPython(fimSuffix)}",\n    ` : ""}max_tokens=${normalizedFimMaxTokens},
+    stream=False
+)
+
+print(response.choices[0].text)`;
+      }
+      return `# Please install OpenAI SDK first: \`pip3 install openai\`
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
+
+stream = client.completions.create(
+    model="${model}",
+    prompt="${escapeForPython(fimPrefix + (lastUserMessage || ""))}",
+    ${fimSuffix.trim().length > 0 ? `suffix="${escapeForPython(fimSuffix)}",\n    ` : ""}max_tokens=${normalizedFimMaxTokens},
+    stream=True
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].text:
+        print(chunk.choices[0].text, end="", flush=True)`;
+    }
+    if (!isStreamEnabled) {
+      return `# Please install OpenAI SDK first: \`pip3 install openai\`
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
+
+response = client.chat.completions.create(
+    model="${model}",
+    messages=${pythonMessagesSnippet},
+    frequency_penalty=${frequencyPenalty},
+    presence_penalty=${presencePenalty},
+    temperature=${temperature},
+    top_p=${topP},
+    max_tokens=${maxTokens},
+    ${pythonTools ? `tools=${pythonTools},\n    ` : ""}${pythonResponseFormat ? `response_format=${pythonResponseFormat},\n    ` : ""}${pythonStop ? `stop=${pythonStop},\n    ` : ""}stream=False,
+)
+
+print(response.choices[0].message.content)`;
+    }
+    return `# Please install OpenAI SDK first: \`pip3 install openai\`
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
+
+stream = client.chat.completions.create(
+    model="${model}",
+    messages=${pythonMessagesSnippet},
+    frequency_penalty=${frequencyPenalty},
+    presence_penalty=${presencePenalty},
+    temperature=${temperature},
+    top_p=${topP},
+    max_tokens=${maxTokens},
+    ${pythonTools ? `tools=${pythonTools},\n    ` : ""}${pythonResponseFormat ? `response_format=${pythonResponseFormat},\n    ` : ""}${pythonStop ? `stop=${pythonStop},\n    ` : ""}stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)`;
+  }, [
+    model,
+    pythonMessagesSnippet,
+    fimActive,
+    useBeta,
+    fimPrefix,
+    fimSuffix,
+    lastUserMessage,
+    normalizedFimMaxTokens,
+    toolsForSnippet,
+    jsonOutput,
+    stopSequences,
+    isStreamEnabled,
+    frequencyPenalty,
+    presencePenalty,
+    temperature,
+    topP,
+    maxTokens,
+  ]);
+
+  const nodeSnippet = useMemo(() => {
+    const baseUrl = fimActive
+      ? "https://api.deepseek.com/beta"
+      : useBeta
+      ? "https://api.deepseek.com/beta"
+      : "https://api.deepseek.com";
+    const messagesJson = JSON.stringify(conversationForSnippet, null, 2);
+    const toolsJson = toolsForSnippet
+      ? JSON.stringify(toolsForSnippet, null, 2)
+      : null;
+    const responseFormatJson = jsonOutput
+      ? JSON.stringify({ type: "json_object" }, null, 2)
+      : null;
+    const stopJson =
+      stopSequences && stopSequences.length > 0
+        ? JSON.stringify(stopSequences, null, 2)
+        : null;
+    if (fimActive) {
+      if (!isStreamEnabled) {
+        return `// Please install OpenAI SDK first: \`npm install openai\`
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "${baseUrl}",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+async function main() {
+  const completion = await openai.completions.create({
+    model: "${model}",
+    prompt: ${JSON.stringify(fimPrefix + (lastUserMessage || ""), null, 2)},
+    ${fimSuffix.trim().length > 0 ? `suffix: ${JSON.stringify(fimSuffix)},\n    ` : ""}max_tokens: ${normalizedFimMaxTokens},
+    stream: false,
+  });
+
+  console.log(completion.choices[0].text);
+}
+
+main();`;
+      }
+      return `// Please install OpenAI SDK first: \`npm install openai\`
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "${baseUrl}",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+async function main() {
+  const stream = await openai.completions.create({
+    model: "${model}",
+    prompt: ${JSON.stringify(fimPrefix + (lastUserMessage || ""), null, 2)},
+    ${fimSuffix.trim().length > 0 ? `suffix: ${JSON.stringify(fimSuffix)},\n    ` : ""}max_tokens: ${normalizedFimMaxTokens},
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.choices?.[0]?.text) {
+      process.stdout.write(chunk.choices[0].text);
+    }
+  }
+}
+
+main();`;
+    }
+    if (!isStreamEnabled) {
+      return `// Please install OpenAI SDK first: \`npm install openai\`
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "${baseUrl}",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+async function main() {
+  const completion = await openai.chat.completions.create({
+    model: "${model}",
+    messages: ${messagesJson},
+    frequency_penalty: ${frequencyPenalty},
+    presence_penalty: ${presencePenalty},
+    temperature: ${temperature},
+    top_p: ${topP},
+    max_tokens: ${maxTokens},
+    ${toolsJson ? `tools: ${toolsJson},\n    ` : ""}${responseFormatJson ? `response_format: ${responseFormatJson},\n    ` : ""}${stopJson ? `stop: ${stopJson},\n    ` : ""}stream: false,
+  });
+
+  console.log(completion.choices[0].message.content);
+}
+
+main();`;
+    }
+    return `// Please install OpenAI SDK first: \`npm install openai\`
+
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "${baseUrl}",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+async function main() {
+  const stream = await openai.chat.completions.create({
+    model: "${model}",
+    messages: ${messagesJson},
+    frequency_penalty: ${frequencyPenalty},
+    presence_penalty: ${presencePenalty},
+    temperature: ${temperature},
+    top_p: ${topP},
+    max_tokens: ${maxTokens},
+    ${toolsJson ? `tools: ${toolsJson},\n    ` : ""}${responseFormatJson ? `response_format: ${responseFormatJson},\n    ` : ""}${stopJson ? `stop: ${stopJson},\n    ` : ""}stream: true,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.choices?.[0]?.delta?.content) {
+      process.stdout.write(chunk.choices[0].delta.content);
+    }
+  }
+}
+
+main();`;
+  }, [
+    conversationForSnippet,
+    model,
+    fimActive,
+    useBeta,
+    fimPrefix,
+    fimSuffix,
+    lastUserMessage,
+    normalizedFimMaxTokens,
+    toolsForSnippet,
+    jsonOutput,
+    stopSequences,
+    isStreamEnabled,
+    frequencyPenalty,
+    presencePenalty,
+    temperature,
+    topP,
+    maxTokens,
+  ]);
+
+  const codeSnippet = useMemo(() => {
+    if (codeViewType === "python") return pythonSnippet;
+    if (codeViewType === "node") return nodeSnippet;
+    return curlSnippet;
+  }, [codeViewType, curlSnippet, nodeSnippet, pythonSnippet]);
+
+  const codeLanguage = useMemo(() => {
+    if (codeViewType === "python") return "python";
+    if (codeViewType === "node") return "javascript";
+    return "bash";
+  }, [codeViewType]);
+
+  useEffect(() => {
+    if (!isCodeCopied) return;
+    const timer = window.setTimeout(() => setIsCodeCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [isCodeCopied]);
+
+  useEffect(() => {
+    setIsCodeCopied(false);
+  }, [codeSnippet]);
+
+  const handleCopyCode = async () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(codeSnippet);
+      setIsCodeCopied(true);
+    } catch {
+      setIsCodeCopied(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1312,6 +1825,7 @@ export default function ChatWindow({ threadId }: Props) {
         )}
         {isSidebarOpen && (
           <Box sx={{ px: 2, pb: 2 }}>
+            <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
             <Box
               sx={{
                 display: "flex",
@@ -1357,9 +1871,166 @@ export default function ChatWindow({ threadId }: Props) {
             <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>
               {t("common.tokenUsageCostNote")}
             </Typography>
+            <Divider sx={{ my: 2, borderColor: "var(--color-border)" }} />
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => setIsCodeModalOpen(true)}
+              sx={{
+                color: "var(--color-text)",
+                borderColor: "var(--color-border)",
+                textTransform: "none",
+                fontWeight: 600,
+              }}
+              startIcon={<CodeIcon />}
+            >
+              {t("chat.viewCode")}
+            </Button>
           </Box>
         )}
       </Box>
+
+      <Dialog
+        open={isCodeModalOpen}
+        onClose={() => setIsCodeModalOpen(false)}
+        fullWidth
+        maxWidth="lg"
+        PaperProps={{
+          sx: {
+            backgroundColor: "var(--color-panel)",
+            color: "var(--color-text)",
+            height: "80vh",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
+          {t("chat.viewCodeTitle")}
+          <IconButton
+            size="small"
+            onClick={() => setIsCodeModalOpen(false)}
+            sx={{ color: "var(--color-text)" }}
+            aria-label={t("common.close")}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            height: "100%",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              flexWrap: "nowrap",
+            }}
+          >
+            <ToggleButtonGroup
+              value={codeViewType}
+              exclusive
+              onChange={(_, value) => {
+                if (value) setCodeViewType(value as "curl" | "python" | "node");
+              }}
+              size="small"
+              sx={{
+                "& .MuiToggleButton-root": {
+                  color: "var(--color-text)",
+                  borderColor: "var(--color-border)",
+                  textTransform: "none",
+                  fontWeight: 600,
+                },
+                "& .MuiToggleButton-root.Mui-selected": {
+                  backgroundColor: "var(--color-hover)",
+                  color: "var(--color-text)",
+                },
+              }}
+            >
+              <ToggleButton value="curl">curl</ToggleButton>
+              <ToggleButton value="python">python</ToggleButton>
+              <ToggleButton value="node">nodejs</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" sx={{ color: "var(--color-subtext)" }}>
+                stream
+              </Typography>
+              <Switch
+                checked={isStreamEnabled}
+                onChange={(e) => setIsStreamEnabled(e.target.checked)}
+                color="primary"
+              />
+            </Box>
+            <Tooltip
+              title={isCodeCopied ? t("common.copied") : t("common.copy")}
+              arrow
+            >
+              <IconButton
+                onClick={handleCopyCode}
+                sx={{
+                  color: "var(--color-text)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 1,
+                }}
+                aria-label={t("common.copy")}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Box
+            sx={{
+              flex: 1,
+              overflow: "hidden",
+              border: "1px solid var(--color-border)",
+              borderRadius: 1,
+            }}
+          >
+            <SyntaxHighlighter
+              language={codeLanguage}
+              style={oneDark}
+              showLineNumbers={false}
+              customStyle={{
+                margin: 0,
+                height: "100%",
+                overflow: "auto",
+                background: "var(--color-bg)",
+                padding: "16px",
+                fontSize: "0.85rem",
+                lineHeight: 1.6,
+              }}
+              codeTagProps={{
+                style: {
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                },
+              }}
+            >
+              {codeSnippet}
+            </SyntaxHighlighter>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
