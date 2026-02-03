@@ -57,6 +57,7 @@ export function useChatWindow(
   const [stopSequencesRaw, setStopSequencesRaw] = useState("");
   const toolsJsonDraftRef = useRef(false);
   const toolHandlersDraftRef = useRef(false);
+  const stopSequencesDraftRef = useRef(false);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -129,6 +130,9 @@ export function useChatWindow(
     const draftToolHandlersJson = window.localStorage.getItem(
       buildDraftKey("toolHandlersJson")
     );
+    const draftStopSequencesRaw = window.localStorage.getItem(
+      buildDraftKey("stopSequencesRaw")
+    );
     const draftInput = window.localStorage.getItem(buildDraftKey("input"));
 
     if (draftToolsJson !== null) {
@@ -142,6 +146,12 @@ export function useChatWindow(
       setToolHandlersJson(draftToolHandlersJson);
     } else {
       toolHandlersDraftRef.current = false;
+    }
+    if (draftStopSequencesRaw !== null) {
+      stopSequencesDraftRef.current = true;
+      setStopSequencesRaw(draftStopSequencesRaw);
+    } else {
+      stopSequencesDraftRef.current = false;
     }
     if (draftInput !== null) {
       setInput(draftInput);
@@ -157,6 +167,11 @@ export function useChatWindow(
     if (typeof window === "undefined") return;
     window.localStorage.setItem(buildDraftKey("toolHandlersJson"), toolHandlersJson);
   }, [threadId, toolHandlersJson]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("stopSequencesRaw"), stopSequencesRaw);
+  }, [threadId, stopSequencesRaw]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -552,7 +567,10 @@ export function useChatWindow(
         if (typeof data.prefixCompletionEnabled === "boolean") {
           setPrefixCompletionEnabled(data.prefixCompletionEnabled);
         }
-        if (typeof data.stopSequencesRaw === "string") {
+        if (
+          typeof data.stopSequencesRaw === "string" &&
+          !stopSequencesDraftRef.current
+        ) {
           setStopSequencesRaw(data.stopSequencesRaw);
         }
       }
