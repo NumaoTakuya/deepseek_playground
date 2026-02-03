@@ -50,6 +50,8 @@ export default async function handler(
     tools?: unknown[];
     strict?: boolean;
     responseFormat?: { type: "json_object" };
+    stop?: string[];
+    useBeta?: boolean;
   };
   const tools = Array.isArray(req.body?.tools) ? req.body.tools : undefined;
   const strict =
@@ -60,6 +62,9 @@ export default async function handler(
     req.body.responseFormat.type === "json_object"
       ? { type: "json_object" as const }
       : undefined;
+  const stop = Array.isArray(req.body?.stop) ? req.body.stop : undefined;
+  const useBeta =
+    typeof req.body?.useBeta === "boolean" ? req.body.useBeta : undefined;
 
   if (!apiKey || typeof apiKey !== "string") {
     res.status(400).json({ error: "Missing apiKey" });
@@ -84,6 +89,8 @@ export default async function handler(
       tools,
       strict,
       responseFormat,
+      stop,
+      useBeta,
     });
     req.on("close", handleAbort);
 

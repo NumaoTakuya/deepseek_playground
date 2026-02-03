@@ -53,6 +53,8 @@ export function useChatWindow(
     string | null
   >(null);
   const [jsonOutput, setJsonOutput] = useState(false);
+  const [prefixCompletionEnabled, setPrefixCompletionEnabled] = useState(false);
+  const [stopSequencesRaw, setStopSequencesRaw] = useState("");
   const toolsJsonDraftRef = useRef(false);
   const toolHandlersDraftRef = useRef(false);
 
@@ -111,6 +113,8 @@ export function useChatWindow(
     toolsStrict,
     toolHandlersJson,
     jsonOutput,
+    prefixCompletionEnabled,
+    stopSequencesRaw,
   });
 
   const chatStreamRef = useRef<Awaited<
@@ -172,6 +176,8 @@ export function useChatWindow(
       toolsStrict,
       toolHandlersJson,
       jsonOutput,
+      prefixCompletionEnabled,
+      stopSequencesRaw,
     };
   }, [
     model,
@@ -185,6 +191,8 @@ export function useChatWindow(
     toolsStrict,
     toolHandlersJson,
     jsonOutput,
+    prefixCompletionEnabled,
+    stopSequencesRaw,
   ]);
 
   const parseToolsJson = (raw: string) => {
@@ -267,13 +275,66 @@ export function useChatWindow(
     return { handlers: parsed.handlers };
   };
 
+  const parseStopSequences = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item) => typeof item === "string");
+        }
+      } catch {
+        return undefined;
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  };
+
   const buildRequestConfig = (
     toolConfig: { tools?: unknown[]; strict?: boolean } | undefined,
-    jsonOutputEnabled: boolean
+    jsonOutputEnabled: boolean,
+    stopRaw: string,
+    useBeta: boolean
   ) => ({
     ...(toolConfig ?? {}),
     responseFormat: jsonOutputEnabled ? { type: "json_object" } : undefined,
+    stop: parseStopSequences(stopRaw),
+    useBeta,
   });
+
+  const applyPrefixCompletion = (
+    conversation:
+      | ChatCompletionMessageParam[]
+      | { role: ChatRole; content: string }[],
+    enabled: boolean
+  ): ChatCompletionMessageParam[] => {
+    if (!enabled) {
+      return conversation as ChatCompletionMessageParam[];
+    }
+    const base = conversation as ChatCompletionMessageParam[];
+    const last = base[base.length - 1];
+    if (!last || last.role !== "assistant") {
+      return [
+        ...base,
+        {
+          role: "assistant",
+          content: "",
+          prefix: true,
+        },
+      ];
+    }
+    return [
+      ...base.slice(0, -1),
+      {
+        ...last,
+        prefix: true,
+      },
+    ];
+  };
 
   const resolveToolCalls = async (
     toolCalls: ToolCall[],
@@ -329,7 +390,8 @@ export function useChatWindow(
       topP?: number;
       maxTokens?: number;
     },
-    toolConfig?: { tools?: unknown[]; strict?: boolean }
+    toolConfig?: { tools?: unknown[]; strict?: boolean },
+    draftPrefix: string = ""
   ) => {
     const chatStream = await streamDeepseek(apiKey, conversation, modelName, parameters, toolConfig);
     chatStreamRef.current = chatStream;
@@ -374,7 +436,7 @@ export function useChatWindow(
           setWaitingForFirstChunk(false);
           first = false;
         }
-        setAssistantDraft(partialContent);
+        setAssistantDraft(`${draftPrefix}${partialContent}`);
       }
       if (Array.isArray(delta.tool_calls)) {
         for (const call of delta.tool_calls) {
@@ -450,6 +512,8 @@ export function useChatWindow(
           toolsStrict?: boolean;
           toolHandlersJson?: string;
           jsonOutput?: boolean;
+          prefixCompletionEnabled?: boolean;
+          stopSequencesRaw?: string;
         };
         setModel(data.model ?? "deepseek-chat");
         if (typeof data.title === "string") {
@@ -485,6 +549,12 @@ export function useChatWindow(
         if (typeof data.jsonOutput === "boolean") {
           setJsonOutput(data.jsonOutput);
         }
+        if (typeof data.prefixCompletionEnabled === "boolean") {
+          setPrefixCompletionEnabled(data.prefixCompletionEnabled);
+        }
+        if (typeof data.stopSequencesRaw === "string") {
+          setStopSequencesRaw(data.stopSequencesRaw);
+        }
       }
     });
     return () => unsub();
@@ -513,6 +583,13 @@ export function useChatWindow(
   async function handleToolsStrictToggle(enabled: boolean) {
     setToolsStrict(enabled);
     await updateDoc(doc(db, "threads", threadId), { toolsStrict: enabled });
+  }
+
+  async function handlePrefixCompletionToggle(enabled: boolean) {
+    setPrefixCompletionEnabled(enabled);
+    await updateDoc(doc(db, "threads", threadId), {
+      prefixCompletionEnabled: enabled,
+    });
   }
 
   // -- 送信 --
@@ -590,6 +667,8 @@ export function useChatWindow(
         toolsStrict,
         toolHandlersJson,
         jsonOutput,
+        prefixCompletionEnabled,
+        stopSequencesRaw,
       });
 
       // 5) ストリーミング
@@ -603,7 +682,12 @@ export function useChatWindow(
           topP,
           maxTokens,
         },
-        buildRequestConfig(tooling.toolConfig, jsonOutput)
+        buildRequestConfig(
+          tooling.toolConfig,
+          jsonOutput,
+          stopSequencesRaw,
+          tooling.toolConfig?.strict === true
+        )
       );
 
       let finalResponseLength = 0;
@@ -685,7 +769,12 @@ export function useChatWindow(
             topP,
             maxTokens,
           },
-          buildRequestConfig(tooling.toolConfig, jsonOutput)
+          buildRequestConfig(
+            tooling.toolConfig,
+            jsonOutput,
+            stopSequencesRaw,
+            tooling.toolConfig?.strict === true
+          )
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -825,6 +914,8 @@ export function useChatWindow(
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
         jsonOutput: currentSettings.jsonOutput,
+        prefixCompletionEnabled: currentSettings.prefixCompletionEnabled,
+        stopSequencesRaw: currentSettings.stopSequencesRaw,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -837,7 +928,12 @@ export function useChatWindow(
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
         },
-        buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
+        buildRequestConfig(
+          tooling.toolConfig,
+          currentSettings.jsonOutput,
+          currentSettings.stopSequencesRaw,
+          tooling.toolConfig?.strict === true
+        )
       );
 
       if (
@@ -917,7 +1013,12 @@ export function useChatWindow(
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
           },
-          buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
+          buildRequestConfig(
+            tooling.toolConfig,
+            currentSettings.jsonOutput,
+            currentSettings.stopSequencesRaw,
+            tooling.toolConfig?.strict === true
+          )
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -989,6 +1090,8 @@ export function useChatWindow(
         toolsStrict,
         toolHandlersJson,
         jsonOutput,
+        prefixCompletionEnabled,
+        stopSequencesRaw,
       });
 
       await createMessage(newThreadId, "system", systemPrompt);
@@ -1112,6 +1215,8 @@ export function useChatWindow(
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
         jsonOutput: currentSettings.jsonOutput,
+        prefixCompletionEnabled: currentSettings.prefixCompletionEnabled,
+        stopSequencesRaw: currentSettings.stopSequencesRaw,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -1124,7 +1229,12 @@ export function useChatWindow(
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
         },
-        buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
+        buildRequestConfig(
+          tooling.toolConfig,
+          currentSettings.jsonOutput,
+          currentSettings.stopSequencesRaw,
+          tooling.toolConfig?.strict === true
+        )
       );
 
       if (
@@ -1204,7 +1314,12 @@ export function useChatWindow(
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
           },
-          buildRequestConfig(tooling.toolConfig, currentSettings.jsonOutput)
+          buildRequestConfig(
+            tooling.toolConfig,
+            currentSettings.jsonOutput,
+            currentSettings.stopSequencesRaw,
+            tooling.toolConfig?.strict === true
+          )
         );
 
         const finalThinkingContent = secondPass.partialReasoningContent.trim()
@@ -1245,6 +1360,212 @@ export function useChatWindow(
     }
   }
 
+  async function handleCompleteMessage(messageId: string) {
+    if (!prefixCompletionEnabled) {
+      return;
+    }
+
+    if (assistantThinking && chatStreamRef.current) {
+      chatStreamRef.current.abort();
+    }
+
+    const targetIndex = messages.findIndex((msg) => msg.id === messageId);
+    if (targetIndex === -1) {
+      return;
+    }
+    const target = messages[targetIndex];
+    if (target.role !== "assistant") {
+      return;
+    }
+
+    const baseContent = target.content ?? "";
+
+    setErrorMessage(null);
+    setAssistantThinking(true);
+    setWaitingForFirstChunk(true);
+    setAssistantCoT(null);
+    setAssistantDraft(baseContent);
+    setAssistantFinishReason(null);
+    setAssistantMsgId(messageId);
+
+    try {
+      const tooling = buildToolConfig(toolsJson, toolsStrict);
+      if (tooling.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
+      const handlersResult = buildToolHandlers(toolHandlersJson);
+      if (handlersResult.error) {
+        setAssistantThinking(false);
+        setWaitingForFirstChunk(false);
+        return;
+      }
+
+      const conversation = applyPrefixCompletion(
+        [
+          { role: "system", content: systemPrompt },
+          ...messages
+            .slice(0, targetIndex + 1)
+            .filter((m) => m.role !== "system")
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+        ] as { role: ChatRole; content: string }[],
+        prefixCompletionEnabled
+      );
+
+      await updateDoc(doc(db, "threads", threadId), {
+        model,
+        frequencyPenalty,
+        presencePenalty,
+        temperature,
+        topP,
+        maxTokens,
+        toolsJson,
+        toolsStrict,
+        toolHandlersJson,
+        jsonOutput,
+        prefixCompletionEnabled,
+        stopSequencesRaw,
+      });
+
+      const firstPass = await streamWithToolCalls(
+        conversation,
+        model,
+        {
+          frequencyPenalty,
+          presencePenalty,
+          temperature,
+          topP,
+          maxTokens,
+        },
+        buildRequestConfig(
+          tooling.toolConfig,
+          jsonOutput,
+          stopSequencesRaw,
+          prefixCompletionEnabled || tooling.toolConfig?.strict === true
+        ),
+        baseContent
+      );
+
+      if (
+        firstPass.finalFinishReason === "tool_calls" &&
+        firstPass.toolCalls.length > 0
+      ) {
+        const assistantToolMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: firstPass.partialContent ?? "",
+          tool_calls: firstPass.toolCalls,
+        };
+
+        let toolMessages: ChatCompletionMessageParam[];
+        try {
+          toolMessages = await resolveToolCalls(
+            firstPass.toolCalls,
+            handlersResult.handlers
+          );
+        } catch (toolError) {
+          const msg =
+            toolError instanceof Error
+              ? toolError.message
+              : t("chat.errors.toolCallFailed");
+          setErrorMessage(msg);
+          await updateMessage(
+            threadId,
+            messageId,
+            `${baseContent}${firstPass.partialContent}`,
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null,
+            firstPass.finalFinishReason
+          );
+          setAssistantCoT(
+            firstPass.partialReasoningContent.trim()
+              ? firstPass.partialReasoningContent
+              : null
+          );
+          setAssistantFinishReason(firstPass.finalFinishReason);
+          return;
+        }
+
+        await updateMessage(
+          threadId,
+          messageId,
+          `${baseContent}${firstPass.partialContent}`,
+          firstPass.partialReasoningContent.trim()
+            ? firstPass.partialReasoningContent
+            : null,
+          firstPass.finalFinishReason
+        );
+
+        const secondConversation = applyPrefixCompletion(
+          [
+            ...conversation,
+            assistantToolMessage,
+            ...toolMessages,
+          ],
+          prefixCompletionEnabled
+        );
+
+        const secondPass = await streamWithToolCalls(
+          secondConversation,
+          model,
+          {
+            frequencyPenalty,
+            presencePenalty,
+            temperature,
+            topP,
+            maxTokens,
+          },
+          buildRequestConfig(
+            tooling.toolConfig,
+            jsonOutput,
+            stopSequencesRaw,
+            prefixCompletionEnabled || tooling.toolConfig?.strict === true
+          ),
+          baseContent
+        );
+
+        const finalThinkingContent = secondPass.partialReasoningContent.trim()
+          ? secondPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          messageId,
+          `${baseContent}${secondPass.partialContent}`,
+          finalThinkingContent,
+          secondPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(secondPass.finalFinishReason);
+      } else {
+        const finalThinkingContent = firstPass.partialReasoningContent.trim()
+          ? firstPass.partialReasoningContent
+          : null;
+        await updateMessage(
+          threadId,
+          messageId,
+          `${baseContent}${firstPass.partialContent}`,
+          finalThinkingContent,
+          firstPass.finalFinishReason
+        );
+        setAssistantCoT(finalThinkingContent);
+        setAssistantFinishReason(firstPass.finalFinishReason);
+      }
+    } catch (err) {
+      console.error("handleCompleteMessage error (stream)", err);
+      const msg =
+        err instanceof Error ? err.message : t("chat.errors.stream");
+      setErrorMessage(msg);
+    } finally {
+      setAssistantThinking(false);
+      chatStreamRef.current = null;
+      setAssistantMsgId(null);
+    }
+  }
+
   return {
     messages,
     input,
@@ -1274,6 +1595,11 @@ export function useChatWindow(
     jsonOutput,
     setJsonOutput,
     handleJsonOutputToggle,
+    prefixCompletionEnabled,
+    setPrefixCompletionEnabled,
+    stopSequencesRaw,
+    setStopSequencesRaw,
+    handlePrefixCompletionToggle,
     systemPrompt,
     setSystemPrompt,
     showSystemBox,
@@ -1290,6 +1616,7 @@ export function useChatWindow(
     errorMessage,
     handleEditMessage,
     handleRegenerateMessage,
+    handleCompleteMessage,
     handleBranchMessage,
   };
 }

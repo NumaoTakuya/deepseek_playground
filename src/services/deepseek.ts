@@ -19,6 +19,7 @@ export type ChatCompletionMessageParam = {
   content?: string;
   tool_call_id?: string;
   tool_calls?: ChatCompletionToolCall[];
+  prefix?: boolean;
 };
 
 export type DeepseekParameters = {
@@ -33,6 +34,8 @@ export type DeepseekToolConfig = {
   tools?: unknown[];
   strict?: boolean;
   responseFormat?: { type: "json_object" };
+  stop?: string[];
+  useBeta?: boolean;
 };
 
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
@@ -146,6 +149,8 @@ type DeepseekRequestPayload = {
   tools?: unknown[];
   strict?: boolean;
   responseFormat?: { type: "json_object" };
+  stop?: string[];
+  useBeta?: boolean;
 };
 
 /**
@@ -282,12 +287,13 @@ export async function callDeepseekServer(
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<string> {
-  const baseURL = toolConfig?.strict
+  const baseURL = toolConfig?.useBeta || toolConfig?.strict
     ? "https://api.deepseek.com/beta"
     : "https://api.deepseek.com";
   const openai = createDeepseekClient(apiKey, baseURL);
   const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
   const responseFormat = toolConfig?.responseFormat;
+  const stop = toolConfig?.stop;
 
   try {
     const res = await openai.chat.completions.create({
@@ -295,6 +301,7 @@ export async function callDeepseekServer(
       messages,
       ...(tools && tools.length > 0 ? { tools } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
+      ...(stop && stop.length > 0 ? { stop } : {}),
       ...mapParams(parameters),
     });
     return res.choices[0]?.message?.content ?? "";
@@ -330,12 +337,13 @@ export async function streamDeepseekServer(
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
-  const baseURL = toolConfig?.strict
+  const baseURL = toolConfig?.useBeta || toolConfig?.strict
     ? "https://api.deepseek.com/beta"
     : "https://api.deepseek.com";
   const openai = createDeepseekClient(apiKey, baseURL);
   const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
   const responseFormat = toolConfig?.responseFormat;
+  const stop = toolConfig?.stop;
 
   try {
     const iterable = await openai.chat.completions.create({
@@ -344,6 +352,7 @@ export async function streamDeepseekServer(
       stream: true,
       ...(tools && tools.length > 0 ? { tools } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
+      ...(stop && stop.length > 0 ? { stop } : {}),
       ...mapParams(parameters),
     });
     return new DeepseekStreamWrapper(iterable as AbortableStream);

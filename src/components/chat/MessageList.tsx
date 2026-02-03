@@ -16,6 +16,7 @@ import {
   Edit,
   Refresh,
   CallSplit,
+  PlayArrow,
 } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,8 +35,10 @@ interface MessageListProps {
   assistantCoT?: string | null;
   assistantDraft?: string;
   assistantFinishReason?: string | null;
+  prefixCompletionEnabled?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onRegenerateMessage?: (messageId: string) => Promise<void>;
+  onCompleteMessage?: (messageId: string) => void;
   onBranchMessage?: (messageId: string) => Promise<void>;
   onScrollStateChange?: (isAtBottom: boolean) => void;
   onRegisterScrollToBottom?: (fn: (smooth?: boolean) => void) => void;
@@ -124,8 +127,10 @@ export default function MessageList({
   assistantCoT,
   assistantDraft,
   assistantFinishReason,
+  prefixCompletionEnabled = false,
   onEditMessage,
   onRegenerateMessage,
+  onCompleteMessage,
   onBranchMessage,
   onScrollStateChange,
   onRegisterScrollToBottom,
@@ -426,25 +431,48 @@ export default function MessageList({
               </Box>
                 {!isEditing && (
                   <div className="bubble-footer">
-                  {isAssistant && finishReason ? (
-                    <div
-                      className={`finish-reason${
-                        isLengthFinish ? " finish-reason-length" : ""
-                      }`}
-                    >
-                      <span>
-                        {t("chat.finishReason.label", { reason: finishReason })}
-                      </span>
-                      {isLengthFinish && (
-                        <span className="finish-reason-warning">
-                          {t("chat.finishReason.lengthWarning")}
+                  <div className="bubble-footer-left">
+                    {isAssistant && finishReason ? (
+                      <div
+                        className={`finish-reason${
+                          isLengthFinish ? " finish-reason-length" : ""
+                        }`}
+                      >
+                        <span>
+                          {t("chat.finishReason.label", { reason: finishReason })}
                         </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="bubble-actions">
+                        {isLengthFinish && (
+                          <span className="finish-reason-warning">
+                            {t("chat.finishReason.lengthWarning")}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                  <div className="bubble-footer-center">
+                    {isAssistant && prefixCompletionEnabled && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<PlayArrow fontSize="inherit" />}
+                        onClick={() => onCompleteMessage?.(msg.id)}
+                        sx={{
+                          backgroundColor: "var(--color-primary)",
+                          color: "#fff",
+                          textTransform: "none",
+                          fontWeight: 600,
+                          "&:hover": {
+                            backgroundColor: "var(--color-hover)",
+                          },
+                        }}
+                      >
+                        {t("chat.complete")}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="bubble-footer-actions">
                     {msg.role === "user" && (
                       <Tooltip title={t("common.edit")}>
                         <IconButton

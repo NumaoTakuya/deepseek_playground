@@ -69,6 +69,10 @@ export default function ChatWindow({ threadId }: Props) {
     jsonOutput,
     setJsonOutput,
     handleJsonOutputToggle,
+    prefixCompletionEnabled,
+    stopSequencesRaw,
+    setStopSequencesRaw,
+    handlePrefixCompletionToggle,
     handleToolsStrictToggle,
     systemPrompt,
     setSystemPrompt,
@@ -84,6 +88,7 @@ export default function ChatWindow({ threadId }: Props) {
     errorMessage,
     handleEditMessage,
     handleRegenerateMessage,
+    handleCompleteMessage,
     handleBranchMessage,
   } = useChatWindow(threadId, apiKey, user?.uid);
 
@@ -99,6 +104,7 @@ export default function ChatWindow({ threadId }: Props) {
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showAdvancedBox, setShowAdvancedBox] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
+  const [showPrefixBox, setShowPrefixBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
@@ -113,10 +119,12 @@ export default function ChatWindow({ threadId }: Props) {
     const paramsOpenKey = `thread-${threadId}-ui-parameters-open`;
     const advancedOpenKey = `thread-${threadId}-ui-advanced-open`;
     const toolsOpenKey = `thread-${threadId}-ui-tools-open`;
+    const prefixOpenKey = `thread-${threadId}-ui-prefix-open`;
     const sidebarOpen = window.localStorage.getItem(sidebarOpenKey);
     const paramsOpen = window.localStorage.getItem(paramsOpenKey);
     const advancedOpen = window.localStorage.getItem(advancedOpenKey);
     const toolsOpen = window.localStorage.getItem(toolsOpenKey);
+    const prefixOpen = window.localStorage.getItem(prefixOpenKey);
     if (sidebarOpen !== null) {
       setIsSidebarOpen(sidebarOpen === "true");
     }
@@ -128,6 +136,9 @@ export default function ChatWindow({ threadId }: Props) {
     }
     if (toolsOpen !== null) {
       setShowToolsBox(toolsOpen === "true");
+    }
+    if (prefixOpen !== null) {
+      setShowPrefixBox(prefixOpen === "true");
     }
   }, [threadId]);
 
@@ -162,6 +173,14 @@ export default function ChatWindow({ threadId }: Props) {
       String(showToolsBox)
     );
   }, [showToolsBox, threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-prefix-open`,
+      String(showPrefixBox)
+    );
+  }, [showPrefixBox, threadId]);
 
   const getMaxTokensDefaults = (selectedModel: string) => {
     if (selectedModel === "deepseek-reasoner") {
@@ -361,18 +380,20 @@ export default function ChatWindow({ threadId }: Props) {
           display="flex"
           flexDirection="column"
         >
-          <MessageList
-            messages={messages}
-            streamingAssistantId={assistantMsgId}
-            assistantCoT={assistantCoT}
-            assistantDraft={assistantDraft}
-            assistantFinishReason={assistantFinishReason}
-            waitingForFirstChunk={waitingForFirstChunk}
-            onEditMessage={handleEditMessage}
-            onRegenerateMessage={handleRegenerateMessage}
-            onBranchMessage={handleBranchMessageAndNavigate}
-            onScrollStateChange={setIsAtBottom}
-            onRegisterScrollToBottom={(fn) => {
+        <MessageList
+          messages={messages}
+          streamingAssistantId={assistantMsgId}
+          assistantCoT={assistantCoT}
+          assistantDraft={assistantDraft}
+          assistantFinishReason={assistantFinishReason}
+          waitingForFirstChunk={waitingForFirstChunk}
+          prefixCompletionEnabled={prefixCompletionEnabled}
+          onEditMessage={handleEditMessage}
+          onRegenerateMessage={handleRegenerateMessage}
+          onCompleteMessage={handleCompleteMessage}
+          onBranchMessage={handleBranchMessageAndNavigate}
+          onScrollStateChange={setIsAtBottom}
+          onRegisterScrollToBottom={(fn) => {
               scrollToBottomRef.current = fn;
             }}
           />
@@ -1025,6 +1046,75 @@ export default function ChatWindow({ threadId }: Props) {
                       </Typography>
                     </Box>
                   </Collapse>
+
+                  <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid var(--color-border)" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "var(--color-text)",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                      >
+                        {t("common.prefixCompletionTitle")}
+                      </Typography>
+                      <Switch
+                        checked={prefixCompletionEnabled}
+                        onChange={(e) =>
+                          handlePrefixCompletionToggle(e.target.checked)
+                        }
+                        color="primary"
+                        sx={{ ml: 1 }}
+                      />
+                      <IconButton
+                        onClick={() => setShowPrefixBox((prev) => !prev)}
+                        size="small"
+                        sx={{ color: "var(--color-text)", ml: "auto" }}
+                        aria-label={
+                          showPrefixBox
+                            ? t("chat.controls.collapse")
+                            : t("chat.controls.expand")
+                        }
+                      >
+                        {showPrefixBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                    </Box>
+                    <Collapse in={showPrefixBox} timeout={200} unmountOnExit>
+                      <Box sx={{ pl: 2, borderLeft: "1px solid var(--color-border)" }}>
+                        <TextField
+                          fullWidth
+                          label={t("common.stopSequencesLabel")}
+                          placeholder={t("common.stopSequencesPlaceholder")}
+                          value={stopSequencesRaw}
+                          onChange={(e) => setStopSequencesRaw(e.target.value)}
+                          helperText={t("common.stopSequencesHelper")}
+                          variant="outlined"
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              "& fieldset": { borderColor: "var(--color-border)" },
+                              "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                              "&.Mui-focused fieldset": {
+                                borderColor: "var(--color-hover)",
+                              },
+                            },
+                            "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                            "& .MuiOutlinedInput-input": {
+                              color: "var(--color-text)",
+                              fontFamily:
+                                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                            },
+                            "& .MuiFormHelperText-root": {
+                              color: "var(--color-subtext)",
+                            },
+                          }}
+                        />
+                      </Box>
+                    </Collapse>
+                  </Box>
                 </Box>
               </Collapse>
             </Box>

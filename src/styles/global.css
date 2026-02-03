@@ -129,9 +129,21 @@ body {
   width: 100%;
   margin-top: 4px;
 }
-.bubble-actions {
+.bubble-footer-left {
+  flex: 1;
+  min-width: 0;
+}
+.bubble-footer-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bubble-footer-actions {
+  flex: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
 }
 .bubble-footer .copy-button {

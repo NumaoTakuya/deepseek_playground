@@ -77,46 +77,6 @@ export default function ChatHomePage() {
   }, [DRAFT_INPUT_KEY, DRAFT_TOOL_HANDLERS_KEY, DRAFT_TOOLS_JSON_KEY]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const systemOpen = window.localStorage.getItem(UI_SYSTEM_OPEN_KEY);
-    const paramsOpen = window.localStorage.getItem(UI_PARAMS_OPEN_KEY);
-    const advancedOpen = window.localStorage.getItem(UI_ADVANCED_OPEN_KEY);
-    const toolsOpen = window.localStorage.getItem(UI_TOOLS_OPEN_KEY);
-    if (systemOpen !== null) {
-      setShowSystemBox(systemOpen === "true");
-    }
-    if (paramsOpen !== null) {
-      setShowParametersBox(paramsOpen === "true");
-    }
-    if (advancedOpen !== null) {
-      setShowAdvancedBox(advancedOpen === "true");
-    }
-    if (toolsOpen !== null) {
-      setShowToolsBox(toolsOpen === "true");
-    }
-  }, [UI_ADVANCED_OPEN_KEY, UI_PARAMS_OPEN_KEY, UI_SYSTEM_OPEN_KEY, UI_TOOLS_OPEN_KEY]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(UI_SYSTEM_OPEN_KEY, String(showSystemBox));
-  }, [showSystemBox]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(UI_PARAMS_OPEN_KEY, String(showParametersBox));
-  }, [showParametersBox]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(UI_ADVANCED_OPEN_KEY, String(showAdvancedBox));
-  }, [showAdvancedBox]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(UI_TOOLS_OPEN_KEY, String(showToolsBox));
-  }, [showToolsBox]);
-
-  useEffect(() => {
     if (!preferencesLoaded) return;
     if (apiKey) {
       setIsDialogOpen(false);
@@ -188,6 +148,46 @@ export default function ChatHomePage() {
   const [jsonOutput, setJsonOutput] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const systemOpen = window.localStorage.getItem(UI_SYSTEM_OPEN_KEY);
+    const paramsOpen = window.localStorage.getItem(UI_PARAMS_OPEN_KEY);
+    const advancedOpen = window.localStorage.getItem(UI_ADVANCED_OPEN_KEY);
+    const toolsOpen = window.localStorage.getItem(UI_TOOLS_OPEN_KEY);
+    if (systemOpen !== null) {
+      setShowSystemBox(systemOpen === "true");
+    }
+    if (paramsOpen !== null) {
+      setShowParametersBox(paramsOpen === "true");
+    }
+    if (advancedOpen !== null) {
+      setShowAdvancedBox(advancedOpen === "true");
+    }
+    if (toolsOpen !== null) {
+      setShowToolsBox(toolsOpen === "true");
+    }
+  }, [UI_ADVANCED_OPEN_KEY, UI_PARAMS_OPEN_KEY, UI_SYSTEM_OPEN_KEY, UI_TOOLS_OPEN_KEY]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_SYSTEM_OPEN_KEY, String(showSystemBox));
+  }, [showSystemBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_PARAMS_OPEN_KEY, String(showParametersBox));
+  }, [showParametersBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_ADVANCED_OPEN_KEY, String(showAdvancedBox));
+  }, [showAdvancedBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_TOOLS_OPEN_KEY, String(showToolsBox));
+  }, [showToolsBox]);
   const getMaxTokensDefaults = (selectedModel: string) => {
     if (selectedModel === "deepseek-reasoner") {
       return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
