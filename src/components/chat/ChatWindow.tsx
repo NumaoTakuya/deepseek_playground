@@ -33,7 +33,7 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { useChatWindow } from "../../hooks/useChatWindow";
 import { useApiKey } from "../../contexts/ApiKeyContext";
 import { useAuth } from "../../contexts/AuthContext";

@@ -1,7 +1,11 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
-import type { ChatCompletionChunk } from "openai/resources/chat/completions";
+import type {
+  ChatCompletionChunk,
+  ChatCompletionTool,
+  ChatCompletionMessageParam as OpenAIChatCompletionMessageParam,
+} from "openai/resources/chat/completions";
 
 const isBrowser = typeof window !== "undefined";
 
@@ -14,11 +18,7 @@ export type ChatCompletionToolCall = {
   };
 };
 
-export type ChatCompletionMessageParam = {
-  role: "system" | "user" | "assistant" | "tool";
-  content?: string;
-  tool_call_id?: string;
-  tool_calls?: ChatCompletionToolCall[];
+export type ChatCompletionMessageParam = OpenAIChatCompletionMessageParam & {
   prefix?: boolean;
 };
 
@@ -295,7 +295,9 @@ export async function callDeepseekServer(
     ? "https://api.deepseek.com/beta"
     : "https://api.deepseek.com";
   const openai = createDeepseekClient(apiKey, baseURL);
-  const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
+  const tools = Array.isArray(toolConfig?.tools)
+    ? (toolConfig.tools as ChatCompletionTool[])
+    : undefined;
   const responseFormat = toolConfig?.responseFormat;
   const stop = toolConfig?.stop;
 
@@ -383,7 +385,9 @@ export async function streamDeepseekServer(
     ? "https://api.deepseek.com/beta"
     : "https://api.deepseek.com";
   const openai = createDeepseekClient(apiKey, baseURL);
-  const tools = Array.isArray(toolConfig?.tools) ? toolConfig?.tools : undefined;
+  const tools = Array.isArray(toolConfig?.tools)
+    ? (toolConfig.tools as ChatCompletionTool[])
+    : undefined;
   const responseFormat = toolConfig?.responseFormat;
   const stop = toolConfig?.stop;
 

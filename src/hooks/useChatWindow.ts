@@ -331,7 +331,15 @@ export function useChatWindow(
     });
   };
 
-  const buildToolConfig = (rawJson: string, strict: boolean) => {
+  type ToolingResult = {
+    toolConfig?: { tools?: unknown[]; strict?: boolean };
+    error?: string;
+  };
+
+  const buildToolConfig = (
+    rawJson: string,
+    strict: boolean
+  ): ToolingResult => {
     const parsed = parseToolsJson(rawJson);
     if (parsed.error) {
       setErrorMessage(parsed.error);
@@ -692,12 +700,23 @@ export function useChatWindow(
   }
 
   const buildInputText = (
-    conversation: Array<{ content?: string | null }>
+    conversation: Array<{ content?: string | null | Array<{ type?: string; text?: string }> }>
   ): string =>
     conversation
-      .map((message) =>
-        typeof message.content === "string" ? message.content : ""
-      )
+      .map((message) => {
+        if (typeof message.content === "string") return message.content;
+        if (Array.isArray(message.content)) {
+          return message.content
+            .map((part) =>
+              part?.type === "text" && typeof part.text === "string"
+                ? part.text
+                : ""
+            )
+            .filter((text) => text.length > 0)
+            .join("\n");
+        }
+        return "";
+      })
       .filter((content) => content.length > 0)
       .join("\n\n");
 
