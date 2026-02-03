@@ -150,6 +150,12 @@ body {
   padding: 4px;
   color: var(--color-subtext);
 }
+.bubble-footer .token-count {
+  color: var(--color-subtext);
+  font-size: 0.75rem;
+  display: block;
+  white-space: nowrap;
+}
 .copy-button {
   color: var(--color-subtext);
 }

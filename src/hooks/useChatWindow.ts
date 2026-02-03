@@ -9,6 +9,7 @@ import {
   updateMessage,
   deleteMessages,
 } from "../services/message";
+import { fetchTokenCount } from "../services/tokenizer";
 import {
   callDeepseekFim,
   streamDeepseek,
@@ -660,6 +661,24 @@ export function useChatWindow(
     }
   }
 
+  async function updateMessageTokenCount(messageId: string, text: string) {
+    const tokenCount = await fetchTokenCount(text);
+    if (tokenCount === null) return;
+    try {
+      await updateMessage(
+        threadId,
+        messageId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        tokenCount
+      );
+    } catch (error) {
+      console.error("[updateMessageTokenCount] Failed:", error);
+    }
+  }
+
   // -- model変更 --
   async function handleModelChange(newModel: string) {
     setModel(newModel);
@@ -736,7 +755,8 @@ export function useChatWindow(
       await handleSystemPromptUpdate();
 
       // 2) userメッセージ
-      await createMessage(threadId, "user", userText);
+      const userMsgId = await createMessage(threadId, "user", userText);
+      void updateMessageTokenCount(userMsgId, userText);
 
       // 3) 空のassistantメッセージ (Firestore) → ID取得
       const newAssistantMsgId = await createMessage(threadId, "assistant", "");
@@ -784,6 +804,7 @@ export function useChatWindow(
         setWaitingForFirstChunk(false);
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        void updateMessageTokenCount(newAssistantMsgId, completion);
         setAssistantFinishReason(null);
 
         if (analytics) {
@@ -850,6 +871,10 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          void updateMessageTokenCount(
+            newAssistantMsgId,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -868,6 +893,10 @@ export function useChatWindow(
           firstPass.partialContent,
           firstThinkingContent,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          newAssistantMsgId,
+          firstPass.partialContent ?? ""
         );
 
         const secondAssistantMsgId = await createMessage(
@@ -914,6 +943,10 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        void updateMessageTokenCount(
+          secondAssistantMsgId,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
         finalResponseLength = secondPass.partialContent.length;
@@ -928,6 +961,10 @@ export function useChatWindow(
           firstPass.partialContent,
           finalThinkingContent,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          newAssistantMsgId,
+          firstPass.partialContent ?? ""
         );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
@@ -1019,6 +1056,7 @@ export function useChatWindow(
       }
       await handleSystemPromptUpdate();
       await updateMessage(threadId, messageId, trimmed);
+      void updateMessageTokenCount(messageId, trimmed);
 
       const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
       await deleteMessages(threadId, toDelete);
@@ -1071,6 +1109,7 @@ export function useChatWindow(
         setWaitingForFirstChunk(false);
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        void updateMessageTokenCount(newAssistantMsgId, completion);
         setAssistantFinishReason(null);
         return;
       }
@@ -1124,6 +1163,10 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          void updateMessageTokenCount(
+            newAssistantMsgId,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -1142,6 +1185,10 @@ export function useChatWindow(
           firstPass.partialContent,
           firstThinkingContent,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          newAssistantMsgId,
+          firstPass.partialContent ?? ""
         );
 
         const secondAssistantMsgId = await createMessage(
@@ -1188,6 +1235,10 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        void updateMessageTokenCount(
+          secondAssistantMsgId,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1200,6 +1251,10 @@ export function useChatWindow(
           firstPass.partialContent,
           finalThinkingContent,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          newAssistantMsgId,
+          firstPass.partialContent ?? ""
         );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
@@ -1276,10 +1331,19 @@ export function useChatWindow(
             msg.content,
             msg.thinking_content ?? null,
             msg.finish_reason ?? null,
-            branchMeta
+            branchMeta,
+            msg.token_count
           );
         } else {
-          await createMessage(newThreadId, msg.role, msg.content);
+          await createMessage(
+            newThreadId,
+            msg.role,
+            msg.content,
+            undefined,
+            undefined,
+            undefined,
+            msg.token_count
+          );
         }
       }
 
@@ -1431,6 +1495,10 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          void updateMessageTokenCount(
+            messageId,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -1450,6 +1518,7 @@ export function useChatWindow(
           firstThinkingContent,
           firstPass.finalFinishReason
         );
+        void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
 
         const secondAssistantMsgId = await createMessage(
           threadId,
@@ -1495,6 +1564,10 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        void updateMessageTokenCount(
+          secondAssistantMsgId,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1508,6 +1581,7 @@ export function useChatWindow(
           finalThinkingContent,
           firstPass.finalFinishReason
         );
+        void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
       }
@@ -1647,6 +1721,10 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          void updateMessageTokenCount(
+            messageId,
+            `${baseContent}${firstPass.partialContent ?? ""}`
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -1664,6 +1742,10 @@ export function useChatWindow(
             ? firstPass.partialReasoningContent
             : null,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          messageId,
+          `${baseContent}${firstPass.partialContent ?? ""}`
         );
 
         const secondConversation = applyPrefixCompletion(
@@ -1704,6 +1786,10 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        void updateMessageTokenCount(
+          messageId,
+          `${baseContent}${secondPass.partialContent ?? ""}`
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1716,6 +1802,10 @@ export function useChatWindow(
           `${baseContent}${firstPass.partialContent}`,
           finalThinkingContent,
           firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          messageId,
+          `${baseContent}${firstPass.partialContent ?? ""}`
         );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);

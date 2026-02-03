@@ -432,6 +432,11 @@ export default function MessageList({
                 {!isEditing && (
                   <div className="bubble-footer">
                   <div className="bubble-footer-left">
+                    {typeof msg.token_count === "number" && (
+                      <div className="token-count">
+                        tokens: {msg.token_count}
+                      </div>
+                    )}
                     {isAssistant && finishReason ? (
                       <div
                         className={`finish-reason${

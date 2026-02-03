@@ -21,6 +21,7 @@ export interface Message {
   threadId: string; // どのThreadに属するか
   role: "system" | "assistant" | "user";
   content: string; // メッセージ本文
+  token_count?: number;
   thinking_content?: string | null;
   finish_reason?: string | null;
   kind?: "branch_marker";

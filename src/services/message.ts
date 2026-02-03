@@ -38,7 +38,8 @@ export async function createMessage(
     branchFromMessageId?: string;
     createdAtOverride?: Message["createdAt"];
     branchCreatedAt?: string;
-  }
+  },
+  tokenCount?: number
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
@@ -48,6 +49,9 @@ export async function createMessage(
       content,
       createdAt: meta?.createdAtOverride ?? serverTimestamp(),
     };
+    if (tokenCount !== undefined) {
+      payload.token_count = tokenCount;
+    }
     if (thinkingContent !== undefined) {
       payload.thinking_content = thinkingContent;
     }
@@ -215,7 +219,8 @@ export async function updateMessage(
     branchThreadTitle?: string;
     branchFromMessageId?: string;
     branchCreatedAt?: string;
-  }
+  },
+  tokenCount?: number
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
@@ -227,6 +232,7 @@ export async function updateMessage(
       branch_thread_title?: string;
       branch_from_message_id?: string;
       branch_created_at?: string;
+      token_count?: number;
     } = {};
     if (content !== undefined) {
       updatePayload.content = content;
@@ -248,6 +254,9 @@ export async function updateMessage(
     }
     if (meta?.branchCreatedAt !== undefined) {
       updatePayload.branch_created_at = meta.branchCreatedAt;
+    }
+    if (tokenCount !== undefined) {
+      updatePayload.token_count = tokenCount;
     }
     if (Object.keys(updatePayload).length === 0) {
       return;
