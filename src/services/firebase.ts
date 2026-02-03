@@ -2,6 +2,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -37,6 +38,25 @@ const firebaseConfig = {
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
+// App Check (browser only)
+const appCheckState = globalThis as typeof globalThis & {
+  __APP_CHECK_INITIALIZED__?: boolean;
+};
+
+const recaptchaSiteKey = "6Ldk_F4sAAAAAK7jdHJRiaRIcK1o7WTGzBY7pVUF";
+
+if (
+  typeof window !== "undefined" &&
+  recaptchaSiteKey &&
+  !appCheckState.__APP_CHECK_INITIALIZED__
+) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  appCheckState.__APP_CHECK_INITIALIZED__ = true; // Prevent double init during HMR
+}
+
 // Analytics
 export const analytics =
   typeof window !== "undefined" ? getAnalytics(app) : null;
@@ -57,10 +77,9 @@ const emulatorState = globalThis as typeof globalThis & {
 };
 
 if (useFirestoreEmulator && !emulatorState.__FIRESTORE_EMULATOR_INITIALIZED__) {
-  const host =
-    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST ?? "127.0.0.1";
+  const host = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST ?? "127.0.0.1";
   const port = Number(
-    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? "8080"
+    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? "8080",
   );
 
   connectFirestoreEmulator(db, host, port);
@@ -115,7 +134,7 @@ export async function doSignOut() {
 
 // 例: ログイン状態変更のリスナー
 export function onFirebaseAuthStateChanged(
-  callback: (user: FirebaseUser | null) => void
+  callback: (user: FirebaseUser | null) => void,
 ) {
   return onAuthStateChanged(auth, (user) => {
     if (user) {
