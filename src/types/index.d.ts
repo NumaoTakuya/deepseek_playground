@@ -9,6 +9,10 @@ export interface Thread {
   title: string; // トーク（スレッド）のタイトル
   createdAt?: Timestamp; // 作成日時 (サーバータイムスタンプなど)
   updatedAt?: Timestamp; // 更新日時 (サーバータイムスタンプなど)
+  cumulativeInputTokens?: number;
+  cumulativeOutputTokens?: number;
+  systemPromptTokenCount?: number;
+  systemPromptTokenText?: string;
   parentThreadId?: string;
   branchFromMessageId?: string;
   branchFromTitle?: string;

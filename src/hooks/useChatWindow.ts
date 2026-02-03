@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { db, analytics, logEvent } from "../services/firebase";
-import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  serverTimestamp,
+  increment,
+} from "firebase/firestore";
 import {
   listenMessages,
   createMessage,
@@ -59,6 +65,12 @@ export function useChatWindow(
   >(null);
   const [jsonOutput, setJsonOutput] = useState(false);
   const [prefixCompletionEnabled, setPrefixCompletionEnabled] = useState(false);
+  const [cumulativeInputTokens, setCumulativeInputTokens] = useState(0);
+  const [cumulativeOutputTokens, setCumulativeOutputTokens] = useState(0);
+  const [systemPromptTokenCount, setSystemPromptTokenCount] = useState<
+    number | null
+  >(null);
+  const [systemPromptTokenText, setSystemPromptTokenText] = useState("");
   const [stopSequencesRaw, setStopSequencesRaw] = useState("");
   const [fimPrefix, setFimPrefix] = useState("");
   const [fimSuffix, setFimSuffix] = useState("");
@@ -582,6 +594,10 @@ export function useChatWindow(
           temperature?: number;
           topP?: number;
           maxTokens?: number;
+          cumulativeInputTokens?: number;
+          cumulativeOutputTokens?: number;
+          systemPromptTokenCount?: number;
+          systemPromptTokenText?: string;
           toolsJson?: string;
           toolsStrict?: boolean;
           toolHandlersJson?: string;
@@ -610,6 +626,20 @@ export function useChatWindow(
         }
         if (typeof data.maxTokens === "number") {
           setMaxTokens(data.maxTokens);
+        }
+        if (typeof data.cumulativeInputTokens === "number") {
+          setCumulativeInputTokens(data.cumulativeInputTokens);
+        }
+        if (typeof data.cumulativeOutputTokens === "number") {
+          setCumulativeOutputTokens(data.cumulativeOutputTokens);
+        }
+        if (typeof data.systemPromptTokenCount === "number") {
+          setSystemPromptTokenCount(data.systemPromptTokenCount);
+        } else if (data.systemPromptTokenCount === null) {
+          setSystemPromptTokenCount(null);
+        }
+        if (typeof data.systemPromptTokenText === "string") {
+          setSystemPromptTokenText(data.systemPromptTokenText);
         }
         if (typeof data.toolsJson === "string" && !toolsJsonDraftRef.current) {
           setToolsJson(data.toolsJson);
@@ -661,6 +691,16 @@ export function useChatWindow(
     }
   }
 
+  const buildInputText = (
+    conversation: Array<{ content?: string | null }>
+  ): string =>
+    conversation
+      .map((message) =>
+        typeof message.content === "string" ? message.content : ""
+      )
+      .filter((content) => content.length > 0)
+      .join("\n\n");
+
   async function updateMessageTokenCount(messageId: string, text: string) {
     const tokenCount = await fetchTokenCount(text);
     if (tokenCount === null) return;
@@ -676,6 +716,52 @@ export function useChatWindow(
       );
     } catch (error) {
       console.error("[updateMessageTokenCount] Failed:", error);
+    }
+  }
+
+  async function addUsageCounts(
+    inputTokens: number | null,
+    outputTokens: number | null
+  ) {
+    const payload: Record<string, ReturnType<typeof increment>> = {};
+    if (typeof inputTokens === "number") {
+      payload.cumulativeInputTokens = increment(inputTokens);
+    }
+    if (typeof outputTokens === "number") {
+      payload.cumulativeOutputTokens = increment(outputTokens);
+    }
+    if (Object.keys(payload).length === 0) return;
+    try {
+      await updateDoc(doc(db, "threads", threadId), payload);
+    } catch (error) {
+      console.error("[addUsageCounts] Failed:", error);
+    }
+  }
+
+  async function addUsageFromTexts(
+    inputText: string | null,
+    outputText: string | null
+  ) {
+    const [inputTokens, outputTokens] = await Promise.all([
+      inputText !== null ? fetchTokenCount(inputText) : Promise.resolve(null),
+      outputText !== null ? fetchTokenCount(outputText) : Promise.resolve(null),
+    ]);
+    await addUsageCounts(inputTokens, outputTokens);
+  }
+
+  async function ensureSystemPromptTokenCount(promptText: string) {
+    if (promptText === systemPromptTokenText) return;
+    const tokenCount = await fetchTokenCount(promptText);
+    if (tokenCount === null) return;
+    try {
+      await updateDoc(doc(db, "threads", threadId), {
+        systemPromptTokenCount: tokenCount,
+        systemPromptTokenText: promptText,
+      });
+      setSystemPromptTokenCount(tokenCount);
+      setSystemPromptTokenText(promptText);
+    } catch (error) {
+      console.error("[ensureSystemPromptTokenCount] Failed:", error);
     }
   }
 
@@ -753,6 +839,7 @@ export function useChatWindow(
       }
       // 1) systemPromptをFirestoreへ
       await handleSystemPromptUpdate();
+      void ensureSystemPromptTokenCount(systemPrompt);
 
       // 2) userメッセージ
       const userMsgId = await createMessage(threadId, "user", userText);
@@ -773,6 +860,7 @@ export function useChatWindow(
           })),
         { role: "user", content: userText },
       ] as { role: ChatRole; content: string }[];
+      const inputText = buildInputText(conversation);
 
       await updateDoc(doc(db, "threads", threadId), {
         frequencyPenalty,
@@ -805,6 +893,10 @@ export function useChatWindow(
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
         void updateMessageTokenCount(newAssistantMsgId, completion);
+        void addUsageFromTexts(
+          `${fimPrefix}${userText}${fimSuffix ?? ""}`,
+          completion
+        );
         setAssistantFinishReason(null);
 
         if (analytics) {
@@ -875,6 +967,10 @@ export function useChatWindow(
             newAssistantMsgId,
             firstPass.partialContent ?? ""
           );
+          void addUsageFromTexts(
+            inputText,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -898,6 +994,7 @@ export function useChatWindow(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
         );
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
 
         const secondAssistantMsgId = await createMessage(
           threadId,
@@ -914,6 +1011,7 @@ export function useChatWindow(
           assistantToolMessage,
           ...toolMessages,
         ];
+        const secondInputText = buildInputText(secondConversation);
 
         const secondPass = await streamWithToolCalls(
           secondConversation,
@@ -947,6 +1045,10 @@ export function useChatWindow(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
         );
+        void addUsageFromTexts(
+          secondInputText,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
         finalResponseLength = secondPass.partialContent.length;
@@ -966,6 +1068,7 @@ export function useChatWindow(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
         );
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
         finalResponseLength = firstPass.partialContent.length;
@@ -1055,6 +1158,7 @@ export function useChatWindow(
         return;
       }
       await handleSystemPromptUpdate();
+      void ensureSystemPromptTokenCount(currentSettings.systemPrompt);
       await updateMessage(threadId, messageId, trimmed);
       void updateMessageTokenCount(messageId, trimmed);
 
@@ -1074,6 +1178,7 @@ export function useChatWindow(
             content: m.id === messageId ? trimmed : m.content,
           })),
       ] as { role: ChatRole; content: string }[];
+      const inputText = buildInputText(conversation);
 
       await updateDoc(doc(db, "threads", threadId), {
         model: currentSettings.model,
@@ -1110,6 +1215,12 @@ export function useChatWindow(
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
         void updateMessageTokenCount(newAssistantMsgId, completion);
+        void addUsageFromTexts(
+          `${currentSettings.fimPrefix}${trimmed}${
+            currentSettings.fimSuffix ?? ""
+          }`,
+          completion
+        );
         setAssistantFinishReason(null);
         return;
       }
@@ -1167,6 +1278,10 @@ export function useChatWindow(
             newAssistantMsgId,
             firstPass.partialContent ?? ""
           );
+          void addUsageFromTexts(
+            inputText,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -1190,6 +1305,7 @@ export function useChatWindow(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
         );
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
 
         const secondAssistantMsgId = await createMessage(
           threadId,
@@ -1206,6 +1322,7 @@ export function useChatWindow(
           assistantToolMessage,
           ...toolMessages,
         ];
+        const secondInputText = buildInputText(secondConversation);
 
         const secondPass = await streamWithToolCalls(
           secondConversation,
@@ -1239,6 +1356,10 @@ export function useChatWindow(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
         );
+        void addUsageFromTexts(
+          secondInputText,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1256,6 +1377,7 @@ export function useChatWindow(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
         );
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
       }
@@ -1412,6 +1534,7 @@ export function useChatWindow(
         return;
       }
       await handleSystemPromptUpdate();
+      void ensureSystemPromptTokenCount(currentSettings.systemPrompt);
       const toDelete = messages.slice(targetIndex + 1).map((msg) => msg.id);
       await deleteMessages(threadId, toDelete);
 
@@ -1427,6 +1550,7 @@ export function useChatWindow(
             content: m.content,
           })),
       ] as { role: ChatRole; content: string }[];
+      const inputText = buildInputText(conversation);
 
       await updateDoc(doc(db, "threads", threadId), {
         model: currentSettings.model,
@@ -1499,6 +1623,10 @@ export function useChatWindow(
             messageId,
             firstPass.partialContent ?? ""
           );
+          void addUsageFromTexts(
+            inputText,
+            firstPass.partialContent ?? ""
+          );
           setAssistantCoT(
             firstPass.partialReasoningContent.trim()
               ? firstPass.partialReasoningContent
@@ -1519,6 +1647,7 @@ export function useChatWindow(
           firstPass.finalFinishReason
         );
         void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
 
         const secondAssistantMsgId = await createMessage(
           threadId,
@@ -1535,6 +1664,7 @@ export function useChatWindow(
           assistantToolMessage,
           ...toolMessages,
         ];
+        const secondInputText = buildInputText(secondConversation);
 
         const secondPass = await streamWithToolCalls(
           secondConversation,
@@ -1568,6 +1698,10 @@ export function useChatWindow(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
         );
+        void addUsageFromTexts(
+          secondInputText,
+          secondPass.partialContent ?? ""
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1582,6 +1716,7 @@ export function useChatWindow(
           firstPass.finalFinishReason
         );
         void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
+        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(firstPass.finalFinishReason);
       }
@@ -1652,6 +1787,8 @@ export function useChatWindow(
         ] as { role: ChatRole; content: string }[],
         prefixCompletionEnabled
       );
+      void ensureSystemPromptTokenCount(systemPrompt);
+      const inputText = buildInputText(conversation);
 
       await updateDoc(doc(db, "threads", threadId), {
         model,
@@ -1712,26 +1849,30 @@ export function useChatWindow(
               ? toolError.message
               : t("chat.errors.toolCallFailed");
           setErrorMessage(msg);
-          await updateMessage(
-            threadId,
-            messageId,
-            `${baseContent}${firstPass.partialContent}`,
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null,
-            firstPass.finalFinishReason
-          );
-          void updateMessageTokenCount(
-            messageId,
-            `${baseContent}${firstPass.partialContent ?? ""}`
-          );
-          setAssistantCoT(
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null
-          );
-          setAssistantFinishReason(firstPass.finalFinishReason);
-          return;
+        await updateMessage(
+          threadId,
+          messageId,
+          `${baseContent}${firstPass.partialContent}`,
+          firstPass.partialReasoningContent.trim()
+            ? firstPass.partialReasoningContent
+            : null,
+          firstPass.finalFinishReason
+        );
+        void updateMessageTokenCount(
+          messageId,
+          `${baseContent}${firstPass.partialContent ?? ""}`
+        );
+        void addUsageFromTexts(
+          inputText,
+          `${baseContent}${firstPass.partialContent ?? ""}`
+        );
+        setAssistantCoT(
+          firstPass.partialReasoningContent.trim()
+            ? firstPass.partialReasoningContent
+            : null
+        );
+        setAssistantFinishReason(firstPass.finalFinishReason);
+        return;
         }
 
         await updateMessage(
@@ -1747,6 +1888,10 @@ export function useChatWindow(
           messageId,
           `${baseContent}${firstPass.partialContent ?? ""}`
         );
+        void addUsageFromTexts(
+          inputText,
+          `${baseContent}${firstPass.partialContent ?? ""}`
+        );
 
         const secondConversation = applyPrefixCompletion(
           [
@@ -1756,6 +1901,7 @@ export function useChatWindow(
           ],
           prefixCompletionEnabled
         );
+        const secondInputText = buildInputText(secondConversation);
 
         const secondPass = await streamWithToolCalls(
           secondConversation,
@@ -1790,6 +1936,10 @@ export function useChatWindow(
           messageId,
           `${baseContent}${secondPass.partialContent ?? ""}`
         );
+        void addUsageFromTexts(
+          secondInputText,
+          `${baseContent}${secondPass.partialContent ?? ""}`
+        );
         setAssistantCoT(finalThinkingContent);
         setAssistantFinishReason(secondPass.finalFinishReason);
       } else {
@@ -1805,6 +1955,10 @@ export function useChatWindow(
         );
         void updateMessageTokenCount(
           messageId,
+          `${baseContent}${firstPass.partialContent ?? ""}`
+        );
+        void addUsageFromTexts(
+          inputText,
           `${baseContent}${firstPass.partialContent ?? ""}`
         );
         setAssistantCoT(finalThinkingContent);
@@ -1880,5 +2034,8 @@ export function useChatWindow(
     handleRegenerateMessage,
     handleCompleteMessage,
     handleBranchMessage,
+    cumulativeInputTokens,
+    cumulativeOutputTokens,
+    systemPromptTokenCount,
   };
 }

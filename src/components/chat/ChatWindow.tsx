@@ -96,6 +96,9 @@ export default function ChatWindow({ threadId }: Props) {
     handleRegenerateMessage,
     handleCompleteMessage,
     handleBranchMessage,
+    cumulativeInputTokens,
+    cumulativeOutputTokens,
+    systemPromptTokenCount,
   } = useChatWindow(threadId, apiKey, user?.uid);
 
   const handleBranchMessageAndNavigate = async (messageId: string) => {
@@ -117,6 +120,13 @@ export default function ChatWindow({ threadId }: Props) {
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
   const sidebarWidth = isSidebarOpen ? 360 : 48;
+  const totalTokens = cumulativeInputTokens + cumulativeOutputTokens;
+  const costLower =
+    (cumulativeInputTokens * 0.028 + cumulativeOutputTokens * 0.42) / 1_000_000;
+  const costUpper =
+    (cumulativeInputTokens * 0.28 + cumulativeOutputTokens * 0.42) / 1_000_000;
+  const formatCost = (value: number) => value.toFixed(6);
+  const formatCount = (value: number) => value.toLocaleString();
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
@@ -581,7 +591,7 @@ export default function ChatWindow({ threadId }: Props) {
           )}
         </Box>
         {isSidebarOpen && (
-          <Box sx={{ px: 2, pt: 1, pb: 2, overflowY: "auto" }}>
+          <Box sx={{ px: 2, pt: 1, pb: 2, overflowY: "auto", flex: 1 }}>
             <Box sx={{ mb: 2 }}>
               <FormControl
                 fullWidth
@@ -626,6 +636,16 @@ export default function ChatWindow({ threadId }: Props) {
                 systemPrompt={systemPrompt}
                 setSystemPrompt={setSystemPrompt}
               />
+              {typeof systemPromptTokenCount === "number" && (
+                <Typography
+                  variant="caption"
+                  sx={{ color: "var(--color-subtext)", mt: 0.5, display: "block" }}
+                >
+                  {t("common.systemPromptTokens", {
+                    count: formatCount(systemPromptTokenCount),
+                  })}
+                </Typography>
+              )}
             </Box>
 
             <Box
@@ -1287,6 +1307,56 @@ export default function ChatWindow({ threadId }: Props) {
                 </Box>
               </Collapse>
             </Box>
+
+          </Box>
+        )}
+        {isSidebarOpen && (
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ color: "var(--color-text)" }}
+              >
+                {t("common.tokenUsageTotal")}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "var(--color-subtext)" }}
+              >
+                {formatCount(totalTokens)}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ color: "var(--color-text)" }}
+              >
+                {t("common.tokenUsageCostRange")}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "var(--color-subtext)" }}
+              >
+                ${formatCost(costLower)} – ${formatCost(costUpper)}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>
+              {t("common.tokenUsageCostNote")}
+            </Typography>
           </Box>
         )}
       </Box>
