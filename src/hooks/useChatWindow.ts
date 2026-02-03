@@ -9,7 +9,11 @@ import {
   updateMessage,
   deleteMessages,
 } from "../services/message";
-import { streamDeepseek, type ChatCompletionMessageParam } from "../services/deepseek";
+import {
+  callDeepseekFim,
+  streamDeepseek,
+  type ChatCompletionMessageParam,
+} from "../services/deepseek";
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
@@ -55,9 +59,15 @@ export function useChatWindow(
   const [jsonOutput, setJsonOutput] = useState(false);
   const [prefixCompletionEnabled, setPrefixCompletionEnabled] = useState(false);
   const [stopSequencesRaw, setStopSequencesRaw] = useState("");
+  const [fimPrefix, setFimPrefix] = useState("");
+  const [fimSuffix, setFimSuffix] = useState("");
+  const [fimMaxTokens, setFimMaxTokens] = useState(128);
   const toolsJsonDraftRef = useRef(false);
   const toolHandlersDraftRef = useRef(false);
   const stopSequencesDraftRef = useRef(false);
+  const fimPrefixDraftRef = useRef(false);
+  const fimSuffixDraftRef = useRef(false);
+  const fimMaxTokensDraftRef = useRef(false);
 
   /**
    * “いま生成中のアシスタントメッセージID”
@@ -116,6 +126,9 @@ export function useChatWindow(
     jsonOutput,
     prefixCompletionEnabled,
     stopSequencesRaw,
+    fimPrefix,
+    fimSuffix,
+    fimMaxTokens,
   });
 
   const chatStreamRef = useRef<Awaited<
@@ -133,6 +146,9 @@ export function useChatWindow(
     const draftStopSequencesRaw = window.localStorage.getItem(
       buildDraftKey("stopSequencesRaw")
     );
+    const draftFimPrefix = window.localStorage.getItem(buildDraftKey("fimPrefix"));
+    const draftFimSuffix = window.localStorage.getItem(buildDraftKey("fimSuffix"));
+    const draftFimMaxTokens = window.localStorage.getItem(buildDraftKey("fimMaxTokens"));
     const draftInput = window.localStorage.getItem(buildDraftKey("input"));
 
     if (draftToolsJson !== null) {
@@ -152,6 +168,27 @@ export function useChatWindow(
       setStopSequencesRaw(draftStopSequencesRaw);
     } else {
       stopSequencesDraftRef.current = false;
+    }
+    if (draftFimPrefix !== null) {
+      fimPrefixDraftRef.current = true;
+      setFimPrefix(draftFimPrefix);
+    } else {
+      fimPrefixDraftRef.current = false;
+    }
+    if (draftFimSuffix !== null) {
+      fimSuffixDraftRef.current = true;
+      setFimSuffix(draftFimSuffix);
+    } else {
+      fimSuffixDraftRef.current = false;
+    }
+    if (draftFimMaxTokens !== null) {
+      fimMaxTokensDraftRef.current = true;
+      const parsed = Number.parseInt(draftFimMaxTokens, 10);
+      if (!Number.isNaN(parsed)) {
+        setFimMaxTokens(parsed);
+      }
+    } else {
+      fimMaxTokensDraftRef.current = false;
     }
     if (draftInput !== null) {
       setInput(draftInput);
@@ -175,6 +212,21 @@ export function useChatWindow(
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("fimPrefix"), fimPrefix);
+  }, [threadId, fimPrefix]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("fimSuffix"), fimSuffix);
+  }, [threadId, fimSuffix]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(buildDraftKey("fimMaxTokens"), String(fimMaxTokens));
+  }, [threadId, fimMaxTokens]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(buildDraftKey("input"), input);
   }, [threadId, input]);
 
@@ -193,6 +245,9 @@ export function useChatWindow(
       jsonOutput,
       prefixCompletionEnabled,
       stopSequencesRaw,
+      fimPrefix,
+      fimSuffix,
+      fimMaxTokens,
     };
   }, [
     model,
@@ -208,6 +263,9 @@ export function useChatWindow(
     jsonOutput,
     prefixCompletionEnabled,
     stopSequencesRaw,
+    fimPrefix,
+    fimSuffix,
+    fimMaxTokens,
   ]);
 
   const parseToolsJson = (raw: string) => {
@@ -529,6 +587,9 @@ export function useChatWindow(
           jsonOutput?: boolean;
           prefixCompletionEnabled?: boolean;
           stopSequencesRaw?: string;
+          fimPrefix?: string;
+          fimSuffix?: string;
+          fimMaxTokens?: number;
         };
         setModel(data.model ?? "deepseek-chat");
         if (typeof data.title === "string") {
@@ -572,6 +633,18 @@ export function useChatWindow(
           !stopSequencesDraftRef.current
         ) {
           setStopSequencesRaw(data.stopSequencesRaw);
+        }
+        if (typeof data.fimPrefix === "string" && !fimPrefixDraftRef.current) {
+          setFimPrefix(data.fimPrefix);
+        }
+        if (typeof data.fimSuffix === "string" && !fimSuffixDraftRef.current) {
+          setFimSuffix(data.fimSuffix);
+        }
+        if (
+          typeof data.fimMaxTokens === "number" &&
+          !fimMaxTokensDraftRef.current
+        ) {
+          setFimMaxTokens(data.fimMaxTokens);
         }
       }
     });
@@ -641,14 +714,20 @@ export function useChatWindow(
     setAssistantFinishReason(null);
 
     try {
-      const tooling = buildToolConfig(toolsJson, toolsStrict);
-      if (tooling.error) {
+      const hasFim =
+        fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
+      const tooling = hasFim
+        ? { toolConfig: undefined }
+        : buildToolConfig(toolsJson, toolsStrict);
+      if (!hasFim && tooling.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
         return;
       }
-      const handlersResult = buildToolHandlers(toolHandlersJson);
-      if (handlersResult.error) {
+      const handlersResult = hasFim
+        ? { handlers: undefined }
+        : buildToolHandlers(toolHandlersJson);
+      if (!hasFim && handlersResult.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
         return;
@@ -687,7 +766,37 @@ export function useChatWindow(
         jsonOutput,
         prefixCompletionEnabled,
         stopSequencesRaw,
+        fimPrefix,
+        fimSuffix,
+        fimMaxTokens,
       });
+
+      if (hasFim) {
+        const fimPrompt = `${fimPrefix}${userText}`;
+        const normalizedFimMaxTokens = Math.min(4096, Math.max(1, fimMaxTokens));
+        const completion = await callDeepseekFim(
+          apiKey,
+          fimPrompt,
+          fimSuffix || undefined,
+          model,
+          { maxTokens: normalizedFimMaxTokens }
+        );
+        setWaitingForFirstChunk(false);
+        setAssistantDraft(completion);
+        await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        setAssistantFinishReason(null);
+
+        if (analytics) {
+          logEvent(analytics, "message_send_success", {
+            threadId,
+            model,
+            messageLength: userText.length,
+            responseLength: completion.length,
+            duration: Date.now() - startTime,
+          });
+        }
+        return;
+      }
 
       // 5) ストリーミング
       const firstPass = await streamWithToolCalls(
@@ -886,17 +995,24 @@ export function useChatWindow(
     }
 
     try {
-      const tooling = buildToolConfig(
-        currentSettings.toolsJson,
-        currentSettings.toolsStrict
-      );
-      if (tooling.error) {
+      const hasFim =
+        currentSettings.fimPrefix.trim().length > 0 ||
+        currentSettings.fimSuffix.trim().length > 0;
+      const tooling = hasFim
+        ? { toolConfig: undefined }
+        : buildToolConfig(
+            currentSettings.toolsJson,
+            currentSettings.toolsStrict
+          );
+      if (!hasFim && tooling.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
         return;
       }
-      const handlersResult = buildToolHandlers(currentSettings.toolHandlersJson);
-      if (handlersResult.error) {
+      const handlersResult = hasFim
+        ? { handlers: undefined }
+        : buildToolHandlers(currentSettings.toolHandlersJson);
+      if (!hasFim && handlersResult.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
         return;
@@ -934,7 +1050,30 @@ export function useChatWindow(
         jsonOutput: currentSettings.jsonOutput,
         prefixCompletionEnabled: currentSettings.prefixCompletionEnabled,
         stopSequencesRaw: currentSettings.stopSequencesRaw,
+        fimPrefix: currentSettings.fimPrefix,
+        fimSuffix: currentSettings.fimSuffix,
+        fimMaxTokens: currentSettings.fimMaxTokens,
       });
+
+      if (hasFim) {
+        const fimPrompt = `${currentSettings.fimPrefix}${trimmed}`;
+        const normalizedFimMaxTokens = Math.min(
+          4096,
+          Math.max(1, currentSettings.fimMaxTokens)
+        );
+        const completion = await callDeepseekFim(
+          apiKey,
+          fimPrompt,
+          currentSettings.fimSuffix || undefined,
+          currentSettings.model,
+          { maxTokens: normalizedFimMaxTokens }
+        );
+        setWaitingForFirstChunk(false);
+        setAssistantDraft(completion);
+        await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        setAssistantFinishReason(null);
+        return;
+      }
 
       const firstPass = await streamWithToolCalls(
         conversation,
@@ -1110,6 +1249,9 @@ export function useChatWindow(
         jsonOutput,
         prefixCompletionEnabled,
         stopSequencesRaw,
+        fimPrefix,
+        fimSuffix,
+        fimMaxTokens,
       });
 
       await createMessage(newThreadId, "system", systemPrompt);
@@ -1235,6 +1377,9 @@ export function useChatWindow(
         jsonOutput: currentSettings.jsonOutput,
         prefixCompletionEnabled: currentSettings.prefixCompletionEnabled,
         stopSequencesRaw: currentSettings.stopSequencesRaw,
+        fimPrefix: currentSettings.fimPrefix,
+        fimSuffix: currentSettings.fimSuffix,
+        fimMaxTokens: currentSettings.fimMaxTokens,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -1447,6 +1592,9 @@ export function useChatWindow(
         jsonOutput,
         prefixCompletionEnabled,
         stopSequencesRaw,
+        fimPrefix,
+        fimSuffix,
+        fimMaxTokens,
       });
 
       const firstPass = await streamWithToolCalls(
@@ -1617,6 +1765,12 @@ export function useChatWindow(
     setPrefixCompletionEnabled,
     stopSequencesRaw,
     setStopSequencesRaw,
+    fimPrefix,
+    setFimPrefix,
+    fimSuffix,
+    setFimSuffix,
+    fimMaxTokens,
+    setFimMaxTokens,
     handlePrefixCompletionToggle,
     systemPrompt,
     setSystemPrompt,

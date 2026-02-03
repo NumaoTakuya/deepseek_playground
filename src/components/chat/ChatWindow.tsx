@@ -72,6 +72,12 @@ export default function ChatWindow({ threadId }: Props) {
     prefixCompletionEnabled,
     stopSequencesRaw,
     setStopSequencesRaw,
+    fimPrefix,
+    setFimPrefix,
+    fimSuffix,
+    setFimSuffix,
+    fimMaxTokens,
+    setFimMaxTokens,
     handlePrefixCompletionToggle,
     handleToolsStrictToggle,
     systemPrompt,
@@ -105,6 +111,7 @@ export default function ChatWindow({ threadId }: Props) {
   const [showAdvancedBox, setShowAdvancedBox] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
   const [showPrefixBox, setShowPrefixBox] = useState(false);
+  const [showFimBox, setShowFimBox] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
@@ -120,11 +127,13 @@ export default function ChatWindow({ threadId }: Props) {
     const advancedOpenKey = `thread-${threadId}-ui-advanced-open`;
     const toolsOpenKey = `thread-${threadId}-ui-tools-open`;
     const prefixOpenKey = `thread-${threadId}-ui-prefix-open`;
+    const fimOpenKey = `thread-${threadId}-ui-fim-open`;
     const sidebarOpen = window.localStorage.getItem(sidebarOpenKey);
     const paramsOpen = window.localStorage.getItem(paramsOpenKey);
     const advancedOpen = window.localStorage.getItem(advancedOpenKey);
     const toolsOpen = window.localStorage.getItem(toolsOpenKey);
     const prefixOpen = window.localStorage.getItem(prefixOpenKey);
+    const fimOpen = window.localStorage.getItem(fimOpenKey);
     if (sidebarOpen !== null) {
       setIsSidebarOpen(sidebarOpen === "true");
     }
@@ -139,6 +148,9 @@ export default function ChatWindow({ threadId }: Props) {
     }
     if (prefixOpen !== null) {
       setShowPrefixBox(prefixOpen === "true");
+    }
+    if (fimOpen !== null) {
+      setShowFimBox(fimOpen === "true");
     }
   }, [threadId]);
 
@@ -181,6 +193,14 @@ export default function ChatWindow({ threadId }: Props) {
       String(showPrefixBox)
     );
   }, [showPrefixBox, threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `thread-${threadId}-ui-fim-open`,
+      String(showFimBox)
+    );
+  }, [showFimBox, threadId]);
 
   const getMaxTokensDefaults = (selectedModel: string) => {
     if (selectedModel === "deepseek-reasoner") {
@@ -1112,6 +1132,128 @@ export default function ChatWindow({ threadId }: Props) {
                             },
                           }}
                         />
+                      </Box>
+                    </Collapse>
+                  </Box>
+
+                  <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid var(--color-border)" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "var(--color-text)",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                      >
+                        {t("common.fimCompletionTitle")}
+                      </Typography>
+                      <IconButton
+                        onClick={() => setShowFimBox((prev) => !prev)}
+                        size="small"
+                        sx={{ color: "var(--color-text)", ml: "auto" }}
+                        aria-label={
+                          showFimBox
+                            ? t("chat.controls.collapse")
+                            : t("chat.controls.expand")
+                        }
+                      >
+                        {showFimBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                    </Box>
+                    <Collapse in={showFimBox} timeout={200} unmountOnExit>
+                      <Box sx={{ pl: 2, borderLeft: "1px solid var(--color-border)" }}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={3}
+                          label={t("common.fimPrefixLabel")}
+                          placeholder={t("common.fimPrefixPlaceholder")}
+                          value={fimPrefix}
+                          onChange={(e) => setFimPrefix(e.target.value)}
+                          variant="outlined"
+                          sx={{
+                            mb: 2,
+                            "& .MuiOutlinedInput-root": {
+                              "& fieldset": { borderColor: "var(--color-border)" },
+                              "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                              "&.Mui-focused fieldset": {
+                                borderColor: "var(--color-hover)",
+                              },
+                            },
+                            "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                            "& .MuiOutlinedInput-input": {
+                              color: "var(--color-text)",
+                              fontFamily:
+                                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                            },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={3}
+                          label={t("common.fimSuffixLabel")}
+                          placeholder={t("common.fimSuffixPlaceholder")}
+                          value={fimSuffix}
+                          onChange={(e) => setFimSuffix(e.target.value)}
+                          variant="outlined"
+                          sx={{
+                            mb: 2,
+                            "& .MuiOutlinedInput-root": {
+                              "& fieldset": { borderColor: "var(--color-border)" },
+                              "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                              "&.Mui-focused fieldset": {
+                                borderColor: "var(--color-hover)",
+                              },
+                            },
+                            "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                            "& .MuiOutlinedInput-input": {
+                              color: "var(--color-text)",
+                              fontFamily:
+                                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                            },
+                          }}
+                        />
+                        <Box sx={{ mb: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              mb: 1,
+                            }}
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ color: "var(--color-text)" }}
+                            >
+                              {t("common.fimMaxTokensLabel")}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{ color: "var(--color-subtext)" }}
+                            >
+                              {fimMaxTokens}
+                            </Typography>
+                          </Box>
+                          <Slider
+                            value={fimMaxTokens}
+                            onChange={(_, value) =>
+                              setFimMaxTokens(
+                                Array.isArray(value) ? value[0] : value
+                              )
+                            }
+                            min={1}
+                            max={4096}
+                            step={64}
+                            sx={{ color: "var(--color-primary)" }}
+                            aria-label="fim max tokens"
+                          />
+                        </Box>
                       </Box>
                     </Collapse>
                   </Box>

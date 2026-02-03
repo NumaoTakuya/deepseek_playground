@@ -30,6 +30,10 @@ export type DeepseekParameters = {
   maxTokens?: number;
 };
 
+export type DeepseekFimParameters = {
+  maxTokens?: number;
+};
+
 export type DeepseekToolConfig = {
   tools?: unknown[];
   strict?: boolean;
@@ -309,6 +313,44 @@ export async function callDeepseekServer(
     console.error("[callDeepseek] Failed to create completion:", error);
     throw error;
   }
+}
+
+export async function callDeepseekFimServer(
+  apiKey: string,
+  prompt: string,
+  suffix?: string,
+  model: string = "deepseek-chat",
+  parameters?: DeepseekFimParameters
+): Promise<string> {
+  const openai = createDeepseekClient(apiKey, "https://api.deepseek.com/beta");
+
+  try {
+    const res = await openai.completions.create({
+      model,
+      prompt,
+      ...(suffix ? { suffix } : {}),
+      ...(typeof parameters?.maxTokens === "number"
+        ? { max_tokens: parameters.maxTokens }
+        : {}),
+    });
+    return res.choices[0]?.text ?? "";
+  } catch (error) {
+    console.error("[callDeepseekFim] Failed to create completion:", error);
+    throw error;
+  }
+}
+
+export async function callDeepseekFim(
+  apiKey: string,
+  prompt: string,
+  suffix?: string,
+  model: string = "deepseek-chat",
+  parameters?: DeepseekFimParameters
+): Promise<string> {
+  if (isBrowser) {
+    return callDeepseekFimServer(apiKey, prompt, suffix, model, parameters);
+  }
+  return callDeepseekFimServer(apiKey, prompt, suffix, model, parameters);
 }
 
 export async function callDeepseek(
