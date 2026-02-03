@@ -43,3 +43,6 @@ next-env.d.ts
 # memo
 .memo
 .env*.local
+
+# python
+python/.venv/
