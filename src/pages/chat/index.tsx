@@ -43,10 +43,14 @@ export default function ChatHomePage() {
   const DRAFT_TOOLS_JSON_KEY = "chat-index-draft-toolsJson";
   const DRAFT_TOOL_HANDLERS_KEY = "chat-index-draft-toolHandlersJson";
   const DRAFT_INPUT_KEY = "chat-index-draft-input";
+  const DRAFT_FIM_PREFIX_KEY = "chat-index-draft-fimPrefix";
+  const DRAFT_FIM_SUFFIX_KEY = "chat-index-draft-fimSuffix";
+  const DRAFT_FIM_MAX_TOKENS_KEY = "chat-index-draft-fimMaxTokens";
   const UI_SYSTEM_OPEN_KEY = "chat-index-ui-system-open";
   const UI_PARAMS_OPEN_KEY = "chat-index-ui-parameters-open";
   const UI_ADVANCED_OPEN_KEY = "chat-index-ui-advanced-open";
   const UI_TOOLS_OPEN_KEY = "chat-index-ui-tools-open";
+  const UI_FIM_OPEN_KEY = "chat-index-ui-fim-open";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -65,6 +69,9 @@ export default function ChatHomePage() {
     const draftToolsJson = window.localStorage.getItem(DRAFT_TOOLS_JSON_KEY);
     const draftToolHandlers = window.localStorage.getItem(DRAFT_TOOL_HANDLERS_KEY);
     const draftInput = window.localStorage.getItem(DRAFT_INPUT_KEY);
+    const draftFimPrefix = window.localStorage.getItem(DRAFT_FIM_PREFIX_KEY);
+    const draftFimSuffix = window.localStorage.getItem(DRAFT_FIM_SUFFIX_KEY);
+    const draftFimMaxTokens = window.localStorage.getItem(DRAFT_FIM_MAX_TOKENS_KEY);
     if (draftToolsJson !== null) {
       setToolsJson(draftToolsJson);
     }
@@ -74,7 +81,26 @@ export default function ChatHomePage() {
     if (draftInput !== null) {
       setUserInput(draftInput);
     }
-  }, [DRAFT_INPUT_KEY, DRAFT_TOOL_HANDLERS_KEY, DRAFT_TOOLS_JSON_KEY]);
+    if (draftFimPrefix !== null) {
+      setFimPrefix(draftFimPrefix);
+    }
+    if (draftFimSuffix !== null) {
+      setFimSuffix(draftFimSuffix);
+    }
+    if (draftFimMaxTokens !== null) {
+      const parsed = Number.parseInt(draftFimMaxTokens, 10);
+      if (!Number.isNaN(parsed)) {
+        setFimMaxTokens(parsed);
+      }
+    }
+  }, [
+    DRAFT_INPUT_KEY,
+    DRAFT_TOOL_HANDLERS_KEY,
+    DRAFT_TOOLS_JSON_KEY,
+    DRAFT_FIM_PREFIX_KEY,
+    DRAFT_FIM_SUFFIX_KEY,
+    DRAFT_FIM_MAX_TOKENS_KEY,
+  ]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -147,6 +173,10 @@ export default function ChatHomePage() {
   >(null);
   const [jsonOutput, setJsonOutput] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
+  const [showFimBox, setShowFimBox] = useState(false);
+  const [fimPrefix, setFimPrefix] = useState("");
+  const [fimSuffix, setFimSuffix] = useState("");
+  const [fimMaxTokens, setFimMaxTokens] = useState(128);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -155,6 +185,7 @@ export default function ChatHomePage() {
     const paramsOpen = window.localStorage.getItem(UI_PARAMS_OPEN_KEY);
     const advancedOpen = window.localStorage.getItem(UI_ADVANCED_OPEN_KEY);
     const toolsOpen = window.localStorage.getItem(UI_TOOLS_OPEN_KEY);
+    const fimOpen = window.localStorage.getItem(UI_FIM_OPEN_KEY);
     if (systemOpen !== null) {
       setShowSystemBox(systemOpen === "true");
     }
@@ -167,7 +198,16 @@ export default function ChatHomePage() {
     if (toolsOpen !== null) {
       setShowToolsBox(toolsOpen === "true");
     }
-  }, [UI_ADVANCED_OPEN_KEY, UI_PARAMS_OPEN_KEY, UI_SYSTEM_OPEN_KEY, UI_TOOLS_OPEN_KEY]);
+    if (fimOpen !== null) {
+      setShowFimBox(fimOpen === "true");
+    }
+  }, [
+    UI_ADVANCED_OPEN_KEY,
+    UI_PARAMS_OPEN_KEY,
+    UI_SYSTEM_OPEN_KEY,
+    UI_TOOLS_OPEN_KEY,
+    UI_FIM_OPEN_KEY,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -188,6 +228,11 @@ export default function ChatHomePage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(UI_TOOLS_OPEN_KEY, String(showToolsBox));
   }, [showToolsBox]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UI_FIM_OPEN_KEY, String(showFimBox));
+  }, [showFimBox]);
   const getMaxTokensDefaults = (selectedModel: string) => {
     if (selectedModel === "deepseek-reasoner") {
       return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
@@ -321,9 +366,18 @@ export default function ChatHomePage() {
         `thread-${newThreadId}-jsonOutput`,
         String(jsonOutput)
       );
+      localStorage.setItem(`thread-${newThreadId}-fimPrefix`, fimPrefix);
+      localStorage.setItem(`thread-${newThreadId}-fimSuffix`, fimSuffix);
+      localStorage.setItem(
+        `thread-${newThreadId}-fimMaxTokens`,
+        String(fimMaxTokens)
+      );
       localStorage.removeItem(DRAFT_TOOLS_JSON_KEY);
       localStorage.removeItem(DRAFT_TOOL_HANDLERS_KEY);
       localStorage.removeItem(DRAFT_INPUT_KEY);
+      localStorage.removeItem(DRAFT_FIM_PREFIX_KEY);
+      localStorage.removeItem(DRAFT_FIM_SUFFIX_KEY);
+      localStorage.removeItem(DRAFT_FIM_MAX_TOKENS_KEY);
 
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
@@ -347,6 +401,9 @@ export default function ChatHomePage() {
             toolsStrict,
             toolHandlersJson,
             jsonOutput,
+            fimPrefix,
+            fimSuffix,
+            fimMaxTokens,
           });
         })
         .catch(console.error);
@@ -1003,6 +1060,137 @@ export default function ChatHomePage() {
                     </Typography>
                   </Box>
                 </Collapse>
+
+                <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid var(--color-border)" }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      color: "var(--color-text)",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                    >
+                      {t("common.fimCompletionTitle")}
+                    </Typography>
+                    <IconButton
+                      onClick={() => setShowFimBox((prev) => !prev)}
+                      size="small"
+                      sx={{ color: "var(--color-text)", ml: "auto" }}
+                      aria-label={
+                        showFimBox
+                          ? t("chat.controls.collapse")
+                          : t("chat.controls.expand")
+                      }
+                    >
+                      {showFimBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Box>
+                  <Collapse in={showFimBox} timeout={200} unmountOnExit>
+                    <Box sx={{ pl: 2, borderLeft: "1px solid var(--color-border)" }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        label={t("common.fimPrefixLabel")}
+                        placeholder={t("common.fimPrefixPlaceholder")}
+                        value={fimPrefix}
+                        onChange={(e) => {
+                          setFimPrefix(e.target.value);
+                          localStorage.setItem(DRAFT_FIM_PREFIX_KEY, e.target.value);
+                        }}
+                        variant="outlined"
+                        sx={{
+                          mb: 2,
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": { borderColor: "var(--color-border)" },
+                            "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                            "&.Mui-focused fieldset": {
+                              borderColor: "var(--color-hover)",
+                            },
+                          },
+                          "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                          "& .MuiOutlinedInput-input": {
+                            color: "var(--color-text)",
+                            fontFamily:
+                              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                          },
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        label={t("common.fimSuffixLabel")}
+                        placeholder={t("common.fimSuffixPlaceholder")}
+                        value={fimSuffix}
+                        onChange={(e) => {
+                          setFimSuffix(e.target.value);
+                          localStorage.setItem(DRAFT_FIM_SUFFIX_KEY, e.target.value);
+                        }}
+                        variant="outlined"
+                        sx={{
+                          mb: 2,
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": { borderColor: "var(--color-border)" },
+                            "&:hover fieldset": { borderColor: "var(--color-hover)" },
+                            "&.Mui-focused fieldset": {
+                              borderColor: "var(--color-hover)",
+                            },
+                          },
+                          "& .MuiInputLabel-root": { color: "var(--color-subtext)" },
+                          "& .MuiOutlinedInput-input": {
+                            color: "var(--color-text)",
+                            fontFamily:
+                              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                          },
+                        }}
+                      />
+                      <Box sx={{ mb: 1 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ color: "var(--color-text)" }}
+                          >
+                            {t("common.fimMaxTokensLabel")}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "var(--color-subtext)" }}
+                          >
+                            {fimMaxTokens}
+                          </Typography>
+                        </Box>
+                        <Slider
+                          value={fimMaxTokens}
+                          onChange={(_, value) => {
+                            const nextValue = Array.isArray(value) ? value[0] : value;
+                            setFimMaxTokens(nextValue);
+                            localStorage.setItem(
+                              DRAFT_FIM_MAX_TOKENS_KEY,
+                              String(nextValue)
+                            );
+                          }}
+                          min={1}
+                          max={4096}
+                          step={64}
+                          sx={{ color: "var(--color-primary)" }}
+                          aria-label="fim max tokens"
+                        />
+                      </Box>
+                    </Box>
+                  </Collapse>
+                </Box>
               </Box>
             </Collapse>
 

@@ -265,6 +265,15 @@ export default function ChatWindow({ threadId }: Props) {
     const storedMaxTokens = localStorage.getItem(
       `thread-${threadId}-maxTokens`
     );
+    const storedFimPrefix = localStorage.getItem(
+      `thread-${threadId}-fimPrefix`
+    );
+    const storedFimSuffix = localStorage.getItem(
+      `thread-${threadId}-fimSuffix`
+    );
+    const storedFimMaxTokens = localStorage.getItem(
+      `thread-${threadId}-fimMaxTokens`
+    );
     const storedToolsJson = localStorage.getItem(
       `thread-${threadId}-toolsJson`
     );
@@ -329,6 +338,21 @@ export default function ChatWindow({ threadId }: Props) {
       }
       localStorage.removeItem(`thread-${threadId}-maxTokens`);
     }
+    if (storedFimPrefix !== null) {
+      setFimPrefix(storedFimPrefix);
+      localStorage.removeItem(`thread-${threadId}-fimPrefix`);
+    }
+    if (storedFimSuffix !== null) {
+      setFimSuffix(storedFimSuffix);
+      localStorage.removeItem(`thread-${threadId}-fimSuffix`);
+    }
+    if (storedFimMaxTokens) {
+      const parsed = Number.parseInt(storedFimMaxTokens, 10);
+      if (!Number.isNaN(parsed)) {
+        setFimMaxTokens(parsed);
+      }
+      localStorage.removeItem(`thread-${threadId}-fimMaxTokens`);
+    }
     if (storedToolsJson) {
       setToolsJson(storedToolsJson);
       localStorage.removeItem(`thread-${threadId}-toolsJson`);
@@ -356,6 +380,9 @@ export default function ChatWindow({ threadId }: Props) {
     setTemperature,
     setTopP,
     setMaxTokens,
+    setFimPrefix,
+    setFimSuffix,
+    setFimMaxTokens,
     setToolsJson,
     setToolsStrict,
     setToolHandlersJson,
