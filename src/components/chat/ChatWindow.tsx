@@ -126,7 +126,6 @@ export default function ChatWindow({ threadId }: Props) {
   const [showToolsBox, setShowToolsBox] = useState(false);
   const [showPrefixBox, setShowPrefixBox] = useState(false);
   const [showFimBox, setShowFimBox] = useState(false);
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
   const [codeViewType, setCodeViewType] = useState<"curl" | "python" | "node">(
@@ -763,13 +762,6 @@ main();`;
 
   // ローカルストレージから初期値を読み込む
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const dismissed = window.localStorage.getItem(
-        "dec12UpdateDismissed"
-      );
-      setShowUpdateBanner(dismissed !== "true");
-    }
-
     const storedModel = localStorage.getItem(`thread-${threadId}-model`);
     const storedInput = localStorage.getItem(`thread-${threadId}-inputValue`);
     const storedSystemInput = localStorage.getItem(
@@ -921,19 +913,6 @@ main();`;
     }
   }, [model, input, systemPrompt, isFirstTime, handleSend]);
 
-  const emailAddress = "numaothe@gmail.com";
-  const githubUrl = "https://github.com/NumaoTakuya/deepseek_playground";
-  const EMAIL_PLACEHOLDER = "__EMAIL_LINK__";
-  const GITHUB_PLACEHOLDER = "__GITHUB_LINK__";
-  const bannerText = t("chat.banner.update", {
-    email: EMAIL_PLACEHOLDER,
-    github: GITHUB_PLACEHOLDER,
-  });
-  const [bannerBeforeEmail, bannerAfterEmailRaw] = bannerText.split(EMAIL_PLACEHOLDER);
-  const [bannerBetweenLinks, bannerAfterGithub = ""] = (bannerAfterEmailRaw || "").split(
-    GITHUB_PLACEHOLDER
-  );
-
   return (
     <Box display="flex" height="100%" position="relative">
       <Box flex="1" display="flex" flexDirection="column" minWidth={0}>
@@ -1007,66 +986,6 @@ main();`;
           assistantThinking={assistantThinking}
         />
 
-        {showUpdateBanner && (
-          <Box
-            sx={{
-              borderTop: "1px solid var(--color-border)",
-              backgroundColor: "var(--color-panel)",
-              color: "var(--color-text)",
-              px: 2,
-              py: 1.5,
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 1,
-            }}
-          >
-            <Typography variant="body2" sx={{ flex: 1 }}>
-              {bannerBeforeEmail}
-              <Box
-                component="a"
-                href={`mailto:${emailAddress}`}
-                sx={{
-                  color: "var(--color-primary)",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                }}
-              >
-                {emailAddress}
-              </Box>
-              {bannerBetweenLinks}
-              <Box
-                component="a"
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  color: "var(--color-primary)",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                }}
-              >
-                {t("common.github")}
-              </Box>
-              {bannerAfterGithub}
-            </Typography>
-            <IconButton
-              size="small"
-              aria-label={t("chat.banner.dismiss")}
-              onClick={() => {
-                setShowUpdateBanner(false);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem(
-                    "dec12UpdateDismissed",
-                    "true"
-                  );
-                }
-              }}
-              sx={{ color: "var(--color-text)" }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        )}
       </Box>
 
       <Box
