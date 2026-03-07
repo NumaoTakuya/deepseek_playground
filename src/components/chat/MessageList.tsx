@@ -48,13 +48,49 @@ interface MessageListProps {
  * 1) `\( ...\)` / `\[ ...\]` → `$...$` / `$$...$$`
  *    これにより remark-math が標準対応する数式記法に変換する
  */
+function replaceEscapedDelimiter(
+  input: string,
+  open: string,
+  close: string,
+  wrap: (inner: string) => string
+) {
+  let result = "";
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    const start = input.indexOf(open, cursor);
+    if (start === -1) {
+      result += input.slice(cursor);
+      break;
+    }
+
+    result += input.slice(cursor, start);
+    const contentStart = start + open.length;
+    const end = input.indexOf(close, contentStart);
+
+    // 開きのみ/空内容の場合はそのまま残す
+    if (end === -1 || end === contentStart) {
+      result += open;
+      cursor = contentStart;
+      continue;
+    }
+
+    result += wrap(input.slice(contentStart, end));
+    cursor = end + close.length;
+  }
+
+  return result;
+}
+
 function convertRoundBracketsToDollar(str: string) {
-  str = str.replace(
-    /\\\[((?:\\.|[\s\S])+?)\\\]/g,
-    (_m, inner) => `$$${inner}$$`
+  const blockConverted = replaceEscapedDelimiter(
+    str,
+    "\\[",
+    "\\]",
+    (inner) => `$$${inner}$$`
   );
-  str = str.replace(/\\\(((?:\\.|[\s\S])+?)\\\)/g, (_m, inner) => `$${inner}$`);
-  return str;
+
+  return replaceEscapedDelimiter(blockConverted, "\\(", "\\)", (inner) => `$${inner}$`);
 }
 
 function formatQuote(text: string): string {
