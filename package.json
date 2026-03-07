@@ -47,7 +47,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
     "typescript": "^5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.18"
   },
   "overrides": {
     "rollup": "^4.59.0",
