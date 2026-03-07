@@ -118,7 +118,8 @@ yarn dev
 
 ## License
 
-No official license is provided. **All rights reserved.**  
+This project is licensed under the **MIT License**.
+See [LICENSE](./LICENSE) for details.
 This project is **unofficial** and is not endorsed by Deepseek Inc.
 
 ---
