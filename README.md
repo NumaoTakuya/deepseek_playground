@@ -41,7 +41,7 @@ Here is a screenshot of the chat UI:
 1. **Clone** this repository:
 
 ```bash
-git clone https://github.com/your-username/deepseek-playground.git
+git clone https://github.com/NumaoTakuya/deepseek_playground.git
 ```
 
 2. **Install dependencies**:
