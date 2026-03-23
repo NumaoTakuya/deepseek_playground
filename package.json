@@ -19,7 +19,7 @@
     "@vercel/analytics": "^1.6.1",
     "firebase": "^11.2.0",
     "katex": "^0.16.21",
-    "next": "^16.1.5",
+    "next": "^16.1.7",
     "next-sitemap": "^4.2.3",
     "openai": "^6.0.0",
     "react": "^19.0.0",
@@ -36,13 +36,13 @@
     "@firebase/rules-unit-testing": "^4.0.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/katex": "^0.16.7",
-    "@types/node": "^20",
+    "@types/node": "^20.19.37",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
     "autoprefixer": "^10.4.21",
-    "eslint": "^9.36.0",
+    "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
@@ -88,6 +88,6 @@
     "esbuild": "^0.25.0",
     "brace-expansion": "^2.0.2",
     "@eslint/plugin-kit": "^0.3.4",
-    "ajv": "^8.18.0"
+    "ajv": "^6.14.0"
   }
 }
