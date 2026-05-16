@@ -30,9 +30,14 @@ import { useTranslation } from "../../contexts/LanguageContext";
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
 }
 
-export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export default function Sidebar({
+  isOpen,
+  onToggle,
+  isMobile = false,
+}: SidebarProps) {
   const [width, setWidth] = useState(240);
   const [isDragging, setIsDragging] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -77,9 +82,16 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
     localStorage.setItem("deepseekApiKey", e.target.value);
   };
 
+  const closeMobileSidebar = () => {
+    if (isMobile && isOpen) {
+      onToggle();
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await doSignOut();
+      closeMobileSidebar();
       router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
@@ -87,11 +99,13 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   };
 
   const handleNewThread = () => {
+    closeMobileSidebar();
     router.push("/chat");
   };
 
   // 「Deepseek Playground」タイトルをクリックで "/" に遷移する
   const handleTitleClick = () => {
+    closeMobileSidebar();
     router.push("/");
   };
 
@@ -108,19 +122,48 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
   };
 
   return (
-    <Box
-      className="sidebar"
-      height="100%"
-      ref={sidebarRef}
-      sx={{
-        width: isOpen ? `${width}px` : "56px",
-        transition: isDragging ? "none" : "width 0.3s ease",
-        overflow: "hidden",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <>
+      {isMobile && isOpen && (
+        <Box
+          onClick={onToggle}
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1199,
+            backgroundColor: "rgba(5, 10, 18, 0.42)",
+            backdropFilter: "blur(2px)",
+          }}
+        />
+      )}
+      <Box
+        className="sidebar"
+        height="100%"
+        ref={sidebarRef}
+        sx={{
+          width: isMobile ? "min(86vw, 320px)" : isOpen ? `${width}px` : "56px",
+          maxWidth: "100%",
+          transition: isMobile
+            ? "transform 0.25s ease"
+            : isDragging
+            ? "none"
+            : "width 0.3s ease",
+          overflow: "hidden",
+          position: isMobile ? "fixed" : "relative",
+          top: isMobile ? 0 : "auto",
+          left: isMobile ? 0 : "auto",
+          bottom: isMobile ? 0 : "auto",
+          zIndex: isMobile ? 1200 : "auto",
+          transform: isMobile
+            ? isOpen
+              ? "translateX(0)"
+              : "translateX(-100%)"
+            : "none",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: isMobile ? "0 18px 40px rgba(0, 0, 0, 0.35)" : "none",
+          pt: isMobile ? 7 : 2,
+        }}
+      >
       {/* Toggle Button */}
       <IconButton
         onClick={onToggle}
@@ -137,7 +180,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
       >
         {isOpen ? <ChevronLeftIcon /> : <MenuIcon />}
       </IconButton>
-      {isOpen && (
+      {isOpen && !isMobile && (
         <Box
           onMouseDown={handleMouseDown}
           sx={{
@@ -161,7 +204,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           sx={{
             fontWeight: 600,
             cursor: "pointer",
-            opacity: isOpen ? 1 : 0,
+            opacity: isOpen || isMobile ? 1 : 0,
             transition: "opacity 0.3s ease",
           }}
           onClick={handleTitleClick}
@@ -231,7 +274,11 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
       >
         {threads?.map((thread) => (
           <Box key={thread.id} mb={1}>
-            <Link href={`/chat/${thread.id}`} passHref>
+            <Link
+              href={`/chat/${thread.id}`}
+              passHref
+              onClick={closeMobileSidebar}
+            >
               <SidebarTab title={thread.title} />
             </Link>
           </Box>
@@ -293,7 +340,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           sx: {
             backgroundColor: "var(--color-panel)",
             color: "var(--color-text)",
-            minWidth: { xs: "280px", sm: "360px" },
+            width: { xs: "calc(100vw - 32px)", sm: "360px" },
+            maxWidth: "420px",
             p: 1,
           },
         }}
@@ -346,6 +394,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           <Button onClick={handleCloseSettings}>{t("common.close")}</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Box>
+    </>
   );
 }

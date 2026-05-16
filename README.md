@@ -75,6 +75,12 @@ yarn dev
 
 ## Release Notes
 
+### v0.2.5 (2026-05-16)
+
+- Applied security patches for current GitHub advisory and audit findings
+- Updated dependencies and lockfiles so both `yarn audit` and `npm audit` report **0 vulnerabilities**
+- Improved responsive behavior across the app, including the landing page, chat screens, and mobile sidebars/settings panels
+
 ### v0.2.4 (2026-02-03)
 
 - Added **JSON Output** and **Tool Calls**

@@ -1,5 +1,5 @@
 // src/pages/chat/[threadId].tsx
-import React from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { Box } from "@mui/material";
@@ -15,12 +15,17 @@ export default function ThreadPage() {
   const { threadId } = router.query;
   const { t } = useTranslation();
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   if (!threadId || typeof threadId !== "string") {
     return <div>{t("chat.thread.invalid")}</div>;
   }
-
-  // ページ全体のスクロールを禁止（こうしないとlatex表記が存在するとき、謎の莫大なスクロールスペースが出る）
-  if (typeof document !== "undefined") document.body.style.overflow = "hidden";
 
   return (
     <>
@@ -53,7 +58,7 @@ export default function ThreadPage() {
           content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
         />
       </Head>
-      <Box sx={{ height: "100vh", overflow: "hidden" }}>
+      <Box sx={{ height: "100dvh", minHeight: "100dvh", overflow: "hidden" }}>
         <ChatWindow threadId={threadId} />
       </Box>
     </>

@@ -254,41 +254,73 @@ export default function LandingPage() {
             boxShadow: "none",
           }}
         >
-          <Toolbar sx={{ flexWrap: "wrap", gap: 1 }}>
+          <Toolbar
+            sx={{
+              flexWrap: "wrap",
+              gap: 1.5,
+              py: { xs: 1, sm: 0.5 },
+              alignItems: { xs: "flex-start", sm: "center" },
+            }}
+          >
             {/* アイコン画像を左に配置 */}
             <Box
-              component="img"
-              src="/favicon.png"
-              alt="App Logo"
-              sx={{ width: 28, height: 28, mr: 1 }}
-            />
-            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-              {t("common.appNameUnofficial")}
-            </Typography>
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
+                flexGrow: 1,
+                width: { xs: "100%", sm: "auto" },
+              }}
+            >
+              <Box
+                component="img"
+                src="/favicon.png"
+                alt="App Logo"
+                sx={{ width: 28, height: 28, mr: 1 }}
+              />
+              <Typography
+                variant="h6"
+                sx={{
+                  flexGrow: 1,
+                  fontWeight: 700,
+                  minWidth: 0,
+                  fontSize: { xs: "1rem", sm: "1.25rem" },
+                }}
+              >
+                {t("common.appNameUnofficial")}
+              </Typography>
+            </Box>
             <Box
               sx={{
                 display: "flex",
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: 1,
+                width: { xs: "100%", sm: "auto" },
+                justifyContent: { xs: "space-between", sm: "flex-end" },
               }}
             >
               <LanguageSelector
                 disableLabel
-                sx={{ minWidth: 140, mr: { xs: 0, sm: 1 } }}
+                sx={{
+                  minWidth: { xs: 0, sm: 140 },
+                  width: { xs: "100%", sm: "auto" },
+                  mr: { xs: 0, sm: 1 },
+                }}
               />
               <Button
                 onClick={handleLogin}
                 sx={{
-                  fontSize: "1.1rem",
+                  fontSize: { xs: "1rem", sm: "1.1rem" },
                   borderRadius: "2rem",
                   color: "#ffffff",
                   textTransform: "none",
                   fontWeight: 600,
-                  px: 3,
+                  px: { xs: 2.25, sm: 3 },
                   py: 1,
                   backgroundColor: accentColor,
                   "&:hover": { backgroundColor: accentHover },
+                  flexGrow: { xs: 1, sm: 0 },
                 }}
                 endIcon={<ArrowOutwardIcon />}
               >
@@ -302,6 +334,7 @@ export default function LandingPage() {
                   borderColor: textColor,
                   textTransform: "none",
                   fontWeight: 600,
+                  flexGrow: { xs: 1, sm: 0 },
                 }}
               >
                 {t("common.actions.donate")}
@@ -314,11 +347,12 @@ export default function LandingPage() {
         <Box
           sx={{
             position: "relative",
-            height: "70vh",
+            minHeight: { xs: "78svh", sm: "70vh" },
             background: `url("/images/deepseek-playground-demo.gif") center/cover no-repeat`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            px: 2,
           }}
         >
           <Box
@@ -339,22 +373,30 @@ export default function LandingPage() {
             <Box
               sx={{
                 display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
                 alignItems: "center",
                 justifyContent: "center",
                 mb: 2,
+                gap: { xs: 1.25, sm: 0 },
               }}
             >
               <Box
                 component="img"
                 src="/favicon.png"
                 alt="App Logo"
-                sx={{ width: 48, height: 48, mr: 2 }}
+                sx={{
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
+                  mr: { xs: 0, sm: 2 },
+                }}
               />
               <Typography
                 variant="h2"
                 sx={{
                   fontWeight: 700,
                   textShadow: heroTitleShadow,
+                  fontSize: { xs: "2.25rem", sm: "3.25rem", md: "3.75rem" },
+                  lineHeight: 1.05,
                 }}
               >
                 {t("common.appName")}
@@ -367,6 +409,7 @@ export default function LandingPage() {
                 opacity: 0.9,
                 textShadow: heroSubtitleShadow,
                 color: textColor,
+                fontSize: { xs: "1rem", sm: "1.5rem" },
               }}
             >
               {t("landing.hero.tagline")}
@@ -375,14 +418,14 @@ export default function LandingPage() {
               variant="contained"
               onClick={handleLogin}
               sx={{
-                fontSize: "1.1rem",
+                fontSize: { xs: "1rem", sm: "1.1rem" },
                 borderRadius: "2rem",
                 backgroundColor: accentColor,
                 "&:hover": { backgroundColor: accentHover },
                 color: "#ffffff",
                 textTransform: "none",
                 fontWeight: 600,
-                px: 3,
+                px: { xs: 2.5, sm: 3 },
                 py: 1,
               }}
               endIcon={<ArrowOutwardIcon />}
@@ -415,7 +458,7 @@ export default function LandingPage() {
             maxWidth="lg"
             disableGutters
             sx={{
-              px: { xs: 0, sm: 4, md: 6 },
+              px: { xs: 2, sm: 4, md: 6 },
             }}
           >
             <Box
@@ -780,7 +823,7 @@ export default function LandingPage() {
         </Box>
 
         {/* Features */}
-        <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
           <Typography
             variant="h4"
             sx={{
@@ -794,15 +837,19 @@ export default function LandingPage() {
           </Typography>
           <Box
             sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 4,
-              justifyContent: "center",
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(2, minmax(0, 1fr))",
+                md: "repeat(3, minmax(0, 1fr))",
+              },
+              gap: 3,
+              alignItems: "stretch",
             }}
           >
             <Card
               sx={{
-                maxWidth: 300,
+                width: "100%",
                 backgroundColor: "var(--color-panel)",
                 border: "1px solid var(--color-border)",
               }}
@@ -822,7 +869,7 @@ export default function LandingPage() {
 
             <Card
               sx={{
-                maxWidth: 300,
+                width: "100%",
                 backgroundColor: "var(--color-panel)",
                 border: "1px solid var(--color-border)",
               }}
@@ -842,7 +889,7 @@ export default function LandingPage() {
 
             <Card
               sx={{
-                maxWidth: 300,
+                width: "100%",
                 backgroundColor: "var(--color-panel)",
                 border: "1px solid var(--color-border)",
               }}

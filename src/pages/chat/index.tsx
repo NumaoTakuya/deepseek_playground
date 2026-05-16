@@ -465,10 +465,12 @@ export default function ChatHomePage() {
       <Box
         display="flex"
         flexDirection="column"
-        minHeight="100vh"
-        justifyContent="center"
+        minHeight="100dvh"
+        justifyContent={{ xs: "flex-start", md: "center" }}
         alignItems="center"
-        p={2}
+        p={{ xs: 1.5, sm: 2 }}
+        pt={{ xs: 9, md: 4 }}
+        pb={{ xs: 2, md: 4 }}
       >
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -488,17 +490,19 @@ export default function ChatHomePage() {
             </div>
           </Box>
         ) : (
-          <Box width="100%" maxWidth="600px">
+          <Box width="100%" maxWidth="680px">
             {/* モデル選択 */}
             <Box mb={2}>
               <Typography variant="h6" sx={{ mb: 1 }}>
                 {t("chat.new.chooseModel")}
               </Typography>
               <FormControl
+                fullWidth
                 variant="outlined"
                 size="small"
                 sx={{
-                  minWidth: 180,
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: { xs: 0, sm: 180 },
                   backgroundColor: "transparent",
                   "& .MuiOutlinedInput-root": {
                     "& fieldset": { borderColor: "var(--color-border)" },
@@ -1199,7 +1203,7 @@ export default function ChatHomePage() {
               {t("chat.labels.firstMessage")}
             </Typography>
 
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box display="flex" alignItems="flex-end" gap={1}>
               <TextField
                 multiline
                 minRows={1}
@@ -1243,8 +1247,9 @@ export default function ChatHomePage() {
                   borderRadius: "50%",
                   backgroundColor: "var(--color-primary)",
                   color: "#fff",
-                  width: 48,
-                  height: 48,
+                  width: { xs: 44, sm: 48 },
+                  height: { xs: 44, sm: 48 },
+                  flexShrink: 0,
                   "&:hover": {
                     backgroundColor: "var(--color-hover)",
                   },

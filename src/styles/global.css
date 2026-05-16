@@ -37,6 +37,7 @@
 /* 全体 */
 html,
 body {
+  height: 100%;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -45,6 +46,11 @@ body {
   font-family: "Inter", sans-serif, -apple-system, BlinkMacSystemFont,
     sans-serif;
   font-size: 16px;
+  overflow-x: hidden;
+}
+
+#__next {
+  height: 100%;
 }
 
 /* 継承 */
@@ -112,7 +118,8 @@ body {
   display: flex;
   flex-direction: column;
   width: fit-content;
-  max-width: 70%;
+  max-width: min(70%, 48rem);
+  min-width: 0;
 }
 .bubble-stack.user {
   margin-left: auto;
@@ -128,6 +135,7 @@ body {
   justify-content: space-between;
   width: 100%;
   margin-top: 4px;
+  gap: 8px;
 }
 .bubble-footer-left {
   flex: 1;
@@ -164,6 +172,7 @@ body {
   padding: 10px 14px;
   border-radius: 8px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 .bubble.user {
   margin-left: auto; /* 右寄せ */
@@ -257,4 +266,54 @@ body {
 }
 .scroll-to-bottom-inline:hover {
   background-color: var(--color-panel);
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+.react-markdown pre,
+.react-markdown table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.react-markdown table {
+  display: block;
+  width: max-content;
+  border-collapse: collapse;
+}
+
+.react-markdown code {
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .bubble-stack {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .bubble-footer {
+    flex-wrap: wrap;
+  }
+
+  .bubble-footer-left,
+  .bubble-footer-center,
+  .bubble-footer-actions {
+    flex: 1 1 100%;
+  }
+
+  .bubble-footer-center {
+    justify-content: flex-start;
+  }
+
+  .branch-marker-text {
+    white-space: normal;
+    word-break: break-word;
+  }
 }

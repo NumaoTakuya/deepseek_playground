@@ -26,7 +26,7 @@ export default function InputSection({
   const { t } = useTranslation();
 
   return (
-    <Box p={2}>
+    <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
       {!apiKey?.trim() && (
         <Alert severity="error" sx={{ borderRadius: 0 }}>
           {t("chat.errors.apiKeyMissing")} {t("chat.errors.apiKeyHint")} {" "}
@@ -41,7 +41,7 @@ export default function InputSection({
         </Alert>
       )}
 
-      <Box display="flex" gap={1} sx={{ m: 0 }}>
+      <Box display="flex" gap={1} alignItems="flex-end" sx={{ m: 0 }}>
         <TextField
           margin="none"
           multiline
@@ -75,8 +75,9 @@ export default function InputSection({
         <IconButton
           onClick={handleSend}
           sx={{
-            width: 48,
-            height: 48,
+            width: { xs: 44, sm: 48 },
+            height: { xs: 44, sm: 48 },
+            flexShrink: 0,
             borderRadius: "50%",
             backgroundColor: "var(--color-primary)",
             color: "#fff",

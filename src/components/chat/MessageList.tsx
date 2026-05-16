@@ -303,7 +303,7 @@ export default function MessageList({
         onScroll={updateIsAtBottom}
         height="100%"
         overflow="auto"
-        p={2}
+        sx={{ p: { xs: 1.5, sm: 2 } }}
       >
         {messages.map((msg) => {
           if (msg.role === "system") return null;

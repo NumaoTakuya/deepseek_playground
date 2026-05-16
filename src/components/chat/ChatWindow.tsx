@@ -23,6 +23,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
+  useMediaQuery,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -32,6 +33,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import SettingsIcon from "@mui/icons-material/Settings";
+import MenuIcon from "@mui/icons-material/Menu";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { useChatWindow } from "../../hooks/useChatWindow";
@@ -52,6 +55,7 @@ export default function ChatWindow({ threadId }: Props) {
   const { apiKey } = useApiKey();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const isMobile = useMediaQuery("(max-width:900px)");
   const {
     messages,
     input,
@@ -135,7 +139,7 @@ export default function ChatWindow({ threadId }: Props) {
   const [isStreamEnabled, setIsStreamEnabled] = useState(false);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
-  const sidebarWidth = isSidebarOpen ? 360 : 48;
+  const sidebarWidth = isMobile ? 0 : isSidebarOpen ? 360 : 48;
   const totalTokens = cumulativeInputTokens + cumulativeOutputTokens;
   const costLower =
     (cumulativeInputTokens * 0.028 + cumulativeOutputTokens * 0.42) / 1_000_000;
@@ -145,6 +149,14 @@ export default function ChatWindow({ threadId }: Props) {
   const formatCount = (value: number) => value.toLocaleString();
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const openLeftSidebar = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("app:left-sidebar", {
+        detail: { open: true },
+      })
+    );
+  };
 
   const parseStopSequences = (raw: string) => {
     const trimmed = raw.trim();
@@ -914,12 +926,69 @@ main();`;
   }, [model, input, systemPrompt, isFirstTime, handleSend]);
 
   return (
-    <Box display="flex" height="100%" position="relative">
+    <Box display="flex" height="100%" position="relative" overflow="hidden">
       <Box flex="1" display="flex" flexDirection="column" minWidth={0}>
         {errorMessage && (
           <Alert severity="error" sx={{ mx: 2, my: 1 }}>
             {errorMessage}
           </Alert>
+        )}
+
+        {isMobile && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1.5,
+              px: 1,
+              py: 1,
+              borderBottom: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-panel)",
+              flexShrink: 0,
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+              <IconButton
+                onClick={openLeftSidebar}
+                size="small"
+                aria-label="Open navigation"
+                sx={{ color: "var(--color-text)", flexShrink: 0 }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "var(--color-subtext)", display: "block" }}
+                >
+                  {t("common.model")}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{ color: "var(--color-text)", fontWeight: 600 }}
+                >
+                  {model}
+                </Typography>
+              </Box>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={toggleSidebar}
+              startIcon={<SettingsIcon />}
+              sx={{
+                flexShrink: 0,
+                color: "var(--color-text)",
+                borderColor: "var(--color-border)",
+              }}
+            >
+              {t("chat.controls.chatSettings")}
+            </Button>
+          </Box>
         )}
 
         <Box
@@ -988,22 +1057,47 @@ main();`;
 
       </Box>
 
+      {isMobile && isSidebarOpen && (
+        <Box
+          onClick={toggleSidebar}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 2,
+            backgroundColor: "rgba(5, 10, 18, 0.46)",
+            backdropFilter: "blur(2px)",
+          }}
+        />
+      )}
+
       <Box
         sx={{
           width: sidebarWidth,
-          transition: "width 0.2s ease",
-          borderLeft: "1px solid var(--color-border)",
+          flexShrink: 0,
+          transition: isMobile ? "transform 0.25s ease" : "width 0.2s ease",
           backgroundColor: "var(--color-panel)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
+          borderLeft: "1px solid var(--color-border)",
+          ...(isMobile && {
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: "min(100vw, 420px)",
+            maxWidth: "100%",
+            zIndex: 3,
+            transform: isSidebarOpen ? "translateX(0)" : "translateX(100%)",
+            boxShadow: "0 18px 40px rgba(0, 0, 0, 0.35)",
+          }),
         }}
       >
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "flex-start",
+            justifyContent: isMobile ? "space-between" : "flex-start",
             p: 1,
             gap: 1,
           }}
@@ -1012,9 +1106,21 @@ main();`;
             onClick={toggleSidebar}
             size="small"
             sx={{ color: "var(--color-text)" }}
-            aria-label={isSidebarOpen ? t("chat.controls.collapse") : t("chat.controls.expand")}
+            aria-label={
+              isMobile
+                ? t("common.close")
+                : isSidebarOpen
+                ? t("chat.controls.collapse")
+                : t("chat.controls.expand")
+            }
           >
-            {isSidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            {isMobile ? (
+              <CloseIcon />
+            ) : isSidebarOpen ? (
+              <ChevronRightIcon />
+            ) : (
+              <ChevronLeftIcon />
+            )}
           </IconButton>
           {isSidebarOpen && (
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -1023,7 +1129,15 @@ main();`;
           )}
         </Box>
         {isSidebarOpen && (
-          <Box sx={{ px: 2, pt: 1, pb: 2, overflowY: "auto", flex: 1 }}>
+          <Box
+            sx={{
+              px: { xs: 1.5, sm: 2 },
+              pt: 1,
+              pb: 2,
+              overflowY: "auto",
+              flex: 1,
+            }}
+          >
             <Box sx={{ mb: 2 }}>
               <FormControl
                 fullWidth
@@ -1743,7 +1857,7 @@ main();`;
           </Box>
         )}
         {isSidebarOpen && (
-          <Box sx={{ px: 2, pb: 2 }}>
+          <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
             <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
             <Box
               sx={{
@@ -1813,12 +1927,13 @@ main();`;
         open={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
         fullWidth
+        fullScreen={isMobile}
         maxWidth="lg"
         PaperProps={{
           sx: {
             backgroundColor: "var(--color-panel)",
             color: "var(--color-text)",
-            height: "80vh",
+            height: isMobile ? "100dvh" : "80vh",
           },
         }}
       >
@@ -1854,7 +1969,7 @@ main();`;
               display: "flex",
               alignItems: "center",
               gap: 1,
-              flexWrap: "nowrap",
+              flexWrap: "wrap",
             }}
           >
             <ToggleButtonGroup
@@ -1888,6 +2003,7 @@ main();`;
               alignItems: "center",
               justifyContent: "space-between",
               gap: 2,
+              flexWrap: "wrap",
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
