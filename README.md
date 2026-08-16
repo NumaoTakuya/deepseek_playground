@@ -80,6 +80,7 @@ yarn dev
 - Applied security patches for current GitHub advisory and audit findings
 - Updated dependencies and lockfiles so both `yarn audit` and `npm audit` report **0 vulnerabilities**
 - Improved responsive behavior across the app, including the landing page, chat screens, and mobile sidebars/settings panels
+- Removed pending empty assistant messages when chat requests fail, such as when a user's Deepseek API key is invalid
 
 ### v0.2.4 (2026-02-03)
 
