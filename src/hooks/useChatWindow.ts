@@ -784,6 +784,15 @@ export function useChatWindow(
     }
   }
 
+  async function deletePendingAssistantMessages(messageIds: Set<string>) {
+    if (messageIds.size === 0) return;
+    try {
+      await deleteMessages(threadId, Array.from(messageIds));
+    } catch (error) {
+      console.error("[deletePendingAssistantMessages] Failed:", error);
+    }
+  }
+
   // -- model変更 --
   async function handleModelChange(newModel: string) {
     setModel(newModel);
@@ -836,6 +845,7 @@ export function useChatWindow(
     setAssistantCoT(null);
     setAssistantDraft("");
     setAssistantFinishReason(null);
+    const pendingAssistantMessageIds = new Set<string>();
 
     try {
       const hasFim =
@@ -866,6 +876,7 @@ export function useChatWindow(
 
       // 3) 空のassistantメッセージ (Firestore) → ID取得
       const newAssistantMsgId = await createMessage(threadId, "assistant", "");
+      pendingAssistantMessageIds.add(newAssistantMsgId);
       setAssistantMsgId(newAssistantMsgId); // thinking対象
 
       // 4) 過去の会話づくり
@@ -911,6 +922,7 @@ export function useChatWindow(
         setWaitingForFirstChunk(false);
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(newAssistantMsgId, completion);
         void addUsageFromTexts(
           `${fimPrefix}${userText}${fimSuffix ?? ""}`,
@@ -982,6 +994,7 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          pendingAssistantMessageIds.delete(newAssistantMsgId);
           void updateMessageTokenCount(
             newAssistantMsgId,
             firstPass.partialContent ?? ""
@@ -1009,6 +1022,7 @@ export function useChatWindow(
           firstThinkingContent,
           firstPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
@@ -1020,6 +1034,7 @@ export function useChatWindow(
           "assistant",
           ""
         );
+        pendingAssistantMessageIds.add(secondAssistantMsgId);
         setAssistantMsgId(secondAssistantMsgId);
         setWaitingForFirstChunk(true);
         setAssistantCoT(null);
@@ -1060,6 +1075,7 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(secondAssistantMsgId);
         void updateMessageTokenCount(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
@@ -1083,6 +1099,7 @@ export function useChatWindow(
           finalThinkingContent,
           firstPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
@@ -1108,6 +1125,7 @@ export function useChatWindow(
       const msg =
         err instanceof Error ? err.message : t("chat.errors.stream");
       setErrorMessage(msg);
+      await deletePendingAssistantMessages(pendingAssistantMessageIds);
       // メッセージ送信失敗イベント
       if (analytics) {
         logEvent(analytics, "message_send_failure", {
@@ -1141,6 +1159,7 @@ export function useChatWindow(
     setAssistantCoT(null);
     setAssistantDraft("");
     setAssistantFinishReason(null);
+    const pendingAssistantMessageIds = new Set<string>();
 
     const targetIndex = messages.findIndex((msg) => msg.id === messageId);
     if (targetIndex === -1) {
@@ -1185,6 +1204,7 @@ export function useChatWindow(
       await deleteMessages(threadId, toDelete);
 
       const newAssistantMsgId = await createMessage(threadId, "assistant", "");
+      pendingAssistantMessageIds.add(newAssistantMsgId);
       setAssistantMsgId(newAssistantMsgId);
 
       const conversation = [
@@ -1233,6 +1253,7 @@ export function useChatWindow(
         setWaitingForFirstChunk(false);
         setAssistantDraft(completion);
         await updateMessage(threadId, newAssistantMsgId, completion, null, null);
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(newAssistantMsgId, completion);
         void addUsageFromTexts(
           `${currentSettings.fimPrefix}${trimmed}${
@@ -1293,6 +1314,7 @@ export function useChatWindow(
               : null,
             firstPass.finalFinishReason
           );
+          pendingAssistantMessageIds.delete(newAssistantMsgId);
           void updateMessageTokenCount(
             newAssistantMsgId,
             firstPass.partialContent ?? ""
@@ -1320,6 +1342,7 @@ export function useChatWindow(
           firstThinkingContent,
           firstPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
@@ -1331,6 +1354,7 @@ export function useChatWindow(
           "assistant",
           ""
         );
+        pendingAssistantMessageIds.add(secondAssistantMsgId);
         setAssistantMsgId(secondAssistantMsgId);
         setWaitingForFirstChunk(true);
         setAssistantCoT(null);
@@ -1371,6 +1395,7 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(secondAssistantMsgId);
         void updateMessageTokenCount(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
@@ -1392,6 +1417,7 @@ export function useChatWindow(
           finalThinkingContent,
           firstPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(newAssistantMsgId);
         void updateMessageTokenCount(
           newAssistantMsgId,
           firstPass.partialContent ?? ""
@@ -1405,6 +1431,7 @@ export function useChatWindow(
       const msg =
         err instanceof Error ? err.message : t("chat.errors.stream");
       setErrorMessage(msg);
+      await deletePendingAssistantMessages(pendingAssistantMessageIds);
     } finally {
       setAssistantThinking(false);
       chatStreamRef.current = null;
@@ -1524,6 +1551,7 @@ export function useChatWindow(
     setAssistantCoT(null);
     setAssistantDraft("");
     setAssistantFinishReason(null);
+    const pendingAssistantMessageIds = new Set<string>();
 
     const targetIndex = messages.findIndex((msg) => msg.id === messageId);
     if (targetIndex === -1) {
@@ -1673,6 +1701,7 @@ export function useChatWindow(
           "assistant",
           ""
         );
+        pendingAssistantMessageIds.add(secondAssistantMsgId);
         setAssistantMsgId(secondAssistantMsgId);
         setWaitingForFirstChunk(true);
         setAssistantCoT(null);
@@ -1713,6 +1742,7 @@ export function useChatWindow(
           finalThinkingContent,
           secondPass.finalFinishReason
         );
+        pendingAssistantMessageIds.delete(secondAssistantMsgId);
         void updateMessageTokenCount(
           secondAssistantMsgId,
           secondPass.partialContent ?? ""
@@ -1744,6 +1774,7 @@ export function useChatWindow(
       const msg =
         err instanceof Error ? err.message : t("chat.errors.stream");
       setErrorMessage(msg);
+      await deletePendingAssistantMessages(pendingAssistantMessageIds);
     } finally {
       setAssistantThinking(false);
       chatStreamRef.current = null;
