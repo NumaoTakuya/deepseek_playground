@@ -39,7 +39,8 @@ export async function createMessage(
     createdAtOverride?: Message["createdAt"];
     branchCreatedAt?: string;
   },
-  tokenCount?: number
+  tokenCount?: number,
+  apiMessages?: Message["api_messages"]
 ) {
   try {
     const messagesRef = collection(db, "threads", threadId, "messages");
@@ -74,6 +75,9 @@ export async function createMessage(
       payload.branch_created_at = meta.branchCreatedAt;
     }
 
+    if (apiMessages !== undefined) {
+      payload.api_messages = JSON.parse(JSON.stringify(apiMessages));
+    }
     const docRef = await addDoc(messagesRef, payload);
 
     // Log message sent event
@@ -220,7 +224,8 @@ export async function updateMessage(
     branchFromMessageId?: string;
     branchCreatedAt?: string;
   },
-  tokenCount?: number
+  tokenCount?: number,
+  apiMessages?: Message["api_messages"]
 ) {
   try {
     const messageRef = doc(db, "threads", threadId, "messages", messageId);
@@ -233,9 +238,13 @@ export async function updateMessage(
       branch_from_message_id?: string;
       branch_created_at?: string;
       token_count?: number;
+      api_messages?: Message["api_messages"];
     } = {};
     if (content !== undefined) {
       updatePayload.content = content;
+    }
+    if (apiMessages !== undefined) {
+      updatePayload.api_messages = JSON.parse(JSON.stringify(apiMessages));
     }
     if (thinkingContent !== undefined) {
       updatePayload.thinking_content = thinkingContent;

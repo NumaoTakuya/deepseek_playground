@@ -24,6 +24,7 @@ import {
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
+import { replayMessage, runToolConversation } from "./toolConversation";
 import { DEFAULT_MODEL, getModelLimits } from "../services/deepseekModels";
 
 type ChatRole = "system" | "user" | "assistant";
@@ -146,6 +147,13 @@ export function useChatWindow(
     fimSuffix,
     fimMaxTokens,
   });
+
+  const generationRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    generationRef.current?.abort();
+    chatStreamRef.current?.abort();
+  }, [threadId]);
 
   const chatStreamRef = useRef<Awaited<
     ReturnType<typeof streamDeepseek>
@@ -459,6 +467,9 @@ export function useChatWindow(
 
     const toolMessages = [];
     for (const toolCall of toolCalls) {
+      if (generationRef.current?.signal.aborted) {
+        throw new DOMException("Generation stopped", "AbortError");
+      }
       const handler = handlers[toolCall.function.name];
       if (handler === undefined) {
         throw new Error(
@@ -506,9 +517,15 @@ export function useChatWindow(
       reasoningEffort?: "low" | "high" | "max";
     },
     toolConfig?: { tools?: unknown[]; strict?: boolean },
-    draftPrefix: string = ""
+    draftPrefix: string = "",
+    signal = generationRef.current?.signal
   ) => {
+    if (signal?.aborted) throw new DOMException("Generation stopped", "AbortError");
     const chatStream = await streamDeepseek(apiKey, conversation, modelName, parameters, toolConfig);
+    if (signal?.aborted) {
+      chatStream.abort();
+      throw new DOMException("Generation stopped", "AbortError");
+    }
     chatStreamRef.current = chatStream;
 
     let partialReasoningContent = "";
@@ -518,6 +535,7 @@ export function useChatWindow(
     const toolCallsByIndex = new Map<number, ToolCall>();
 
     for await (const chunk of chatStream) {
+      if (signal?.aborted) throw new DOMException("Generation stopped", "AbortError");
       interface Delta {
         reasoning_content?: string;
         content?: string;
@@ -529,7 +547,7 @@ export function useChatWindow(
         }>;
       }
 
-      const delta = chunk.choices[0]?.delta as Delta;
+      const delta = (chunk.choices[0]?.delta ?? {}) as Delta;
       const finishReason = chunk.choices[0]?.finish_reason;
       const delta_reasoning_content = delta.reasoning_content ?? "";
       const delta_content = delta.content ?? "";
@@ -554,6 +572,7 @@ export function useChatWindow(
         setAssistantDraft(`${draftPrefix}${partialContent}`);
       }
       if (Array.isArray(delta.tool_calls)) {
+        setWaitingForFirstChunk(false);
         for (const call of delta.tool_calls) {
           const index = typeof call.index === "number" ? call.index : toolCallsByIndex.size;
           const existing = toolCallsByIndex.get(index) ?? {
@@ -568,7 +587,7 @@ export function useChatWindow(
             existing.type = call.type;
           }
           if (call.function?.name) {
-            existing.function.name = call.function.name;
+            existing.function.name += call.function.name;
           }
           if (typeof call.function?.arguments === "string") {
             existing.function.arguments += call.function.arguments;
@@ -581,6 +600,8 @@ export function useChatWindow(
     const toolCalls = Array.from(toolCallsByIndex.entries())
       .sort((a, b) => a[0] - b[0])
       .map((entry) => entry[1]);
+
+    void addUsageFromTexts(buildInputText(conversation), partialContent);
 
     return {
       partialContent,
@@ -850,6 +871,7 @@ export function useChatWindow(
   async function handleSend() {
     // 送信中なら→停止
     if (assistantThinking) {
+      generationRef.current?.abort();
       if (chatStreamRef.current) {
         chatStreamRef.current.abort();
       }
@@ -870,6 +892,8 @@ export function useChatWindow(
       });
     }
     setInput("");
+    const generation = new AbortController();
+    generationRef.current = generation;
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
     setAssistantCoT(null);
@@ -914,13 +938,9 @@ export function useChatWindow(
         { role: "system", content: systemPrompt },
         ...messages
           .filter((m) => m.role !== "system")
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          .flatMap(replayMessage),
         { role: "user", content: userText },
-      ] as { role: ChatRole; content: string }[];
-      const inputText = buildInputText(conversation);
+      ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
         frequencyPenalty,
@@ -976,114 +996,11 @@ export function useChatWindow(
       }
 
       // 5) ストリーミング
-      const firstPass = await streamWithToolCalls(
+      const finalPass = await runToolConversation({
         conversation,
-        model,
-        {
-          frequencyPenalty,
-          presencePenalty,
-          temperature,
-          topP,
-          maxTokens,
-          thinkingEnabled,
-          reasoningEffort,
-        },
-        buildRequestConfig(
-          tooling.toolConfig,
-          jsonOutput,
-          stopSequencesRaw,
-          tooling.toolConfig?.strict === true
-        )
-      );
-
-      let finalResponseLength = 0;
-
-      if (
-        firstPass.finalFinishReason === "tool_calls" &&
-        firstPass.toolCalls.length > 0
-      ) {
-        const assistantToolMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: firstPass.partialContent ?? "",
-          tool_calls: firstPass.toolCalls,
-        };
-
-        let toolMessages: ChatCompletionMessageParam[];
-        try {
-          toolMessages = await resolveToolCalls(
-            firstPass.toolCalls,
-            handlersResult.handlers
-          );
-        } catch (toolError) {
-          const msg =
-            toolError instanceof Error
-              ? toolError.message
-              : t("chat.errors.toolCallFailed");
-          setErrorMessage(msg);
-          await updateMessage(
-            threadId,
-            newAssistantMsgId,
-            firstPass.partialContent,
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null,
-            firstPass.finalFinishReason
-          );
-          pendingAssistantMessageIds.delete(newAssistantMsgId);
-          void updateMessageTokenCount(
-            newAssistantMsgId,
-            firstPass.partialContent ?? ""
-          );
-          void addUsageFromTexts(
-            inputText,
-            firstPass.partialContent ?? ""
-          );
-          setAssistantCoT(
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null
-          );
-          setAssistantFinishReason(firstPass.finalFinishReason);
-          return;
-        }
-
-        const firstThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          newAssistantMsgId,
-          firstPass.partialContent,
-          firstThinkingContent,
-          firstPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(newAssistantMsgId);
-        void updateMessageTokenCount(
-          newAssistantMsgId,
-          firstPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-
-        const secondAssistantMsgId = await createMessage(
-          threadId,
-          "assistant",
-          ""
-        );
-        pendingAssistantMessageIds.add(secondAssistantMsgId);
-        setAssistantMsgId(secondAssistantMsgId);
-        setWaitingForFirstChunk(true);
-        setAssistantCoT(null);
-        setAssistantDraft("");
-
-        const secondConversation = [
-          ...conversation,
-          assistantToolMessage,
-          ...toolMessages,
-        ];
-        const secondInputText = buildInputText(secondConversation);
-
-        const secondPass = await streamWithToolCalls(
-          secondConversation,
+        signal: generation.signal,
+        stream: (history) => streamWithToolCalls(
+          history,
           model,
           {
             frequencyPenalty,
@@ -1099,53 +1016,36 @@ export function useChatWindow(
             jsonOutput,
             stopSequencesRaw,
             tooling.toolConfig?.strict === true
-          )
-        );
-
-        const finalThinkingContent = secondPass.partialReasoningContent.trim()
-          ? secondPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          secondAssistantMsgId,
-          secondPass.partialContent,
-          finalThinkingContent,
-          secondPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(secondAssistantMsgId);
-        void updateMessageTokenCount(
-          secondAssistantMsgId,
-          secondPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(
-          secondInputText,
-          secondPass.partialContent ?? ""
-        );
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(secondPass.finalFinishReason);
-        finalResponseLength = secondPass.partialContent.length;
-      } else {
-        // 6) ストリーム完了: Firestoreにまとめて書き込み
-        const finalThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          newAssistantMsgId,
-          firstPass.partialContent,
-          finalThinkingContent,
-          firstPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(newAssistantMsgId);
-        void updateMessageTokenCount(
-          newAssistantMsgId,
-          firstPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(firstPass.finalFinishReason);
-        finalResponseLength = firstPass.partialContent.length;
-      }
+          ),
+          "",
+          generation.signal
+        ),
+        resolve: async (calls) => {
+          try {
+            return await resolveToolCalls(calls, handlersResult.handlers);
+          } catch (error) {
+            const errorText = error instanceof Error ? error.message : String(error);
+            setErrorMessage(errorText);
+            return calls.map((call) => ({
+              role: "tool" as const, tool_call_id: call.id,
+              content: JSON.stringify({ error: errorText }),
+            }));
+          }
+        },
+        persist: async (pass, history) => {
+          const content = pass.partialContent;
+          await updateMessage(
+            threadId, newAssistantMsgId, content,
+            pass.partialReasoningContent || null, pass.finalFinishReason,
+            undefined, undefined, history
+          );
+          pendingAssistantMessageIds.delete(newAssistantMsgId);
+          void updateMessageTokenCount(newAssistantMsgId, content);
+          setAssistantCoT(pass.partialReasoningContent || null);
+          setAssistantFinishReason(pass.finalFinishReason);
+        },
+      });
+      const finalResponseLength = finalPass.partialContent.length;
 
       // メッセージ送信成功イベント
       if (analytics) {
@@ -1173,6 +1073,7 @@ export function useChatWindow(
         });
       }
     } finally {
+      setWaitingForFirstChunk(false);
       setAssistantThinking(false);
       chatStreamRef.current = null;
       setAssistantMsgId(null);
@@ -1186,11 +1087,15 @@ export function useChatWindow(
 
     const currentSettings = settingsRef.current;
 
-    if (assistantThinking && chatStreamRef.current) {
-      chatStreamRef.current.abort();
+    if (assistantThinking) {
+      generationRef.current?.abort();
+      chatStreamRef.current?.abort();
+      return;
     }
 
     setErrorMessage(null);
+    const generation = new AbortController();
+    generationRef.current = generation;
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
     setAssistantCoT(null);
@@ -1249,12 +1154,8 @@ export function useChatWindow(
         ...messages
           .slice(0, targetIndex + 1)
           .filter((m) => m.role !== "system")
-          .map((m) => ({
-            role: m.role,
-            content: m.id === messageId ? trimmed : m.content,
-          })),
-      ] as { role: ChatRole; content: string }[];
-      const inputText = buildInputText(conversation);
+          .flatMap((m) => replayMessage(m.id === messageId ? { ...m, content: trimmed, api_messages: undefined } : m)),
+      ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
         model: currentSettings.model,
@@ -1305,112 +1206,11 @@ export function useChatWindow(
         return;
       }
 
-      const firstPass = await streamWithToolCalls(
+      await runToolConversation({
         conversation,
-        currentSettings.model,
-        {
-          frequencyPenalty: currentSettings.frequencyPenalty,
-          presencePenalty: currentSettings.presencePenalty,
-          temperature: currentSettings.temperature,
-          topP: currentSettings.topP,
-          maxTokens: currentSettings.maxTokens,
-          thinkingEnabled: currentSettings.thinkingEnabled,
-          reasoningEffort: currentSettings.reasoningEffort,
-        },
-        buildRequestConfig(
-          tooling.toolConfig,
-          currentSettings.jsonOutput,
-          currentSettings.stopSequencesRaw,
-          tooling.toolConfig?.strict === true
-        )
-      );
-
-      if (
-        firstPass.finalFinishReason === "tool_calls" &&
-        firstPass.toolCalls.length > 0
-      ) {
-        const assistantToolMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: firstPass.partialContent ?? "",
-          tool_calls: firstPass.toolCalls,
-        };
-
-        let toolMessages: ChatCompletionMessageParam[];
-        try {
-          toolMessages = await resolveToolCalls(
-            firstPass.toolCalls,
-            handlersResult.handlers
-          );
-        } catch (toolError) {
-          const msg =
-            toolError instanceof Error
-              ? toolError.message
-              : t("chat.errors.toolCallFailed");
-          setErrorMessage(msg);
-          await updateMessage(
-            threadId,
-            newAssistantMsgId,
-            firstPass.partialContent,
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null,
-            firstPass.finalFinishReason
-          );
-          pendingAssistantMessageIds.delete(newAssistantMsgId);
-          void updateMessageTokenCount(
-            newAssistantMsgId,
-            firstPass.partialContent ?? ""
-          );
-          void addUsageFromTexts(
-            inputText,
-            firstPass.partialContent ?? ""
-          );
-          setAssistantCoT(
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null
-          );
-          setAssistantFinishReason(firstPass.finalFinishReason);
-          return;
-        }
-
-        const firstThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          newAssistantMsgId,
-          firstPass.partialContent,
-          firstThinkingContent,
-          firstPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(newAssistantMsgId);
-        void updateMessageTokenCount(
-          newAssistantMsgId,
-          firstPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-
-        const secondAssistantMsgId = await createMessage(
-          threadId,
-          "assistant",
-          ""
-        );
-        pendingAssistantMessageIds.add(secondAssistantMsgId);
-        setAssistantMsgId(secondAssistantMsgId);
-        setWaitingForFirstChunk(true);
-        setAssistantCoT(null);
-        setAssistantDraft("");
-
-        const secondConversation = [
-          ...conversation,
-          assistantToolMessage,
-          ...toolMessages,
-        ];
-        const secondInputText = buildInputText(secondConversation);
-
-        const secondPass = await streamWithToolCalls(
-          secondConversation,
+        signal: generation.signal,
+        stream: (history) => streamWithToolCalls(
+          history,
           currentSettings.model,
           {
             frequencyPenalty: currentSettings.frequencyPenalty,
@@ -1426,50 +1226,36 @@ export function useChatWindow(
             currentSettings.jsonOutput,
             currentSettings.stopSequencesRaw,
             tooling.toolConfig?.strict === true
-          )
-        );
+          ),
+          "",
+          generation.signal
+        ),
+        resolve: async (calls) => {
+          try {
+            return await resolveToolCalls(calls, handlersResult.handlers);
+          } catch (error) {
+            const errorText = error instanceof Error ? error.message : String(error);
+            setErrorMessage(errorText);
+            return calls.map((call) => ({
+              role: "tool" as const, tool_call_id: call.id,
+              content: JSON.stringify({ error: errorText }),
+            }));
+          }
+        },
+        persist: async (pass, history) => {
+          const content = pass.partialContent;
+          await updateMessage(
+            threadId, newAssistantMsgId, content,
+            pass.partialReasoningContent || null, pass.finalFinishReason,
+            undefined, undefined, history
+          );
+          pendingAssistantMessageIds.delete(newAssistantMsgId);
+          void updateMessageTokenCount(newAssistantMsgId, content);
+          setAssistantCoT(pass.partialReasoningContent || null);
+          setAssistantFinishReason(pass.finalFinishReason);
+        },
+      });
 
-        const finalThinkingContent = secondPass.partialReasoningContent.trim()
-          ? secondPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          secondAssistantMsgId,
-          secondPass.partialContent,
-          finalThinkingContent,
-          secondPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(secondAssistantMsgId);
-        void updateMessageTokenCount(
-          secondAssistantMsgId,
-          secondPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(
-          secondInputText,
-          secondPass.partialContent ?? ""
-        );
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(secondPass.finalFinishReason);
-      } else {
-        const finalThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          newAssistantMsgId,
-          firstPass.partialContent,
-          finalThinkingContent,
-          firstPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(newAssistantMsgId);
-        void updateMessageTokenCount(
-          newAssistantMsgId,
-          firstPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(firstPass.finalFinishReason);
-      }
     } catch (err) {
       console.error("handleEditMessage error (stream)", err);
       const msg =
@@ -1477,6 +1263,7 @@ export function useChatWindow(
       setErrorMessage(msg);
       await deletePendingAssistantMessages(pendingAssistantMessageIds);
     } finally {
+      setWaitingForFirstChunk(false);
       setAssistantThinking(false);
       chatStreamRef.current = null;
       setAssistantMsgId(null);
@@ -1547,7 +1334,8 @@ export function useChatWindow(
             msg.thinking_content ?? null,
             msg.finish_reason ?? null,
             branchMeta,
-            msg.token_count
+            msg.token_count,
+            msg.api_messages
           );
         } else {
           await createMessage(
@@ -1588,11 +1376,15 @@ export function useChatWindow(
   async function handleRegenerateMessage(messageId: string) {
     const currentSettings = settingsRef.current;
 
-    if (assistantThinking && chatStreamRef.current) {
-      chatStreamRef.current.abort();
+    if (assistantThinking) {
+      generationRef.current?.abort();
+      chatStreamRef.current?.abort();
+      return;
     }
 
     setErrorMessage(null);
+    const generation = new AbortController();
+    generationRef.current = generation;
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
     setAssistantCoT(null);
@@ -1639,12 +1431,8 @@ export function useChatWindow(
         ...messages
           .slice(0, targetIndex)
           .filter((m) => m.role !== "system")
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-      ] as { role: ChatRole; content: string }[];
-      const inputText = buildInputText(conversation);
+          .flatMap(replayMessage),
+      ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
         model: currentSettings.model,
@@ -1667,107 +1455,11 @@ export function useChatWindow(
         fimMaxTokens: currentSettings.fimMaxTokens,
       });
 
-      const firstPass = await streamWithToolCalls(
+      await runToolConversation({
         conversation,
-        currentSettings.model,
-        {
-          frequencyPenalty: currentSettings.frequencyPenalty,
-          presencePenalty: currentSettings.presencePenalty,
-          temperature: currentSettings.temperature,
-          topP: currentSettings.topP,
-          maxTokens: currentSettings.maxTokens,
-          thinkingEnabled: currentSettings.thinkingEnabled,
-          reasoningEffort: currentSettings.reasoningEffort,
-        },
-        buildRequestConfig(
-          tooling.toolConfig,
-          currentSettings.jsonOutput,
-          currentSettings.stopSequencesRaw,
-          tooling.toolConfig?.strict === true
-        )
-      );
-
-      if (
-        firstPass.finalFinishReason === "tool_calls" &&
-        firstPass.toolCalls.length > 0
-      ) {
-        const assistantToolMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: firstPass.partialContent ?? "",
-          tool_calls: firstPass.toolCalls,
-        };
-
-        let toolMessages: ChatCompletionMessageParam[];
-        try {
-          toolMessages = await resolveToolCalls(
-            firstPass.toolCalls,
-            handlersResult.handlers
-          );
-        } catch (toolError) {
-          const msg =
-            toolError instanceof Error
-              ? toolError.message
-              : t("chat.errors.toolCallFailed");
-          setErrorMessage(msg);
-          await updateMessage(
-            threadId,
-            messageId,
-            firstPass.partialContent,
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null,
-            firstPass.finalFinishReason
-          );
-          void updateMessageTokenCount(
-            messageId,
-            firstPass.partialContent ?? ""
-          );
-          void addUsageFromTexts(
-            inputText,
-            firstPass.partialContent ?? ""
-          );
-          setAssistantCoT(
-            firstPass.partialReasoningContent.trim()
-              ? firstPass.partialReasoningContent
-              : null
-          );
-          setAssistantFinishReason(firstPass.finalFinishReason);
-          return;
-        }
-
-        const firstThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          messageId,
-          firstPass.partialContent,
-          firstThinkingContent,
-          firstPass.finalFinishReason
-        );
-        void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-
-        const secondAssistantMsgId = await createMessage(
-          threadId,
-          "assistant",
-          ""
-        );
-        pendingAssistantMessageIds.add(secondAssistantMsgId);
-        setAssistantMsgId(secondAssistantMsgId);
-        setWaitingForFirstChunk(true);
-        setAssistantCoT(null);
-        setAssistantDraft("");
-
-        const secondConversation = [
-          ...conversation,
-          assistantToolMessage,
-          ...toolMessages,
-        ];
-        const secondInputText = buildInputText(secondConversation);
-
-        const secondPass = await streamWithToolCalls(
-          secondConversation,
+        signal: generation.signal,
+        stream: (history) => streamWithToolCalls(
+          history,
           currentSettings.model,
           {
             frequencyPenalty: currentSettings.frequencyPenalty,
@@ -1783,46 +1475,36 @@ export function useChatWindow(
             currentSettings.jsonOutput,
             currentSettings.stopSequencesRaw,
             tooling.toolConfig?.strict === true
-          )
-        );
+          ),
+          "",
+          generation.signal
+        ),
+        resolve: async (calls) => {
+          try {
+            return await resolveToolCalls(calls, handlersResult.handlers);
+          } catch (error) {
+            const errorText = error instanceof Error ? error.message : String(error);
+            setErrorMessage(errorText);
+            return calls.map((call) => ({
+              role: "tool" as const, tool_call_id: call.id,
+              content: JSON.stringify({ error: errorText }),
+            }));
+          }
+        },
+        persist: async (pass, history) => {
+          const content = pass.partialContent;
+          await updateMessage(
+            threadId, messageId, content,
+            pass.partialReasoningContent || null, pass.finalFinishReason,
+            undefined, undefined, history
+          );
+          pendingAssistantMessageIds.delete(messageId);
+          void updateMessageTokenCount(messageId, content);
+          setAssistantCoT(pass.partialReasoningContent || null);
+          setAssistantFinishReason(pass.finalFinishReason);
+        },
+      });
 
-        const finalThinkingContent = secondPass.partialReasoningContent.trim()
-          ? secondPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          secondAssistantMsgId,
-          secondPass.partialContent,
-          finalThinkingContent,
-          secondPass.finalFinishReason
-        );
-        pendingAssistantMessageIds.delete(secondAssistantMsgId);
-        void updateMessageTokenCount(
-          secondAssistantMsgId,
-          secondPass.partialContent ?? ""
-        );
-        void addUsageFromTexts(
-          secondInputText,
-          secondPass.partialContent ?? ""
-        );
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(secondPass.finalFinishReason);
-      } else {
-        const finalThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          messageId,
-          firstPass.partialContent,
-          finalThinkingContent,
-          firstPass.finalFinishReason
-        );
-        void updateMessageTokenCount(messageId, firstPass.partialContent ?? "");
-        void addUsageFromTexts(inputText, firstPass.partialContent ?? "");
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(firstPass.finalFinishReason);
-      }
     } catch (err) {
       console.error("handleRegenerateMessage error (stream)", err);
       const msg =
@@ -1830,6 +1512,7 @@ export function useChatWindow(
       setErrorMessage(msg);
       await deletePendingAssistantMessages(pendingAssistantMessageIds);
     } finally {
+      setWaitingForFirstChunk(false);
       setAssistantThinking(false);
       chatStreamRef.current = null;
       setAssistantMsgId(null);
@@ -1841,8 +1524,10 @@ export function useChatWindow(
       return;
     }
 
-    if (assistantThinking && chatStreamRef.current) {
-      chatStreamRef.current.abort();
+    if (assistantThinking) {
+      generationRef.current?.abort();
+      chatStreamRef.current?.abort();
+      return;
     }
 
     const targetIndex = messages.findIndex((msg) => msg.id === messageId);
@@ -1857,6 +1542,8 @@ export function useChatWindow(
     const baseContent = target.content ?? "";
 
     setErrorMessage(null);
+    const generation = new AbortController();
+    generationRef.current = generation;
     setAssistantThinking(true);
     setWaitingForFirstChunk(true);
     setAssistantCoT(null);
@@ -1884,15 +1571,11 @@ export function useChatWindow(
           ...messages
             .slice(0, targetIndex + 1)
             .filter((m) => m.role !== "system")
-            .map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-        ] as { role: ChatRole; content: string }[],
+            .flatMap(replayMessage),
+        ] as ChatCompletionMessageParam[],
         prefixCompletionEnabled
       );
       void ensureSystemPromptTokenCount(systemPrompt);
-      const inputText = buildInputText(conversation);
 
       await updateDoc(doc(db, "threads", threadId), {
         model,
@@ -1915,105 +1598,13 @@ export function useChatWindow(
         fimMaxTokens,
       });
 
-      const firstPass = await streamWithToolCalls(
+      await runToolConversation({
         conversation,
-        model,
-        {
-          frequencyPenalty,
-          presencePenalty,
-          temperature,
-          topP,
-          maxTokens,
-          thinkingEnabled,
-          reasoningEffort,
-        },
-        buildRequestConfig(
-          tooling.toolConfig,
-          jsonOutput,
-          stopSequencesRaw,
-          prefixCompletionEnabled || tooling.toolConfig?.strict === true
-        ),
-        baseContent
-      );
-
-      if (
-        firstPass.finalFinishReason === "tool_calls" &&
-        firstPass.toolCalls.length > 0
-      ) {
-        const assistantToolMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: firstPass.partialContent ?? "",
-          tool_calls: firstPass.toolCalls,
-        };
-
-        let toolMessages: ChatCompletionMessageParam[];
-        try {
-          toolMessages = await resolveToolCalls(
-            firstPass.toolCalls,
-            handlersResult.handlers
-          );
-        } catch (toolError) {
-          const msg =
-            toolError instanceof Error
-              ? toolError.message
-              : t("chat.errors.toolCallFailed");
-          setErrorMessage(msg);
-        await updateMessage(
-          threadId,
-          messageId,
-          `${baseContent}${firstPass.partialContent}`,
-          firstPass.partialReasoningContent.trim()
-            ? firstPass.partialReasoningContent
-            : null,
-          firstPass.finalFinishReason
-        );
-        void updateMessageTokenCount(
-          messageId,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-        void addUsageFromTexts(
-          inputText,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-        setAssistantCoT(
-          firstPass.partialReasoningContent.trim()
-            ? firstPass.partialReasoningContent
-            : null
-        );
-        setAssistantFinishReason(firstPass.finalFinishReason);
-        return;
-        }
-
-        await updateMessage(
-          threadId,
-          messageId,
-          `${baseContent}${firstPass.partialContent}`,
-          firstPass.partialReasoningContent.trim()
-            ? firstPass.partialReasoningContent
-            : null,
-          firstPass.finalFinishReason
-        );
-        void updateMessageTokenCount(
-          messageId,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-        void addUsageFromTexts(
-          inputText,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-
-        const secondConversation = applyPrefixCompletion(
-          [
-            ...conversation,
-            assistantToolMessage,
-            ...toolMessages,
-          ],
-          prefixCompletionEnabled
-        );
-        const secondInputText = buildInputText(secondConversation);
-
-        const secondPass = await streamWithToolCalls(
-          secondConversation,
+        signal: generation.signal,
+        history: target.api_messages?.slice(0, -1),
+        prefix: baseContent,
+        stream: (history) => streamWithToolCalls(
+          history,
           model,
           {
             frequencyPenalty,
@@ -2030,57 +1621,41 @@ export function useChatWindow(
             stopSequencesRaw,
             prefixCompletionEnabled || tooling.toolConfig?.strict === true
           ),
-          baseContent
-        );
+          baseContent,
+          generation.signal
+        ),
+        resolve: async (calls) => {
+          try {
+            return await resolveToolCalls(calls, handlersResult.handlers);
+          } catch (error) {
+            const errorText = error instanceof Error ? error.message : String(error);
+            setErrorMessage(errorText);
+            return calls.map((call) => ({
+              role: "tool" as const, tool_call_id: call.id,
+              content: JSON.stringify({ error: errorText }),
+            }));
+          }
+        },
+        persist: async (pass, history) => {
+          const content = baseContent + pass.partialContent;
+          await updateMessage(
+            threadId, messageId, content,
+            pass.partialReasoningContent || null, pass.finalFinishReason,
+            undefined, undefined, history
+          );
+            void updateMessageTokenCount(messageId, content);
+          setAssistantCoT(pass.partialReasoningContent || null);
+          setAssistantFinishReason(pass.finalFinishReason);
+        },
+      });
 
-        const finalThinkingContent = secondPass.partialReasoningContent.trim()
-          ? secondPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          messageId,
-          `${baseContent}${secondPass.partialContent}`,
-          finalThinkingContent,
-          secondPass.finalFinishReason
-        );
-        void updateMessageTokenCount(
-          messageId,
-          `${baseContent}${secondPass.partialContent ?? ""}`
-        );
-        void addUsageFromTexts(
-          secondInputText,
-          `${baseContent}${secondPass.partialContent ?? ""}`
-        );
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(secondPass.finalFinishReason);
-      } else {
-        const finalThinkingContent = firstPass.partialReasoningContent.trim()
-          ? firstPass.partialReasoningContent
-          : null;
-        await updateMessage(
-          threadId,
-          messageId,
-          `${baseContent}${firstPass.partialContent}`,
-          finalThinkingContent,
-          firstPass.finalFinishReason
-        );
-        void updateMessageTokenCount(
-          messageId,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-        void addUsageFromTexts(
-          inputText,
-          `${baseContent}${firstPass.partialContent ?? ""}`
-        );
-        setAssistantCoT(finalThinkingContent);
-        setAssistantFinishReason(firstPass.finalFinishReason);
-      }
     } catch (err) {
       console.error("handleCompleteMessage error (stream)", err);
       const msg =
         err instanceof Error ? err.message : t("chat.errors.stream");
       setErrorMessage(msg);
     } finally {
+      setWaitingForFirstChunk(false);
       setAssistantThinking(false);
       chatStreamRef.current = null;
       setAssistantMsgId(null);

@@ -47,6 +47,7 @@ import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
 import { CURRENT_MODELS, getModelLimits, isCurrentModel, estimateModelCost } from "../../services/deepseekModels";
 import { mapDeepseekParameters, resolveToolChoice } from "../../services/deepseekRequest";
+import { replayMessage } from "../../hooks/toolConversation";
 
 interface Props {
   threadId: string;
@@ -253,8 +254,9 @@ export default function ChatWindow({ threadId }: Props) {
     const trimmedSystemPrompt = systemPrompt.trim();
     const baseMessages: CodeMessage[] = messages
       .filter((m) => m.role !== "system" && m.kind !== "branch_marker")
-      .filter((m) => m.content && m.content.trim().length > 0)
-      .map((m) => ({ role: m.role, content: m.content }));
+      .filter((m) => m.api_messages?.length || (m.content && m.content.trim().length > 0))
+      .flatMap(replayMessage)
+      .map((m) => ({ ...m, content: typeof m.content === "string" ? m.content : "" }));
     const seeded =
       trimmedSystemPrompt.length > 0
         ? [{ role: "system" as const, content: trimmedSystemPrompt }, ...baseMessages]
