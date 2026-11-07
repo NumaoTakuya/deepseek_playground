@@ -219,6 +219,20 @@ export default function LandingPage() {
     <>
       <Head>
         <title>{t("common.appNameUnofficial")}</title>
+        <link rel="canonical" href="https://deepseek-playground.vercel.app/" />
+        <meta property="og:site_name" content="Deepseek Playground" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Deepseek Playground",
+              alternateName: "Deepseek Playground (Unofficial)",
+              url: "https://deepseek-playground.vercel.app/",
+            }),
+          }}
+        />
         <meta name="description" content={t("landing.meta.description")} />
         <meta property="og:title" content={t("common.appNameUnofficial")} />
         <meta property="og:description" content={t("landing.meta.preview")} />
