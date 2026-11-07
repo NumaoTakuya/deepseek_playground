@@ -893,10 +893,10 @@ export default function LandingPage() {
                   variant="h6"
                   sx={{ fontWeight: 600, mb: 1, color: textColor }}
                 >
-                  {t("landing.features.systemMessageTitle")}
+                  {t("landing.features.securityTitle")}
                 </Typography>
                 <Typography variant="body2" sx={{ color: subtextColor }}>
-                  {t("landing.features.systemMessageBody")}
+                  {t("landing.features.securityBody")}
                 </Typography>
               </CardContent>
             </Card>
