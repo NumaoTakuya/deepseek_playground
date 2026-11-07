@@ -30,6 +30,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
 import { useTranslation } from "../../contexts/LanguageContext";
+import { CURRENT_MODELS, DEFAULT_MODEL, getModelLimits } from "../../services/deepseekModels";
 
 export default function ChatHomePage() {
   const router = useRouter();
@@ -150,7 +151,7 @@ export default function ChatHomePage() {
   };
 
   // Deepseekモデル選択
-  const [model, setModel] = useState("deepseek-chat");
+  const [model, setModel] = useState(DEFAULT_MODEL);
 
   // system prompt
   const [systemInput, setSystemInput] = useState(
@@ -233,12 +234,7 @@ export default function ChatHomePage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(UI_FIM_OPEN_KEY, String(showFimBox));
   }, [showFimBox]);
-  const getMaxTokensDefaults = (selectedModel: string) => {
-    if (selectedModel === "deepseek-reasoner") {
-      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
-    }
-    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
-  };
+  const getMaxTokensDefaults = getModelLimits;
 
   const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
 
@@ -540,6 +536,7 @@ export default function ChatHomePage() {
                   }}
                 >
                   <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
+                  {CURRENT_MODELS.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
                   <MenuItem value="deepseek-reasoner">
                     deepseek-reasoner
                   </MenuItem>

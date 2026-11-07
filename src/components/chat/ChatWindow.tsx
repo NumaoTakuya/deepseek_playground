@@ -45,6 +45,7 @@ import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
+import { CURRENT_MODELS, getModelLimits } from "../../services/deepseekModels";
 
 interface Props {
   threadId: string;
@@ -736,12 +737,7 @@ main();`;
     );
   }, [showFimBox, threadId]);
 
-  const getMaxTokensDefaults = (selectedModel: string) => {
-    if (selectedModel === "deepseek-reasoner") {
-      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
-    }
-    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
-  };
+  const getMaxTokensDefaults = getModelLimits;
 
   const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
 
@@ -1172,6 +1168,7 @@ main();`;
                   }
                 >
                   <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
+                  {CURRENT_MODELS.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
                   <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
                 </Select>
               </FormControl>

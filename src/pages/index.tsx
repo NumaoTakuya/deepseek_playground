@@ -29,6 +29,7 @@ import { streamDeepseek } from "../services/deepseek";
 import { SelectChangeEvent } from "@mui/material/Select";
 import LanguageSelector from "../components/common/LanguageSelector";
 import { useTranslation } from "../contexts/LanguageContext";
+import { CURRENT_MODELS, DEFAULT_MODEL } from "../services/deepseekModels";
 
 export default function LandingPage() {
   const [userCount, setUserCount] = useState(0);
@@ -38,7 +39,7 @@ export default function LandingPage() {
   const [testThinking, setTestThinking] = useState("");
   const [testError, setTestError] = useState("");
   const [testLoading, setTestLoading] = useState(false);
-  const [testModel, setTestModel] = useState("deepseek-chat");
+  const [testModel, setTestModel] = useState(DEFAULT_MODEL);
   const [testSystemPrompt, setTestSystemPrompt] = useState(
     "You are a helpful assistant."
   );
@@ -570,6 +571,7 @@ export default function LandingPage() {
                         sx={selectSx}
                       >
                         <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
+                        {CURRENT_MODELS.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
                         <MenuItem value="deepseek-reasoner">
                           deepseek-reasoner
                         </MenuItem>
