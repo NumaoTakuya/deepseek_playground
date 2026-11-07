@@ -1,7 +1,7 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
-import { mapDeepseekParameters } from "./deepseekRequest";
+import { mapDeepseekParameters, resolveToolChoice } from "./deepseekRequest";
 import type { DeepseekParameters } from "./deepseekRequest";
 export type { DeepseekParameters } from "./deepseekRequest";
 import type {
@@ -302,7 +302,7 @@ export async function callDeepseekServer(
     const res = await openai.chat.completions.create({
       model,
       messages,
-      ...(tools && tools.length > 0 ? { tools } : {}),
+      ...(tools && tools.length > 0 ? { tools, tool_choice: resolveToolChoice(model, parameters?.thinkingEnabled, toolConfig?.toolChoice) } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
       ...(stop && stop.length > 0 ? { stop } : {}),
       ...mapDeepseekParameters(model, parameters),
@@ -393,7 +393,7 @@ export async function streamDeepseekServer(
       model,
       messages,
       stream: true,
-      ...(tools && tools.length > 0 ? { tools } : {}),
+      ...(tools && tools.length > 0 ? { tools, tool_choice: resolveToolChoice(model, parameters?.thinkingEnabled, toolConfig?.toolChoice) } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
       ...(stop && stop.length > 0 ? { stop } : {}),
       ...mapDeepseekParameters(model, parameters),

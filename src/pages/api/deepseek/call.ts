@@ -77,6 +77,7 @@ export default async function handler(
         responseFormat,
         stop,
         useBeta,
+        toolChoice: typeof req.body?.toolChoice === "string" ? req.body.toolChoice : undefined,
       }
     );
     res.status(200).json({ content });

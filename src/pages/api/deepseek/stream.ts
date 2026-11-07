@@ -91,6 +91,7 @@ export default async function handler(
       responseFormat,
       stop,
       useBeta,
+      toolChoice: typeof req.body?.toolChoice === "string" ? req.body.toolChoice : undefined,
     });
     req.on("close", handleAbort);
 

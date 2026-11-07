@@ -1,4 +1,14 @@
 import { isCurrentModel } from "./deepseekModels";
+import type { ChatCompletionToolChoiceOption } from "openai/resources/chat/completions";
+
+export function resolveToolChoice(model: string, thinkingEnabled: boolean | undefined, choice = "auto"): ChatCompletionToolChoiceOption {
+  const thinking = model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled !== false);
+  if (thinking && choice !== "auto" && choice !== "none") {
+    throw new Error("Disable Thinking before requiring a tool or selecting a function.");
+  }
+  if (choice === "auto" || choice === "none" || choice === "required") return choice;
+  return { type: "function", function: { name: choice } };
+}
 
 export type DeepseekParameters = {
   frequencyPenalty?: number;

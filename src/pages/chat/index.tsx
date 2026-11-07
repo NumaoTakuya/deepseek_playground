@@ -164,7 +164,7 @@ export default function ChatHomePage() {
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
-  const [maxTokens, setMaxTokens] = useState(4096);
+  const [maxTokens, setMaxTokens] = useState(getModelLimits(DEFAULT_MODEL).defaultMaxTokens);
   const [toolsJson, setToolsJson] = useState("");
   const [toolsStrict, setToolsStrict] = useState(false);
   const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);

@@ -46,7 +46,7 @@ import MessageList from "./MessageList";
 import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
 import { CURRENT_MODELS, getModelLimits, isCurrentModel } from "../../services/deepseekModels";
-import { mapDeepseekParameters } from "../../services/deepseekRequest";
+import { mapDeepseekParameters, resolveToolChoice } from "../../services/deepseekRequest";
 
 interface Props {
   threadId: string;
@@ -216,6 +216,19 @@ export default function ChatWindow({ threadId }: Props) {
     }
   }, [toolsJson, toolsStrict]);
 
+  const toolNames = useMemo(() => (toolsForSnippet ?? []).flatMap((tool) => {
+    if (!tool || typeof tool !== "object" || !("function" in tool)) return [];
+    const fn = tool.function;
+    return fn && typeof fn === "object" && "name" in fn && typeof fn.name === "string" ? [fn.name] : [];
+  }), [toolsForSnippet]);
+
+  useEffect(() => {
+    const thinking = model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled);
+    const missingFunction = !["auto", "none", "required"].includes(toolChoice) &&
+      !toolNames.includes(toolChoice);
+    if ((thinking && !["auto", "none"].includes(toolChoice)) || missingFunction) setToolChoice("auto");
+  }, [model, thinkingEnabled, toolChoice, toolNames, setToolChoice]);
+
   const stopSequences = useMemo(
     () => parseStopSequences(stopSequencesRaw),
     [stopSequencesRaw]
@@ -273,6 +286,9 @@ export default function ChatWindow({ threadId }: Props) {
     }));
     if (toolsForSnippet) {
       payload.tools = toolsForSnippet;
+      const forcedChoice = toolChoice !== "auto" && toolChoice !== "none";
+      payload.tool_choice = resolveToolChoice(model, thinkingEnabled,
+        forcedChoice && (model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)) ? "auto" : toolChoice);
     }
     if (jsonOutput) {
       payload.response_format = { type: "json_object" };
@@ -285,6 +301,7 @@ export default function ChatWindow({ threadId }: Props) {
     model,
     thinkingEnabled,
     reasoningEffort,
+    toolChoice,
     conversationForSnippet,
     isStreamEnabled,
     frequencyPenalty,
@@ -1578,6 +1595,13 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                     </IconButton>
                   </Box>
                   <Collapse in={showToolsBox} timeout={200} unmountOnExit>
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                      <InputLabel>tool_choice</InputLabel>
+                      <Select label="tool_choice" value={toolChoice} onChange={(event) => setToolChoice(event.target.value)}>
+                        {["auto", "none", "required"].map((choice) => <MenuItem key={choice} value={choice} disabled={choice === "required" && (model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled))}>{choice}</MenuItem>)}
+                        {toolNames.map((name) => <MenuItem key={name} value={name} disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}>{name}</MenuItem>)}
+                      </Select>
+                    </FormControl>
                     <Box
                       sx={{
                         pl: 2,
