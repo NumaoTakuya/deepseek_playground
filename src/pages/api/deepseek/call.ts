@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import {
-  callDeepseekServer,
+  callDeepseekCompletion,
   type ChatCompletionMessageParam,
   type DeepseekParameters,
 } from "../../../services/deepseek";
@@ -66,7 +66,7 @@ export default async function handler(
   }
 
   try {
-    const content = await callDeepseekServer(
+    const completion = await callDeepseekCompletion(
       apiKey,
       messages,
       model,
@@ -80,7 +80,7 @@ export default async function handler(
         toolChoice: typeof req.body?.toolChoice === "string" ? req.body.toolChoice : undefined,
       }
     );
-    res.status(200).json({ content });
+    res.status(200).json({ content: completion.choices[0]?.message?.content ?? "", completion });
   } catch (error) {
     console.error("[api/deepseek/call] Failed to call Deepseek", error);
     res

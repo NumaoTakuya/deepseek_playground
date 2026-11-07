@@ -12,6 +12,10 @@ import type {
 
 const isBrowser = typeof window !== "undefined";
 
+function inspectResponse(value: unknown) {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("deepseek:response", { detail: value }));
+}
+
 export type ChatCompletionToolCall = {
   id: string;
   type: "function";
@@ -60,7 +64,13 @@ class DeepseekStreamWrapper implements AsyncIterable<ChatCompletionChunk> {
   ) {}
 
   [Symbol.asyncIterator](): AsyncIterator<ChatCompletionChunk> {
-    return this.stream[Symbol.asyncIterator]();
+    const stream = this.stream;
+    return (async function* () {
+      for await (const chunk of stream) {
+        inspectResponse(chunk);
+        yield chunk;
+      }
+    })();
   }
 
   on<Event extends keyof DeepseekStreamEventMap>(
@@ -281,13 +291,13 @@ async function streamDeepseekViaApi(
  * 同期版: 全部生成が終わってから文字列1つを返す
  * 署名・戻り値はそのまま
  */
-export async function callDeepseekServer(
+export async function callDeepseekCompletion(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
   model: string = "deepseek-chat",
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
-): Promise<string> {
+) {
   const baseURL = toolConfig?.useBeta || toolConfig?.strict
     ? "https://api.deepseek.com/beta"
     : "https://api.deepseek.com";
@@ -307,11 +317,23 @@ export async function callDeepseekServer(
       ...(stop && stop.length > 0 ? { stop } : {}),
       ...mapDeepseekParameters(model, parameters),
     });
-    return res.choices[0]?.message?.content ?? "";
+    inspectResponse(res);
+    return res;
   } catch (error) {
     console.error("[callDeepseek] Failed to create completion:", error);
     throw error;
   }
+}
+
+export async function callDeepseekServer(
+  apiKey: string,
+  messages: ChatCompletionMessageParam[],
+  model = "deepseek-flash",
+  parameters?: DeepseekParameters,
+  toolConfig?: DeepseekToolConfig
+): Promise<string> {
+  const response = await callDeepseekCompletion(apiKey, messages, model, parameters, toolConfig);
+  return response.choices[0]?.message?.content ?? "";
 }
 
 export async function callDeepseekFimServer(
@@ -393,6 +415,7 @@ export async function streamDeepseekServer(
       model,
       messages,
       stream: true,
+      stream_options: { include_usage: true },
       ...(tools && tools.length > 0 ? { tools, tool_choice: resolveToolChoice(model, parameters?.thinkingEnabled, toolConfig?.toolChoice) } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
       ...(stop && stop.length > 0 ? { stop } : {}),

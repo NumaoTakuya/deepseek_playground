@@ -144,6 +144,20 @@ export default function ChatWindow({ threadId }: Props) {
     "curl"
   );
   const [isCodeCopied, setIsCodeCopied] = useState(false);
+  const [responseEvents, setResponseEvents] = useState<unknown[]>([]);
+  const [apiUsage, setApiUsage] = useState<unknown>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  useEffect(() => {
+    setResponseEvents([]);
+    setApiUsage(null);
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      setResponseEvents((events) => [...events.slice(-199), detail]);
+      if (detail?.usage) setApiUsage(detail.usage);
+    };
+    window.addEventListener("deepseek:response", receive);
+    return () => window.removeEventListener("deepseek:response", receive);
+  }, [threadId]);
   const [isStreamEnabled, setIsStreamEnabled] = useState(false);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
@@ -1223,6 +1237,8 @@ for await (const chunk of response.body) process.stdout.write(chunk);
               </Box>
             )}
             <Box sx={{ mb: 2 }}>
+              <Button onClick={() => setInspectorOpen(true)} startIcon={<CodeIcon />}>API Response</Button>
+              <Button href="/api-lab" startIcon={<CodeIcon />}>API Lab</Button>
               <SystemPromptSection
                 systemPrompt={systemPrompt}
                 setSystemPrompt={setSystemPrompt}
@@ -1979,6 +1995,16 @@ for await (const chunk of response.body) process.stdout.write(chunk);
         )}
       </Box>
 
+      <Dialog open={inspectorOpen} onClose={() => setInspectorOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>API Response</DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle2">usage</Typography>
+          <Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 12 }}>{JSON.stringify(apiUsage, null, 2)}</Box>
+          <Typography variant="subtitle2">Raw Response / Events (latest 200)</Typography>
+          <Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 12 }}>{JSON.stringify(responseEvents, null, 2)}</Box>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setInspectorOpen(false)}>{t("chat.banner.dismiss")}</Button></DialogActions>
+      </Dialog>
       <Dialog
         open={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
