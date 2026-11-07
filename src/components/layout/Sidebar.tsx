@@ -15,6 +15,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ScienceIcon from "@mui/icons-material/Science";
 import Link from "next/link";
 import SidebarTab from "./SidebarTab";
 import { useThreads } from "../../hooks/useThreads";
@@ -214,6 +215,7 @@ export default function Sidebar({
       </Box>
 
       {/* APIキー入力 (type=password) */}
+      {isOpen && <Button component={Link} href="/api-lab" startIcon={<ScienceIcon />} sx={{ mb: 1, justifyContent: "flex-start" }} onClick={() => { if (isMobile) onToggle(); }}>API Lab</Button>}
       <TextField
         label={t("common.deepseekApiKey")}
         type="password"
