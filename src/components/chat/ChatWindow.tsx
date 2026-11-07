@@ -45,7 +45,8 @@ import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
-import { CURRENT_MODELS, getModelLimits } from "../../services/deepseekModels";
+import { CURRENT_MODELS, getModelLimits, isCurrentModel } from "../../services/deepseekModels";
+import { mapDeepseekParameters } from "../../services/deepseekRequest";
 
 interface Props {
   threadId: string;
@@ -72,6 +73,12 @@ export default function ChatWindow({ threadId }: Props) {
     setTopP,
     maxTokens,
     setMaxTokens,
+    thinkingEnabled,
+    setThinkingEnabled,
+    reasoningEffort,
+    setReasoningEffort,
+    toolChoice,
+    setToolChoice,
     toolsJson,
     setToolsJson,
     toolsStrict,
@@ -260,21 +267,10 @@ export default function ChatWindow({ threadId }: Props) {
       messages: conversationForSnippet,
       stream: isStreamEnabled,
     };
-    if (typeof frequencyPenalty === "number") {
-      payload.frequency_penalty = frequencyPenalty;
-    }
-    if (typeof presencePenalty === "number") {
-      payload.presence_penalty = presencePenalty;
-    }
-    if (typeof temperature === "number") {
-      payload.temperature = temperature;
-    }
-    if (typeof topP === "number") {
-      payload.top_p = topP;
-    }
-    if (typeof maxTokens === "number") {
-      payload.max_tokens = maxTokens;
-    }
+    Object.assign(payload, mapDeepseekParameters(model, {
+      frequencyPenalty, presencePenalty, temperature, topP, maxTokens,
+      thinkingEnabled, reasoningEffort,
+    }));
     if (toolsForSnippet) {
       payload.tools = toolsForSnippet;
     }
@@ -287,6 +283,8 @@ export default function ChatWindow({ threadId }: Props) {
     return payload;
   }, [
     model,
+    thinkingEnabled,
+    reasoningEffort,
     conversationForSnippet,
     isStreamEnabled,
     frequencyPenalty,
@@ -624,10 +622,29 @@ main();`;
   ]);
 
   const codeSnippet = useMemo(() => {
-    if (codeViewType === "python") return pythonSnippet;
-    if (codeViewType === "node") return nodeSnippet;
+    const endpoint = `https://api.deepseek.com${fimActive || useBeta ? "/beta" : ""}/${fimActive ? "completions" : "chat/completions"}`;
+    if (codeViewType === "python") return `import json, os, urllib.request
+
+payload = json.loads(${JSON.stringify(payloadJson)})
+request = urllib.request.Request(
+    ${JSON.stringify(endpoint)},
+    data=json.dumps(payload).encode(),
+    headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["DEEPSEEK_API_KEY"]},
+)
+with urllib.request.urlopen(request) as response:
+    for line in response:
+        print(line.decode(), end="")
+`;
+    if (codeViewType === "node") return `const response = await fetch(${JSON.stringify(endpoint)}, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: "Bearer " + process.env.DEEPSEEK_API_KEY },
+  body: JSON.stringify(${payloadJson}),
+});
+if (!response.ok) throw new Error(await response.text());
+for await (const chunk of response.body) process.stdout.write(chunk);
+`;
     return curlSnippet;
-  }, [codeViewType, curlSnippet, nodeSnippet, pythonSnippet]);
+  }, [codeViewType, curlSnippet, payloadJson, fimActive, useBeta]);
 
   const codeLanguage = useMemo(() => {
     if (codeViewType === "python") return "python";
@@ -1174,6 +1191,20 @@ main();`;
               </FormControl>
             </Box>
 
+            {isCurrentModel(model) && (
+              <Box sx={{ mb: 2 }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Typography>Thinking</Typography>
+                  <Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} />
+                </Box>
+                <FormControl fullWidth size="small" disabled={!thinkingEnabled}>
+                  <InputLabel>reasoning_effort</InputLabel>
+                  <Select label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>
+                    {["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
             <Box sx={{ mb: 2 }}>
               <SystemPromptSection
                 systemPrompt={systemPrompt}
@@ -1252,6 +1283,7 @@ main();`;
                       step={0.1}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="frequency penalty"
+                      disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                     />
                     <Typography
                       variant="caption"
@@ -1295,6 +1327,7 @@ main();`;
                       step={0.1}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="presence penalty"
+                      disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                     />
                     <Typography
                       variant="caption"
@@ -1336,6 +1369,7 @@ main();`;
                       step={0.1}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="temperature"
+                      disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                     />
                     <Typography
                       variant="caption"
@@ -1377,6 +1411,7 @@ main();`;
                       step={0.05}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="top p"
+                      disabled={model === "deepseek-reasoner" || (model === "deepseek-flash" && !thinkingEnabled) || (model === "deepseek-v4-pro" && thinkingEnabled)}
                     />
                     <Typography
                       variant="caption"

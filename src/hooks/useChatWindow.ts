@@ -24,6 +24,7 @@ import {
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
+import { DEFAULT_MODEL, getModelLimits } from "../services/deepseekModels";
 
 type ChatRole = "system" | "user" | "assistant";
 type ToolCall = {
@@ -46,7 +47,10 @@ export function useChatWindow(
   );
   const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
   const [threadTitle, setThreadTitle] = useState("New Chat");
-  const [model, setModel] = useState("deepseek-chat");
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [thinkingEnabled, setThinkingEnabled] = useState(true);
+  const [reasoningEffort, setReasoningEffort] = useState<"low" | "high" | "max">("high");
+  const [toolChoice, setToolChoice] = useState("auto");
   const [input, setInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [waitingForFirstChunk, setWaitingForFirstChunk] = useState(false);
@@ -55,7 +59,9 @@ export function useChatWindow(
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
-  const [maxTokens, setMaxTokens] = useState(4096);
+  const [maxTokens, setMaxTokens] = useState(
+    getModelLimits(DEFAULT_MODEL).defaultMaxTokens
+  );
   const [toolsJson, setToolsJson] = useState("");
   const [toolsStrict, setToolsStrict] = useState(false);
   const [toolsJsonError, setToolsJsonError] = useState<string | null>(null);
@@ -105,15 +111,9 @@ export function useChatWindow(
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation();
-  const getMaxTokensDefaults = (selectedModel: string) => {
-    if (selectedModel === "deepseek-reasoner") {
-      return { defaultMaxTokens: 32768, maxTokensLimit: 65536 };
-    }
-    return { defaultMaxTokens: 4096, maxTokensLimit: 8192 };
-  };
-
-  const { defaultMaxTokens, maxTokensLimit } = getMaxTokensDefaults(model);
+  const { defaultMaxTokens, maxTokensLimit } = getModelLimits(model);
   const previousDefaultMaxTokensRef = useRef(defaultMaxTokens);
+  const settingsThreadRef = useRef<string | null>(null);
 
   useEffect(() => {
     const previousDefault = previousDefaultMaxTokensRef.current;
@@ -132,6 +132,9 @@ export function useChatWindow(
     temperature,
     topP,
     maxTokens,
+    thinkingEnabled,
+    reasoningEffort,
+    toolChoice,
     systemPrompt,
     toolsJson,
     toolsStrict,
@@ -251,6 +254,9 @@ export function useChatWindow(
       temperature,
       topP,
       maxTokens,
+      thinkingEnabled,
+      reasoningEffort,
+      toolChoice,
       systemPrompt,
       toolsJson,
       toolsStrict,
@@ -262,13 +268,25 @@ export function useChatWindow(
       fimSuffix,
       fimMaxTokens,
     };
+    if (settingsThreadRef.current !== threadId) return;
+    const timeout = setTimeout(() => {
+      const { systemPrompt: _systemPrompt, ...settings } = settingsRef.current;
+      void updateDoc(doc(db, "threads", threadId), settings).catch((error) => {
+        console.error("[saveThreadSettings] Failed:", error);
+      });
+    }, 500);
+    return () => clearTimeout(timeout);
   }, [
+    threadId,
     model,
     frequencyPenalty,
     presencePenalty,
     temperature,
     topP,
     maxTokens,
+    thinkingEnabled,
+    reasoningEffort,
+    toolChoice,
     systemPrompt,
     toolsJson,
     toolsStrict,
@@ -395,6 +413,7 @@ export function useChatWindow(
     useBeta: boolean
   ) => ({
     ...(toolConfig ?? {}),
+    toolChoice: settingsRef.current.toolChoice,
     responseFormat: jsonOutputEnabled ? { type: "json_object" } : undefined,
     stop: parseStopSequences(stopRaw),
     useBeta,
@@ -483,6 +502,8 @@ export function useChatWindow(
       temperature?: number;
       topP?: number;
       maxTokens?: number;
+      thinkingEnabled?: boolean;
+      reasoningEffort?: "low" | "high" | "max";
     },
     toolConfig?: { tools?: unknown[]; strict?: boolean },
     draftPrefix: string = ""
@@ -592,11 +613,16 @@ export function useChatWindow(
 
   // -- thread購読 (model/parametersなど) --
   useEffect(() => {
+    settingsThreadRef.current = null;
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
+        settingsThreadRef.current = threadId;
         const data = snapshot.data() as {
           title?: string;
           model?: string;
+          thinkingEnabled?: boolean;
+          reasoningEffort?: "low" | "high" | "max";
+          toolChoice?: string;
           frequencyPenalty?: number;
           presencePenalty?: number;
           temperature?: number;
@@ -617,6 +643,9 @@ export function useChatWindow(
           fimMaxTokens?: number;
         };
         setModel(data.model ?? "deepseek-chat");
+        setThinkingEnabled(data.thinkingEnabled ?? true);
+        setReasoningEffort(data.reasoningEffort ?? "high");
+        setToolChoice(data.toolChoice ?? "auto");
         if (typeof data.title === "string") {
           setThreadTitle(data.title);
         }
@@ -632,9 +661,10 @@ export function useChatWindow(
         if (typeof data.topP === "number") {
           setTopP(data.topP);
         }
-        if (typeof data.maxTokens === "number") {
-          setMaxTokens(data.maxTokens);
-        }
+        const limits = getModelLimits(data.model ?? "deepseek-chat");
+        setMaxTokens(typeof data.maxTokens === "number"
+          ? Math.min(limits.maxTokensLimit, Math.max(1, data.maxTokens))
+          : limits.defaultMaxTokens);
         if (typeof data.cumulativeInputTokens === "number") {
           setCumulativeInputTokens(data.cumulativeInputTokens);
         }
@@ -898,6 +928,9 @@ export function useChatWindow(
         temperature,
         topP,
         maxTokens,
+        thinkingEnabled,
+        reasoningEffort,
+        toolChoice,
         toolsJson,
         toolsStrict,
         toolHandlersJson,
@@ -952,6 +985,8 @@ export function useChatWindow(
           temperature,
           topP,
           maxTokens,
+          thinkingEnabled,
+          reasoningEffort,
         },
         buildRequestConfig(
           tooling.toolConfig,
@@ -1056,6 +1091,8 @@ export function useChatWindow(
             temperature,
             topP,
             maxTokens,
+            thinkingEnabled,
+            reasoningEffort,
           },
           buildRequestConfig(
             tooling.toolConfig,
@@ -1226,6 +1263,9 @@ export function useChatWindow(
         temperature: currentSettings.temperature,
         topP: currentSettings.topP,
         maxTokens: currentSettings.maxTokens,
+        thinkingEnabled: currentSettings.thinkingEnabled,
+        reasoningEffort: currentSettings.reasoningEffort,
+        toolChoice: currentSettings.toolChoice,
         toolsJson: currentSettings.toolsJson,
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
@@ -1274,6 +1314,8 @@ export function useChatWindow(
           temperature: currentSettings.temperature,
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
+          thinkingEnabled: currentSettings.thinkingEnabled,
+          reasoningEffort: currentSettings.reasoningEffort,
         },
         buildRequestConfig(
           tooling.toolConfig,
@@ -1376,6 +1418,8 @@ export function useChatWindow(
             temperature: currentSettings.temperature,
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
+            thinkingEnabled: currentSettings.thinkingEnabled,
+            reasoningEffort: currentSettings.reasoningEffort,
           },
           buildRequestConfig(
             tooling.toolConfig,
@@ -1466,6 +1510,9 @@ export function useChatWindow(
         temperature,
         topP,
         maxTokens,
+        thinkingEnabled,
+        reasoningEffort,
+        toolChoice,
         toolsJson,
         toolsStrict,
         toolHandlersJson,
@@ -1606,6 +1653,9 @@ export function useChatWindow(
         temperature: currentSettings.temperature,
         topP: currentSettings.topP,
         maxTokens: currentSettings.maxTokens,
+        thinkingEnabled: currentSettings.thinkingEnabled,
+        reasoningEffort: currentSettings.reasoningEffort,
+        toolChoice: currentSettings.toolChoice,
         toolsJson: currentSettings.toolsJson,
         toolsStrict: currentSettings.toolsStrict,
         toolHandlersJson: currentSettings.toolHandlersJson,
@@ -1626,6 +1676,8 @@ export function useChatWindow(
           temperature: currentSettings.temperature,
           topP: currentSettings.topP,
           maxTokens: currentSettings.maxTokens,
+          thinkingEnabled: currentSettings.thinkingEnabled,
+          reasoningEffort: currentSettings.reasoningEffort,
         },
         buildRequestConfig(
           tooling.toolConfig,
@@ -1723,6 +1775,8 @@ export function useChatWindow(
             temperature: currentSettings.temperature,
             topP: currentSettings.topP,
             maxTokens: currentSettings.maxTokens,
+            thinkingEnabled: currentSettings.thinkingEnabled,
+            reasoningEffort: currentSettings.reasoningEffort,
           },
           buildRequestConfig(
             tooling.toolConfig,
@@ -1847,6 +1901,9 @@ export function useChatWindow(
         temperature,
         topP,
         maxTokens,
+        thinkingEnabled,
+        reasoningEffort,
+        toolChoice,
         toolsJson,
         toolsStrict,
         toolHandlersJson,
@@ -1867,6 +1924,8 @@ export function useChatWindow(
           temperature,
           topP,
           maxTokens,
+          thinkingEnabled,
+          reasoningEffort,
         },
         buildRequestConfig(
           tooling.toolConfig,
@@ -1962,6 +2021,8 @@ export function useChatWindow(
             temperature,
             topP,
             maxTokens,
+            thinkingEnabled,
+            reasoningEffort,
           },
           buildRequestConfig(
             tooling.toolConfig,
@@ -2041,7 +2102,13 @@ export function useChatWindow(
     topP,
     setTopP,
     maxTokens,
+    thinkingEnabled,
+    reasoningEffort,
+    toolChoice,
     setMaxTokens,
+    setThinkingEnabled,
+    setReasoningEffort,
+    setToolChoice,
     toolsJson,
     setToolsJson,
     toolsStrict,

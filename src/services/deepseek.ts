@@ -1,6 +1,9 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
+import { mapDeepseekParameters } from "./deepseekRequest";
+import type { DeepseekParameters } from "./deepseekRequest";
+export type { DeepseekParameters } from "./deepseekRequest";
 import type {
   ChatCompletionChunk,
   ChatCompletionTool,
@@ -20,14 +23,7 @@ export type ChatCompletionToolCall = {
 
 export type ChatCompletionMessageParam = OpenAIChatCompletionMessageParam & {
   prefix?: boolean;
-};
-
-export type DeepseekParameters = {
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  temperature?: number;
-  topP?: number;
-  maxTokens?: number;
+  reasoning_content?: string | null;
 };
 
 export type DeepseekFimParameters = {
@@ -40,6 +36,7 @@ export type DeepseekToolConfig = {
   responseFormat?: { type: "json_object" };
   stop?: string[];
   useBeta?: boolean;
+  toolChoice?: string;
 };
 
 // ↑ openai@4.x 系を想定。バージョンが違う場合は型名が異なる可能性があります。
@@ -308,7 +305,7 @@ export async function callDeepseekServer(
       ...(tools && tools.length > 0 ? { tools } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
       ...(stop && stop.length > 0 ? { stop } : {}),
-      ...mapParams(parameters),
+      ...mapDeepseekParameters(model, parameters),
     });
     return res.choices[0]?.message?.content ?? "";
   } catch (error) {
@@ -399,7 +396,7 @@ export async function streamDeepseekServer(
       ...(tools && tools.length > 0 ? { tools } : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
       ...(stop && stop.length > 0 ? { stop } : {}),
-      ...mapParams(parameters),
+      ...mapDeepseekParameters(model, parameters),
     });
     return new DeepseekStreamWrapper(iterable as AbortableStream);
   } catch (error) {
