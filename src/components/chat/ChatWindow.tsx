@@ -45,7 +45,7 @@ import SystemPromptSection from "./SystemPromptSection";
 import MessageList from "./MessageList";
 import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
-import { CURRENT_MODELS, getModelLimits, isCurrentModel } from "../../services/deepseekModels";
+import { CURRENT_MODELS, getModelLimits, isCurrentModel, estimateModelCost } from "../../services/deepseekModels";
 import { mapDeepseekParameters, resolveToolChoice } from "../../services/deepseekRequest";
 
 interface Props {
@@ -163,10 +163,7 @@ export default function ChatWindow({ threadId }: Props) {
 
   const sidebarWidth = isMobile ? 0 : isSidebarOpen ? 360 : 48;
   const totalTokens = cumulativeInputTokens + cumulativeOutputTokens;
-  const costLower =
-    (cumulativeInputTokens * 0.028 + cumulativeOutputTokens * 0.42) / 1_000_000;
-  const costUpper =
-    (cumulativeInputTokens * 0.28 + cumulativeOutputTokens * 0.42) / 1_000_000;
+  const estimatedCost = estimateModelCost(model, cumulativeInputTokens, cumulativeOutputTokens);
   const formatCost = (value: number) => value.toFixed(6);
   const formatCount = (value: number) => value.toLocaleString();
 
@@ -1970,7 +1967,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                 variant="body2"
                 sx={{ color: "var(--color-subtext)" }}
               >
-                ${formatCost(costLower)} – ${formatCost(costUpper)}
+                {estimatedCost ? `$${formatCost(estimatedCost.lower)} - $${formatCost(estimatedCost.upper)}` : "N/A"}
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>

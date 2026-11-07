@@ -30,7 +30,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import Head from "next/head";
 import { useTranslation } from "../../contexts/LanguageContext";
-import { CURRENT_MODELS, DEFAULT_MODEL, getModelLimits } from "../../services/deepseekModels";
+import { CURRENT_MODELS, DEFAULT_MODEL, getModelLimits, isCurrentModel } from "../../services/deepseekModels";
 
 export default function ChatHomePage() {
   const router = useRouter();
@@ -152,6 +152,8 @@ export default function ChatHomePage() {
 
   // Deepseekモデル選択
   const [model, setModel] = useState(DEFAULT_MODEL);
+  const [thinkingEnabled, setThinkingEnabled] = useState(true);
+  const [reasoningEffort, setReasoningEffort] = useState<"low" | "high" | "max">("high");
 
   // system prompt
   const [systemInput, setSystemInput] = useState(
@@ -375,6 +377,11 @@ export default function ChatHomePage() {
       localStorage.removeItem(DRAFT_FIM_SUFFIX_KEY);
       localStorage.removeItem(DRAFT_FIM_MAX_TOKENS_KEY);
 
+      await updateDoc(doc(db, "threads", newThreadId), {
+        model, thinkingEnabled, reasoningEffort, frequencyPenalty, presencePenalty,
+        temperature, topP, maxTokens, toolsJson, toolsStrict, toolHandlersJson,
+        jsonOutput, fimPrefix, fimSuffix, fimMaxTokens,
+      });
       // 3) 即座にチャット画面へ遷移
       router.push(`/chat/${newThreadId}`);
 
@@ -387,19 +394,6 @@ export default function ChatHomePage() {
         .then(async (title) => {
           await updateDoc(doc(db, "threads", newThreadId), {
             title,
-            model,
-            frequencyPenalty,
-            presencePenalty,
-            temperature,
-            topP,
-            maxTokens,
-            toolsJson,
-            toolsStrict,
-            toolHandlersJson,
-            jsonOutput,
-            fimPrefix,
-            fimSuffix,
-            fimMaxTokens,
           });
         })
         .catch(console.error);
@@ -541,6 +535,10 @@ export default function ChatHomePage() {
                     deepseek-reasoner
                   </MenuItem>
                 </Select>
+                {isCurrentModel(model) && <Box sx={{ mt: 2 }}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between"><Typography>Thinking</Typography><Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} /></Box>
+                  <FormControl fullWidth size="small" disabled={!thinkingEnabled}><InputLabel>reasoning_effort</InputLabel><Select label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>{["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}</Select></FormControl>
+                </Box>}
               </FormControl>
             </Box>
 
@@ -662,6 +660,7 @@ export default function ChatHomePage() {
                     step={0.1}
                     sx={{ color: "var(--color-primary)" }}
                     aria-label="frequency penalty"
+                    disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                   />
                   <Typography
                     variant="caption"
@@ -703,6 +702,7 @@ export default function ChatHomePage() {
                     step={0.1}
                     sx={{ color: "var(--color-primary)" }}
                     aria-label="presence penalty"
+                    disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                   />
                   <Typography
                     variant="caption"
@@ -744,6 +744,7 @@ export default function ChatHomePage() {
                     step={0.1}
                     sx={{ color: "var(--color-primary)" }}
                     aria-label="temperature"
+                    disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}
                   />
                   <Typography
                     variant="caption"
@@ -785,6 +786,7 @@ export default function ChatHomePage() {
                     step={0.05}
                     sx={{ color: "var(--color-primary)" }}
                     aria-label="top p"
+                    disabled={model === "deepseek-reasoner" || (model === "deepseek-flash" && !thinkingEnabled) || (model === "deepseek-v4-pro" && thinkingEnabled)}
                   />
                   <Typography
                     variant="caption"
