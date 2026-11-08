@@ -1,6 +1,6 @@
 # Deepseek Playground (Unofficial)
 
-An **unofficial** AI chat playground using [Deepseek](https://platform.deepseek.com/) via an OpenAI-like API, built with **Next.js** / **TypeScript** / **Firebase** / **MUI**.
+An **unofficial DeepSeek API verification tool** with persistent chat and an API Lab for inspecting requests, responses, usage, and raw events. Built with **Next.js** / **TypeScript** / **Firebase** / **MUI**.
 
 > **Disclaimer**: This project is **unofficial** and not affiliated with Deepseek Inc. Use at your own risk.
 
@@ -10,6 +10,13 @@ An **unofficial** AI chat playground using [Deepseek](https://platform.deepseek.
 
 ## Features
 
+- **Current models**: `deepseek-flash` (default) and `deepseek-v4-pro`; existing legacy-model threads are preserved rather than automatically migrated
+- **Thinking** toggle with `low`, `high`, and `max` reasoning effort
+- **Tool choice**: Thinking allows `auto` or `none`; disable Thinking before using `required` or selecting a named function
+- **Durable tool reasoning** retained with tool-call history for subsequent requests, including repeated tool rounds (maximum 8)
+- **Usage/raw inspector** for API-reported usage and raw response data, alongside token estimates
+- **API Lab** at `/api-lab` for Responses, Messages, Vision, and Files workflows
+- **Output limits**: current-model chat output up to **393216** tokens; FIM output up to **4096** tokens (not a guarantee of generated length)
 - **Google Login** via Firebase Authentication
 - **Chat UI** with system/user/assistant roles
 - **System Prompt** editing (in both new-thread page and chat window)
@@ -66,14 +73,27 @@ yarn dev
 3. Go to `/chat` to create a new chat → Type your first message & system prompt → click “Send.”
 4. A new thread is stored in Firestore, a short conversation title is generated, and the assistant responds.
 5. Continue the conversation at `/chat/[threadId]`. The system prompt can be adjusted from the top bar.
+6. Select a current model, adjust Thinking and reasoning effort, and inspect usage/raw data after a request. For forced tool calls, turn Thinking off first.
+7. Open `/api-lab` to edit request JSON for Responses (`/responses`), Messages (`/anthropic/v1/messages`), or Vision (`/chat/completions`, `deepseek-flash`). Inspect streamed events or non-streaming results, usage, and raw data; use Files (`/files`) to upload, list, or delete images and reuse file IDs in Vision requests.
 
 ## Security Note
 
 - The Firebase config in `src/services/firebase.ts` is typically “public” for a web app.
 - The user’s **Deepseek API key** is stored in the browser (localStorage) and not saved in Firestore.
+- Current DeepSeek API calls are sent directly from the browser to the provider, not through the historical Next.js proxy described in older release notes.
+- Dependency security patches are applied frequently to help reduce known vulnerabilities; this does not guarantee the absence of vulnerabilities.
 - No service accounts or secret keys are included.
 
 ## Release Notes
+
+### 2026-11-08
+
+- Repositioned the playground as an API verification tool with `deepseek-flash` and `deepseek-v4-pro`, while preserving old legacy-model threads
+- Added Thinking controls with `low` / `high` / `max` effort and enforced `tool_choice` constraints for Thinking
+- Preserved tool reasoning across saved history and repeated tool rounds, with a maximum of 8 rounds
+- Added usage/raw inspection and `/api-lab` workflows for Responses, Messages, Vision, and Files
+- Set current-model maximum chat output to 393216 tokens and FIM maximum output to 4096 tokens
+- Updated dependencies and applied security patches without claiming complete protection
 
 ### v0.2.5 (2026-05-16)
 
@@ -99,6 +119,8 @@ yarn dev
 - Fixed streaming chunks being buffered and appearing in batches by adjusting the proxy response headers (NDJSON + no-buffering)
 
 ### v0.2.2 (2025-12-12)
+
+Historical transport behavior; current calls go directly from the browser to DeepSeek.
 
 - Deepseek API calls now proxy through the Next.js backend after a provider-side browser restriction caused runtime failures
 - Added an in-app banner asking users to report future regressions to `numaothe@gmail.com` or GitHub

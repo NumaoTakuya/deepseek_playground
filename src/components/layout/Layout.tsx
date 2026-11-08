@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import { Box, IconButton, useMediaQuery } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useRouter } from "next/router";
+import UpdateNotice from "../common/UpdateNotice";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -96,8 +97,9 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* メイン領域 */}
-      <Box flex="1" minWidth={0} overflow="auto">
-        {children}
+      <Box flex="1" minWidth={0} minHeight={0} display="flex" flexDirection="column">
+        <UpdateNotice />
+        <Box flex="1" minHeight={0} overflow="auto">{children}</Box>
       </Box>
     </Box>
   );
