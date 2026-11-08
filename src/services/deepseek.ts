@@ -1,12 +1,15 @@
 // src/services/deepseek.ts
 
 import OpenAI from "openai";
-import { mapDeepseekParameters, resolveToolChoice } from "./deepseekRequest";
+import { executeDeepseek, parseSSE } from "./deepseekApi";
+import { buildDeepseekRequest, completionChunk, normalizeCompletion, NativeStreamConverter } from "./deepseekFormats";
+import type { ProviderData } from "./deepseekFormats";
+export { buildDeepseekRequest } from "./deepseekFormats";
+export type { ProviderData, NativeChunk, ApiFormat } from "./deepseekFormats";
 import type { DeepseekParameters } from "./deepseekRequest";
 export type { DeepseekParameters } from "./deepseekRequest";
 import type {
   ChatCompletionChunk,
-  ChatCompletionTool,
   ChatCompletionMessageParam as OpenAIChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 
@@ -26,6 +29,7 @@ export type ChatCompletionToolCall = {
 };
 
 export type ChatCompletionMessageParam = OpenAIChatCompletionMessageParam & {
+  provider_data?: ProviderData;
   prefix?: boolean;
   reasoning_content?: string | null;
 };
@@ -152,18 +156,6 @@ class DeepseekStreamWrapper implements AsyncIterable<ChatCompletionChunk> {
 
 export type DeepseekStream = DeepseekStreamWrapper;
 
-type DeepseekRequestPayload = {
-  apiKey: string;
-  messages: ChatCompletionMessageParam[];
-  model?: string;
-  parameters?: DeepseekParameters;
-  tools?: unknown[];
-  strict?: boolean;
-  responseFormat?: { type: "json_object" };
-  stop?: string[];
-  useBeta?: boolean;
-};
-
 /**
  * Deepseek (OpenAI互換)クライアント生成
  */
@@ -178,101 +170,6 @@ export function createDeepseekClient(
   });
 }
 
-const CALL_ENDPOINT = "/api/deepseek/call";
-const STREAM_ENDPOINT = "/api/deepseek/stream";
-
-async function parseApiError(response: Response): Promise<Error> {
-  let message = `Deepseek proxy request failed (${response.status})`;
-  try {
-    const body = (await response.json()) as { error?: string };
-    if (body?.error) {
-      message = body.error;
-    }
-  } catch (parseError) {
-    console.error("[deepseek] Failed to parse proxy error response", parseError);
-  }
-  return new Error(message);
-}
-
-async function callDeepseekViaApi(payload: DeepseekRequestPayload): Promise<string> {
-  const response = await fetch(CALL_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw await parseApiError(response);
-  }
-  const data = (await response.json()) as { content?: string };
-  return data.content ?? "";
-}
-
-function createIterableFromReader(
-  reader: ReadableStreamDefaultReader<Uint8Array>
-): AsyncIterable<ChatCompletionChunk> {
-  const decoder = new TextDecoder();
-  return (async function* () {
-    let buffer = "";
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (value) {
-          buffer += decoder.decode(value, { stream: !done });
-        }
-
-        let newlineIndex = buffer.indexOf("\n");
-        while (newlineIndex !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
-          if (line) {
-            yield JSON.parse(line) as ChatCompletionChunk;
-          }
-          newlineIndex = buffer.indexOf("\n");
-        }
-
-        if (done) {
-          const trimmed = buffer.trim();
-          if (trimmed) {
-            yield JSON.parse(trimmed) as ChatCompletionChunk;
-          }
-          break;
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  })();
-}
-
-async function streamDeepseekViaApi(
-  payload: DeepseekRequestPayload
-): Promise<DeepseekStream> {
-  const controller = new AbortController();
-  const response = await fetch(STREAM_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  });
-
-  if (!response.ok) {
-    throw await parseApiError(response);
-  }
-  if (!response.body) {
-    throw new Error("Browser response does not contain a readable body");
-  }
-
-  const reader = response.body.getReader();
-  const iterable = createIterableFromReader(reader);
-  return new DeepseekStreamWrapper(iterable, () => {
-    controller.abort();
-    reader.cancel().catch(() => {
-      /* ignore */
-    });
-  });
-}
-
 /**
  * 同期版: 全部生成が終わってから文字列1つを返す
  * 署名・戻り値はそのまま
@@ -284,31 +181,12 @@ export async function callDeepseekCompletion(
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ) {
-  const baseURL = toolConfig?.useBeta || toolConfig?.strict
-    ? "https://api.deepseek.com/beta"
-    : "https://api.deepseek.com";
-  const openai = createDeepseekClient(apiKey, baseURL);
-  const tools = Array.isArray(toolConfig?.tools)
-    ? (toolConfig.tools as ChatCompletionTool[])
-    : undefined;
-  const responseFormat = toolConfig?.responseFormat;
-  const stop = toolConfig?.stop;
-
-  try {
-    const res = await openai.chat.completions.create({
-      model,
-      messages,
-      ...(tools && tools.length > 0 ? { tools, tool_choice: resolveToolChoice(model, parameters?.thinkingEnabled, toolConfig?.toolChoice) } : {}),
-      ...(responseFormat ? { response_format: responseFormat } : {}),
-      ...(stop && stop.length > 0 ? { stop } : {}),
-      ...mapDeepseekParameters(model, parameters),
-    });
-    inspectResponse(res);
-    return res;
-  } catch (error) {
-    console.error("[callDeepseek] Failed to create completion:", error);
-    throw error;
-  }
+  const request = buildDeepseekRequest(messages, model, { ...parameters, stream: false }, toolConfig);
+  const response = await executeDeepseek(request.endpoint, apiKey, request.body, new AbortController().signal, request.url);
+  const raw = await response.json();
+  const result = { ...normalizeCompletion(raw, parameters?.apiFormat ?? "chat", model), raw_response: raw };
+  inspectResponse(raw);
+  return result;
 }
 
 export async function callDeepseekServer(
@@ -329,22 +207,14 @@ export async function callDeepseekFimServer(
   model: string = "deepseek-flash",
   parameters?: DeepseekFimParameters
 ): Promise<string> {
-  const openai = createDeepseekClient(apiKey, "https://api.deepseek.com/beta");
-
-  try {
-    const res = await openai.completions.create({
-      model,
-      prompt,
-      ...(suffix ? { suffix } : {}),
-      ...(typeof parameters?.maxTokens === "number"
-        ? { max_tokens: parameters.maxTokens }
-        : {}),
-    });
-    return res.choices[0]?.text ?? "";
-  } catch (error) {
-    console.error("[callDeepseekFim] Failed to create completion:", error);
-    throw error;
-  }
+  const response = await executeDeepseek("vision", apiKey, {
+    model, prompt, stream: false,
+    ...(suffix ? { suffix } : {}),
+    ...(typeof parameters?.maxTokens === "number" ? { max_tokens: parameters.maxTokens } : {}),
+  }, new AbortController().signal, "https://api.deepseek.com/beta/completions");
+  const result = await response.json();
+  inspectResponse(result);
+  return result.choices?.[0]?.text ?? "";
 }
 
 export async function callDeepseekFim(
@@ -386,35 +256,32 @@ export async function streamDeepseekServer(
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
-  const baseURL = toolConfig?.useBeta || toolConfig?.strict
-    ? "https://api.deepseek.com/beta"
-    : "https://api.deepseek.com";
-  const openai = createDeepseekClient(apiKey, baseURL);
-  const tools = Array.isArray(toolConfig?.tools)
-    ? (toolConfig.tools as ChatCompletionTool[])
-    : undefined;
-  const responseFormat = toolConfig?.responseFormat;
-  const stop = toolConfig?.stop;
-
-  try {
-    const iterable = await openai.chat.completions.create({
-      model,
-      messages,
-      stream: true,
-      stream_options: { include_usage: true },
-      ...(tools && tools.length > 0 ? { tools, tool_choice: resolveToolChoice(model, parameters?.thinkingEnabled, toolConfig?.toolChoice) } : {}),
-      ...(responseFormat ? { response_format: responseFormat } : {}),
-      ...(stop && stop.length > 0 ? { stop } : {}),
-      ...mapDeepseekParameters(model, parameters),
-    });
-    return new DeepseekStreamWrapper(iterable as AbortableStream);
-  } catch (error) {
-    console.error(
-      "[streamDeepseek] Failed to create streaming completion:",
-      error
-    );
-    throw error;
-  }
+  const request = buildDeepseekRequest(messages, model, parameters, toolConfig);
+  const controller = new AbortController();
+  const response = await executeDeepseek(request.endpoint, apiKey, request.body, controller.signal, request.url);
+  const format = parameters?.apiFormat ?? "chat";
+  const iterable = (async function* () {
+    if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+      yield completionChunk(await response.json(), format, model);
+      return;
+    }
+    if (!response.body) throw new Error("Response has no readable stream.");
+    const converter = new NativeStreamConverter(format, model);
+    let terminal = false;
+    for await (const event of parseSSE(response.body)) {
+      if (event.data === "[DONE]") {
+        if (format === "chat") { terminal = true; break; }
+        continue;
+      }
+      const payload = JSON.parse(event.data);
+      for (const chunk of converter.convert(payload, event.event)) yield chunk;
+      const type = payload.type || event.event;
+      if ((format === "responses" && ["response.completed", "response.incomplete"].includes(type)) || (format === "messages" && type === "message_stop")) { terminal = true; break; }
+    }
+    if (controller.signal.aborted) throw new DOMException("Request aborted", "AbortError");
+    if (!terminal) throw new Error("Truncated SSE stream: expected a terminal event before the connection closed.");
+  })();
+  return new DeepseekStreamWrapper(iterable, () => controller.abort());
 }
 
 export async function streamDeepseek(

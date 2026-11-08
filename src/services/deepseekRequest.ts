@@ -11,6 +11,9 @@ export function resolveToolChoice(model: string, thinkingEnabled: boolean | unde
 }
 
 export type DeepseekParameters = {
+  apiFormat?: "chat" | "responses" | "messages";
+  stream?: boolean;
+  extraBody?: Record<string, unknown>;
   frequencyPenalty?: number;
   presencePenalty?: number;
   temperature?: number;
