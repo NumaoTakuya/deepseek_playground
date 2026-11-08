@@ -33,10 +33,11 @@ const controlRowSx = {
   gap: 1, alignItems: "center", width: "100%", maxWidth: 420,
 };
 
-export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, defaultExpiry = "" }: { apiKey: string; disabled?: boolean; onSelect: (file: LabFile) => void; onDeleted?: (id: string) => void; defaultExpiry?: string }) {
+export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, defaultExpiry = "", autoLoad = true }: { apiKey: string; disabled?: boolean; onSelect: (file: LabFile) => void; onDeleted?: (id: string) => void; defaultExpiry?: string; autoLoad?: boolean }) {
   const [files, setFiles] = useState<LabFile[]>([]);
   const [page, setPage] = useState<FileList>();
   const [raw, setRaw] = useState<unknown>();
+  const [request, setRequest] = useState<unknown>();
   const [upload, setUpload] = useState<File>();
   const [expiry, setExpiry] = useState(defaultExpiry);
   const [pending, setPending] = useState<LabFile>();
@@ -49,7 +50,7 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
   const operation = useRef<"list" | "upload" | "delete" | null>(null);
   useEffect(() => {
     epoch.current++; controller.current?.abort(); operation.current = null;
-    setFiles([]); setPage(undefined); setRaw(undefined); setPending(undefined); setUpload(undefined); setError(""); setNotice(""); setBusy(false); setLoadingFiles(false);
+    setFiles([]); setPage(undefined); setRaw(undefined); setRequest(undefined); setPending(undefined); setUpload(undefined); setError(""); setNotice(""); setBusy(false); setLoadingFiles(false);
     return () => { epoch.current++; controller.current?.abort(); operation.current = null; };
   }, [apiKey]);
   const locked = disabled || busy;
@@ -60,10 +61,11 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
     const token = ++epoch.current;
     const abort = new AbortController(); controller.current = abort;
     setBusy(true); setLoadingFiles(kind === "list"); setError(""); setNotice("");
+    setRaw(undefined); setRequest(undefined);
     try {
       if (kind === "upload" && upload) await validateAttachmentImage(upload);
       if (token !== epoch.current) return;
-      const result = await labFiles(apiKey, kind, { file: upload, id: pending?.id, after: more ? page?.last_id : undefined, expires: expiry === "" ? undefined : Number(expiry), signal: abort.signal });
+      const result = await labFiles(apiKey, kind, { file: upload, id: pending?.id, after: more ? page?.last_id : undefined, expires: expiry === "" ? undefined : Number(expiry), signal: abort.signal, onRequest: setRequest });
       if (token !== epoch.current) return;
       setRaw(result);
       if (kind === "list") {
@@ -84,8 +86,8 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
   const latestAction = useRef(action);
   latestAction.current = action;
   useEffect(() => {
-    if (apiKey.trim() && !disabled) void latestAction.current("list");
-  }, [apiKey, disabled]);
+    if (autoLoad && apiKey.trim() && !disabled) void latestAction.current("list");
+  }, [apiKey, disabled, autoLoad]);
   return <Stack spacing={1.5} sx={mediaControlsSx}>
     <Box sx={{ display: "flex", height: 32, alignItems: "center", justifyContent: "space-between" }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Files</Typography>
@@ -121,6 +123,10 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
       </Box>)}
     </Box>}
     {page?.has_more && <Button disabled={locked || !page.last_id} onClick={() => void action("list", true)}>Load More</Button>}
+    {request !== undefined && <Box component="details" sx={{ fontSize: 12, color: "var(--color-subtext)" }}>
+      <Box component="summary" sx={{ cursor: "pointer" }}>Files sent request</Box>
+      <Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 300, overflow: "auto" }}>{safe(JSON.stringify(request, null, 2))}</Box>
+    </Box>}
     {raw !== undefined && <Box component="details" sx={{ fontSize: 12, color: "var(--color-subtext)" }}>
       <Box component="summary" sx={{ cursor: "pointer" }}>Files response JSON</Box>
       <Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 300, overflow: "auto" }}>{safe(JSON.stringify(raw, null, 2))}</Box>

@@ -14,7 +14,10 @@ describe("Files API", () => {
   it("uploads multipart images with purpose and expiry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ id: "file-api-new" })));
     const file = new File([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0])], "image.png", { type: "image/png" });
-    await labFiles("test-key", "upload", { file, expires: 86400 });
+    const onRequest = vi.fn();
+    await labFiles("test-key", "upload", { file, expires: 86400, onRequest });
+    expect(onRequest).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", url: "https://api.deepseek.com/files", multipart: expect.objectContaining({ purpose: "user_data", file: { filename: "image.png", bytes: file.size, type: "image/png" } }) }));
+    expect(JSON.stringify(onRequest.mock.calls)).not.toContain("test-key");
     const [, init] = vi.mocked(fetch).mock.calls[0];
     expect(init?.method).toBe("POST");
     const form = init?.body as FormData;

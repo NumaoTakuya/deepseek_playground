@@ -1,13 +1,35 @@
 // Shared HTTP contracts: https://api-docs.deepseek.com/guides/{responses_api,anthropic_api,vision,files_api}/
 export const LAB_BASE = "https://api.deepseek.com";
-export type LabEndpoint = "responses" | "messages" | "vision";
+export type LabEndpoint = "responses" | "messages" | "vision" | "fim" | "search" | "fetch" | "models" | "balance" | "file-info" | "file-delete";
 export type LabModel = "deepseek-flash" | "deepseek-v4-pro";
 export const LAB_PATHS: Record<LabEndpoint, string> = {
   responses: "/responses", messages: "/anthropic/v1/messages", vision: "/chat/completions",
+  fim: "/beta/completions", search: "/v1/tools/search", fetch: "/v1/tools/fetch",
+  models: "/models", balance: "/user/balance", "file-info": "/files", "file-delete": "/files",
 };
+export const LAB_ENDPOINTS: Record<LabEndpoint, { label: string; method: "POST" | "GET" | "DELETE"; doc: string; model?: boolean; stream?: boolean; file?: boolean }> = {
+  vision: { label: "Chat Completions / Vision", method: "POST", doc: "create-chat-completion", model: true, stream: true },
+  responses: { label: "Responses", method: "POST", doc: "create-response", model: true, stream: true },
+  messages: { label: "Anthropic Messages", method: "POST", doc: "create-message", model: true, stream: true },
+  fim: { label: "FIM Completion (Beta)", method: "POST", doc: "create-completion", model: true, stream: true },
+  search: { label: "Search", method: "POST", doc: "search" },
+  fetch: { label: "Fetch", method: "POST", doc: "fetch" },
+  models: { label: "List Models", method: "GET", doc: "list-models" },
+  balance: { label: "User Balance", method: "GET", doc: "get-user-balance" },
+  "file-info": { label: "Retrieve File", method: "GET", doc: "retrieve-file", file: true },
+  "file-delete": { label: "Delete File", method: "DELETE", doc: "delete-file", file: true },
+};
+export function labEndpointUrl(endpoint: LabEndpoint, fileId = ""): string {
+  if (!LAB_ENDPOINTS[endpoint]) throw new Error("Unsupported endpoint.");
+  if (LAB_ENDPOINTS[endpoint].file) {
+    if (!/^file-api-[\w-]+$/.test(fileId)) throw new Error("Enter a file-api-... ID.");
+    return `${LAB_BASE}${LAB_PATHS[endpoint]}/${encodeURIComponent(fileId)}`;
+  }
+  return LAB_BASE + LAB_PATHS[endpoint];
+}
 export type JsonObject = Record<string, unknown>;
 export interface LabEvent { event: string; data: string; id?: string }
-export interface LabResult { content: string; reasoning: string; usage: JsonObject; raw?: unknown; status?: string }
+export interface LabResult { content: string; reasoning: string; usage: JsonObject; raw?: unknown; status?: string; httpStatus?: number }
 export interface LabFile { id: string; filename: string; bytes: number; created_at: number; expires_at?: number }
 export interface FileList { data: LabFile[]; has_more: boolean; last_id?: string }
 export const MIB = 1024 * 1024;
@@ -20,6 +42,10 @@ function list(value: unknown): unknown[] { return Array.isArray(value) ? value :
 function string(value: unknown): string { return typeof value === "string" ? value : ""; }
 
 export function defaultLabBody(endpoint: LabEndpoint, model: LabModel = "deepseek-flash"): JsonObject {
+  if (endpoint === "search") return { query: "DeepSeek V4 release", count: 10, need_content: false };
+  if (endpoint === "fetch") return { url: "https://api-docs.deepseek.com/" };
+  if (endpoint === "fim") return { model, prompt: "def fib(a):", suffix: "    return fib(a-1) + fib(a-2)", max_tokens: 128, stream: true };
+  if (LAB_ENDPOINTS[endpoint].method !== "POST") return {};
   if (endpoint === "responses") return { model, reasoning: { effort: "none" }, instructions: "You are a concise, helpful assistant.", input: "Explain prompt caching in two sentences.", max_output_tokens: 1024, stream: true };
   if (endpoint === "messages") return { model, thinking: { type: "disabled" }, system: "You are a concise, helpful assistant.", messages: [{ role: "user", content: [{ type: "text", text: "Explain prompt caching in two sentences." }] }], max_tokens: 1024, stream: true };
   return { model: "deepseek-flash", thinking: { type: "disabled" }, messages: [{ role: "user", content: [{ type: "text", text: "Describe this image and read any visible text." }, { type: "image_url", image_url: { url: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg", detail: "auto" } }] }], max_tokens: 1024, stream: true, stream_options: { include_usage: true } };
@@ -146,7 +172,7 @@ export function reduceLabEvent(previous: LabResult, payload: unknown, event = "m
   if (type.startsWith("response.") && ["response.completed", "response.incomplete"].includes(type)) {
     const final = normalizeLabResponse(response);
     r.content = final.content || r.content; r.reasoning = final.reasoning || r.reasoning;
-    r.usage = { ...r.usage, ...final.usage }; r.status = type;
+    r.usage = { ...r.usage, ...final.usage }; r.status = type; r.raw = response;
   }
   if (type === "message_start") r.usage = { ...r.usage, ...object(object(p.message).usage) };
   if (type === "content_block_start") {
@@ -157,7 +183,7 @@ export function reduceLabEvent(previous: LabResult, payload: unknown, event = "m
   if (type === "message_delta") r.status = string(delta.stop_reason) || r.status;
   for (const choice of list(p.choices)) {
     const c = object(choice), d = object(c.delta);
-    r.content += string(d.content); r.reasoning += string(d.reasoning_content);
+    r.content += string(d.content) || string(c.text); r.reasoning += string(d.reasoning_content);
     r.status = string(c.finish_reason) || r.status;
   }
   r.usage = { ...r.usage, ...object(p.usage) };
@@ -173,7 +199,7 @@ export function normalizeLabResponse(payload: unknown): LabResult {
     const i = object(item);
     if (i.type === "reasoning") r.reasoning += [...list(i.content), ...list(i.summary)].map(part => string(object(part).text)).join("");
   }
-  for (const choice of list(p.choices)) { const m = object(object(choice).message); r.content += string(m.content); r.reasoning += string(m.reasoning_content); r.status = string(object(choice).finish_reason); }
+  for (const choice of list(p.choices)) { const m = object(object(choice).message); r.content += string(m.content) || string(object(choice).text); r.reasoning += string(m.reasoning_content); r.status = string(object(choice).finish_reason); }
   return r;
 }
 
@@ -181,11 +207,38 @@ export function redactLab(value: string, key: string): string { return key ? val
 export function labHeaders(endpoint: LabEndpoint, key: string): Record<string, string> {
   return endpoint === "messages" ? { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-beta": "files-api-2025-04-14" } : { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
 }
+export class LabHttpError extends Error {
+  constructor(public readonly status: number, public readonly raw: unknown) {
+    super(`HTTP ${status}: ${typeof raw === "string" ? raw : JSON.stringify(raw)}`);
+  }
+}
 async function checkResponse(response: Response, key: string): Promise<void> {
-  if (!response.ok) throw new Error(redactLab(`HTTP ${response.status}: ${(await response.text()).slice(0, 8000)}`, key));
+  if (!response.ok) {
+    const text = redactLab((await response.text()).slice(0, 8000), key);
+    let raw: unknown = text;
+    try { raw = JSON.parse(text); } catch {}
+    throw new LabHttpError(response.status, raw);
+  }
 }
 export function validateApiBody(endpoint: LabEndpoint, body: JsonObject): void {
   parseLabBody(JSON.stringify(body));
+  if (!LAB_ENDPOINTS[endpoint].model) {
+    if (endpoint === "search") {
+      const validText = (v: unknown) => typeof v === "string" && v.trim().length > 0 && [...v].length <= 128;
+      if (!validText(body.query)) throw new Error("query must contain 1-128 Unicode characters.");
+      if (body.count !== undefined && (!Number.isInteger(body.count) || Number(body.count) < 1 || Number(body.count) > 50)) throw new Error("count must be an integer from 1 to 50.");
+      if (body.ori_question != null && !validText(body.ori_question)) throw new Error("ori_question must contain 1-128 Unicode characters.");
+      if (body.localization !== undefined && typeof body.localization !== "string") throw new Error("localization must be a string.");
+      if (body.need_content !== undefined && typeof body.need_content !== "boolean") throw new Error("need_content must be a boolean.");
+    }
+    if (endpoint === "fetch") {
+      if (typeof body.url !== "string" || !body.url || body.url.length > 8192) throw new Error("url must contain 1-8192 characters.");
+      const url = new URL(body.url);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Use an HTTP(S) URL without credentials.");
+    }
+    return;
+  }
+  if (endpoint === "fim") return;
   if (endpoint === "vision") { validateVisionBody(body); return; }
   const images: JsonObject[] = [];
   const collect = (content: unknown, role: unknown) => {
@@ -216,12 +269,14 @@ export function validateApiBody(endpoint: LabEndpoint, body: JsonObject): void {
   if (body.prefix || body.suffix || body.prompt) throw new Error("Prefix/FIM completion requires Chat Completions.");
   validateVisionBody({ model: body.model, messages: [{ role: "user", content: images }] });
 }
-export async function executeDeepseek(endpoint: LabEndpoint, key: string, body: JsonObject, signal: AbortSignal, url = LAB_BASE + LAB_PATHS[endpoint]): Promise<Response> {
+export async function executeDeepseek(endpoint: LabEndpoint, key: string, body: JsonObject, signal: AbortSignal, url = LAB_BASE + LAB_PATHS[endpoint], onRequest?: () => void): Promise<Response> {
   if (!key.trim()) throw new Error("An API key is required.");
   validateApiBody(endpoint, body);
   let response: Response;
   try {
-    response = await fetch(url, { method: "POST", headers: labHeaders(endpoint, key), body: JSON.stringify(body), signal, credentials: "omit", redirect: "error", cache: "no-store" });
+    const method = LAB_ENDPOINTS[endpoint].method;
+    onRequest?.();
+    response = await fetch(url, { method, headers: labHeaders(endpoint, key), ...(method === "POST" ? { body: JSON.stringify(body) } : {}), signal, credentials: "omit", redirect: "error", cache: "no-store" });
   } catch (error) {
     if (signal.aborted) throw error;
     throw new Error("Direct browser request failed: network or CORS restriction. The browser cannot distinguish these failures; check its Network panel. No proxy fallback was used.");
@@ -229,17 +284,17 @@ export async function executeDeepseek(endpoint: LabEndpoint, key: string, body: 
   await checkResponse(response, key);
   return response;
 }
-export async function runLab(endpoint: LabEndpoint, key: string, body: JsonObject, signal: AbortSignal, onEvent: (event: LabEvent, result: LabResult) => void): Promise<LabResult> {
-  const response = await executeDeepseek(endpoint, key, body, signal);
-  if (!response.headers.get("content-type")?.includes("text/event-stream")) return normalizeLabResponse(JSON.parse(redactLab(await response.text(), key)));
+export async function runLab(endpoint: LabEndpoint, key: string, body: JsonObject, signal: AbortSignal, onEvent: (event: LabEvent, result: LabResult) => void, fileId = "", onRequest?: () => void): Promise<LabResult> {
+  const response = await executeDeepseek(endpoint, key, body, signal, labEndpointUrl(endpoint, fileId), onRequest);
+  if (!response.headers.get("content-type")?.includes("text/event-stream")) return { ...normalizeLabResponse(JSON.parse(redactLab(await response.text(), key))), httpStatus: response.status };
   if (!response.body) throw new Error("Response has no readable stream.");
-  let result = emptyLabResult();
+  let result: LabResult = { ...emptyLabResult(), httpStatus: response.status };
   let terminal = false;
   for await (const incoming of parseSSE(response.body)) {
     const event = { ...incoming, data: redactLab(incoming.data, key) };
     if (event.data === "[DONE]") {
       onEvent(event, result);
-      if (endpoint === "vision") { terminal = true; break; }
+      if (endpoint === "vision" || endpoint === "fim") { terminal = true; break; }
       continue;
     }
     const payload: unknown = JSON.parse(event.data);
@@ -255,7 +310,7 @@ export async function runLab(endpoint: LabEndpoint, key: string, body: JsonObjec
   return result;
 }
 
-export async function labFiles(key: string, operation: "list" | "upload" | "delete", options: { file?: File; id?: string; after?: string; expires?: number; signal?: AbortSignal } = {}): Promise<unknown> {
+export async function labFiles(key: string, operation: "list" | "upload" | "delete", options: { file?: File; id?: string; after?: string; expires?: number; signal?: AbortSignal; onRequest?: (request: unknown) => void } = {}): Promise<unknown> {
   if (!key.trim()) throw new Error("An API key is required.");
   let path = "/files", body: FormData | undefined;
   if (operation === "list") { const query = new URLSearchParams({ limit: "100", order: "desc", purpose: "user_data" }); if (options.after) query.set("after", options.after); path += `?${query}`; }
@@ -269,7 +324,9 @@ export async function labFiles(key: string, operation: "list" | "upload" | "dele
       body.append("expires_after[anchor]", "created_at"); body.append("expires_after[seconds]", String(options.expires));
     }
   }
-  const response = await fetch(LAB_BASE + path, { method: operation === "list" ? "GET" : operation === "delete" ? "DELETE" : "POST", headers: { Authorization: `Bearer ${key}` }, body, signal: options.signal, credentials: "omit", redirect: "error", cache: "no-store" });
+  const method = operation === "list" ? "GET" : operation === "delete" ? "DELETE" : "POST";
+  options.onRequest?.({ method, url: LAB_BASE + path, headers: { Authorization: "Bearer <DEEPSEEK_API_KEY>" }, ...(body ? { multipart: Object.fromEntries(Array.from(body.entries(), ([name, value]) => [name, typeof value === "string" ? value : { filename: value.name, bytes: value.size, type: value.type }])) } : {}) });
+  const response = await fetch(LAB_BASE + path, { method, headers: { Authorization: `Bearer ${key}` }, body, signal: options.signal, credentials: "omit", redirect: "error", cache: "no-store" });
   await checkResponse(response, key);
   return JSON.parse(redactLab(await response.text(), key));
 }
@@ -277,5 +334,6 @@ export async function labFiles(key: string, operation: "list" | "upload" | "dele
 const quote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 export function labCurl(endpoint: LabEndpoint, body: JsonObject, key = "", url = LAB_BASE + LAB_PATHS[endpoint]): string {
   const headers = labHeaders(endpoint, "<DEEPSEEK_API_KEY>");
-  return [`curl -N ${quote(url)}`, ...Object.entries(headers).map(([k, v]) => `  -H ${quote(`${k}: ${v}`)}`), `  --data-raw ${quote(redactLab(JSON.stringify(body, null, 2), key))}`].join(" \\\n");
+  const method = LAB_ENDPOINTS[endpoint].method;
+  return [`curl -N${method === "DELETE" ? " -X DELETE" : ""} ${quote(url)}`, ...Object.entries(headers).map(([k, v]) => `  -H ${quote(`${k}: ${v}`)}`), ...(method === "POST" ? [`  --data-raw ${quote(redactLab(JSON.stringify(body, null, 2), key))}`] : [])].join(" \\\n");
 }
