@@ -923,12 +923,12 @@ for await (const chunk of response.body) process.stdout.write(chunk);
               </FormControl>
             </Box>
 
-            <Box component="details" sx={{ mb: 2, borderBottom: "1px solid var(--color-border)", "&[open] .api-settings-chevron": { transform: "rotate(180deg)" } }}>
-              <Box component="summary" sx={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", py: 1, listStyle: "none", "&::-webkit-details-marker": { display: "none" } }}>
-                <Typography component="span" variant="subtitle2">API Settings</Typography>
+            <Box component="details" sx={{ mb: 2, border: "1px solid var(--color-border)", "&[open] .api-settings-chevron": { transform: "rotate(180deg)" } }}>
+              <Box component="summary" sx={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", p: 1, backgroundColor: "var(--color-panel)", color: "var(--color-text)", listStyle: "none", "&::-webkit-details-marker": { display: "none" } }}>
+                <Typography component="span" variant="subtitle1" sx={{ fontWeight: 600 }}>API Settings</Typography>
                 <ExpandMoreIcon className="api-settings-chevron" fontSize="small" />
               </Box>
-              <Box sx={{ pt: 1 }}>
+              <Box sx={{ p: 2 }}>
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel id="thread-api-format-label">API Format</InputLabel>
               <Select labelId="thread-api-format-label" label="API Format" value={apiFormat} disabled={assistantThinking} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>

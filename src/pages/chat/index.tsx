@@ -535,7 +535,7 @@ export default function ChatHomePage() {
               ))}
             </Box>
             <Collapse id="new-api-panel" in={showApiBox} timeout={200} unmountOnExit>
-              <Box sx={{ pb: 2 }}>
+              <Box sx={{ backgroundColor: "var(--color-panel)", p: 2, borderRadius: 1, mb: 3 }}>
                 <Box sx={{ maxWidth: { sm: 332 } }}>
                 <FormControl fullWidth size="small">
                   <InputLabel id="new-api-format-label">API Format</InputLabel>
