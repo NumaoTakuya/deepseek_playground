@@ -106,8 +106,8 @@ export default function ApiLabPage() {
     <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3, flexWrap: "wrap", gap: 1 }}><Typography variant="h4" component="h1" sx={{ fontSize: 28 }}>DeepSeek API Lab</Typography><Chip size="small" label={status} /></Stack>
     <Stack spacing={2}>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-        <FormControlLabel control={<Checkbox checked={useContext} onChange={e => setUseContext(e.target.checked)} />} label={`Use app API key${apiKey ? " (available)" : " (not configured)"}`} />
-        {!useContext && <TextField label="Session API key" type="password" value={sessionKey} onChange={e => setSessionKey(e.target.value)} autoComplete="off" helperText="Memory only" size="small" />}
+        <FormControlLabel control={<Checkbox checked={useContext} onChange={e => setUseContext(e.target.checked)} />} label={`Use your saved API key${apiKey ? " (saved in this browser)" : " (not configured)"}`} />
+        {!useContext && <TextField label="Your session API key" type="password" value={sessionKey} onChange={e => setSessionKey(e.target.value)} autoComplete="off" helperText="Memory only" size="small" />}
       </Box>
       {!key && <Alert severity="warning">No active API key.</Alert>}
       {error && <Alert severity="error" onClose={() => setError("")}>{safe(error)}</Alert>}
