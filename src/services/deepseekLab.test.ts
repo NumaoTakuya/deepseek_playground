@@ -62,3 +62,41 @@ describe("Responses primary checkpoint", () => {
     expect(curl).not.toContain("secret"); expect(curl).toContain("<DEEPSEEK_API_KEY>"); expect(curl).toContain(`'"'"'`);
   });
 });
+
+describe("Anthropic Messages checkpoint", () => {
+  it("uses Anthropic request schema and exact HTTP path/headers", async () => {
+    const body = defaultLabBody("messages", "deepseek-v4-pro");
+    expect(body).toMatchObject({ model: "deepseek-v4-pro", max_tokens: 1024, system: expect.any(String), messages: [{ role: "user", content: [{ type: "text", text: expect.any(String) }] }] });
+    expect(body).not.toHaveProperty("input");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ content: [{ type: "thinking", thinking: "reason" }, { type: "text", text: "answer" }], usage: { input_tokens: 11, output_tokens: 7, cache_read_input_tokens: 2 }, stop_reason: "end_turn" })));
+    const result = await runLab("messages", "secret", body, new AbortController().signal, vi.fn());
+    expect(result).toMatchObject({ content: "answer", reasoning: "reason", status: "end_turn", usage: { input_tokens: 11, output_tokens: 7, cache_read_input_tokens: 2 } });
+    expect(fetch).toHaveBeenCalledWith("https://api.deepseek.com/anthropic/v1/messages", expect.objectContaining({ headers: expect.objectContaining({ "x-api-key": "secret", "anthropic-version": "2023-06-01", "anthropic-beta": "files-api-2025-04-14" }) }));
+    const curl = labCurl("messages", body);
+    expect(curl).toContain("/anthropic/v1/messages"); expect(curl).toContain("x-api-key: <DEEPSEEK_API_KEY>");
+  });
+  it("combines fragmented thinking/text blocks and usage until message_stop", async () => {
+    const payloads = [
+      { type: "message_start", message: { id: "msg_1", usage: { input_tokens: 12, output_tokens: 0, cache_read_input_tokens: 3 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "reason" } },
+      { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "日本語" } },
+      { type: "message_delta", delta: { stop_reason: "max_tokens" }, usage: { output_tokens: 9 } },
+      { type: "message_stop" },
+    ];
+    stream(payloads.map(p => `event: ${p.type}\r\ndata: ${JSON.stringify(p)}\r\n\r\n`).join(""));
+    const events = vi.fn();
+    const result = await runLab("messages", "secret", {}, new AbortController().signal, events);
+    expect(result).toMatchObject({ content: "日本語", reasoning: "reason", status: "max_tokens", usage: { input_tokens: 12, output_tokens: 9, cache_read_input_tokens: 3 }, raw: { type: "message_stop" } });
+    expect(events.mock.calls.filter(([e]) => e.event !== "__result")).toHaveLength(payloads.length);
+  });
+  it("rejects message_delta without message_stop and surfaces Anthropic error events", async () => {
+    stream('data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n\n');
+    await expect(runLab("messages", "secret", {}, new AbortController().signal, vi.fn())).rejects.toThrow("Truncated SSE");
+    stream('event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"Try later"}}\n\n');
+    const events = vi.fn();
+    await expect(runLab("messages", "secret", {}, new AbortController().signal, events)).rejects.toThrow("Try later");
+    expect(events.mock.calls[0][0].event).toBe("error");
+  });
+});
