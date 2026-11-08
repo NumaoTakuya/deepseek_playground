@@ -467,7 +467,7 @@ export default function MessageList({
                 {showThinking && (
                   <Box display="flex" alignItems="center" gap={1} mt={1}>
                     <CircularProgress size={16} thickness={5} />
-                    <span>{t("chat.messages.thinking")}</span>
+                    <span>{t("chat.messages.waitingResponse")}</span>
                   </Box>
                 )}
               </Box>

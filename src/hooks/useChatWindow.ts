@@ -93,7 +93,7 @@ export function useChatWindow(
 
   /**
    * “いま生成中のアシスタントメッセージID”
-   *  - MessageListに渡して "Thinking..." を表示
+   *  - MessageListに渡して応答待ちの表示に使用
    */
   const [assistantMsgId, setAssistantMsgId] = useState<string | null>(null);
 
