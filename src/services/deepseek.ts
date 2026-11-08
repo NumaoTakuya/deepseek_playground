@@ -294,7 +294,7 @@ async function streamDeepseekViaApi(
 export async function callDeepseekCompletion(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ) {
@@ -340,7 +340,7 @@ export async function callDeepseekFimServer(
   apiKey: string,
   prompt: string,
   suffix?: string,
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekFimParameters
 ): Promise<string> {
   const openai = createDeepseekClient(apiKey, "https://api.deepseek.com/beta");
@@ -365,7 +365,7 @@ export async function callDeepseekFim(
   apiKey: string,
   prompt: string,
   suffix?: string,
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekFimParameters
 ): Promise<string> {
   if (isBrowser) {
@@ -377,7 +377,7 @@ export async function callDeepseekFim(
 export async function callDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<string> {
@@ -396,7 +396,7 @@ export async function callDeepseek(
 export async function streamDeepseekServer(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
@@ -434,7 +434,7 @@ export async function streamDeepseekServer(
 export async function streamDeepseek(
   apiKey: string,
   messages: ChatCompletionMessageParam[],
-  model: string = "deepseek-chat",
+  model: string = "deepseek-flash",
   parameters?: DeepseekParameters,
   toolConfig?: DeepseekToolConfig
 ): Promise<DeepseekStream> {
