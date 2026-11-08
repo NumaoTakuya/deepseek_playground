@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Link, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import UploadFile from "@mui/icons-material/UploadFile";
 import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import Refresh from "@mui/icons-material/Refresh";
@@ -226,6 +226,14 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
           onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))}
         />
       </Box>}
+    </Box>
+    <Box sx={{ borderTop: "1px solid var(--color-border)", mt: 2, pt: 1.5, color: "var(--color-subtext)", fontSize: 12, lineHeight: 1.6 }}>
+      {showFiles && <Box>Both uploads use DeepSeek Files. Images / Local upload attaches immediately; Files / Upload saves for later. Use + in the file list to attach.</Box>}
+      {allowInline && <Box>Local inline image sends image data directly without saving it to Files.</Box>}
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 0.5 }}>
+        <Link href="https://api-docs.deepseek.com/guides/vision/" target="_blank" rel="noopener noreferrer" sx={{ color: "var(--color-primary)" }}>Vision docs</Link>
+        <Link href="https://api-docs.deepseek.com/guides/files_api/" target="_blank" rel="noopener noreferrer" sx={{ color: "var(--color-primary)" }}>Files API docs</Link>
+      </Box>
     </Box>
   </Box>;
 }
