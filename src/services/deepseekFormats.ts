@@ -57,7 +57,7 @@ export function buildDeepseekRequest(messages: ChatCompletionMessageParam[], mod
     delete body.frequency_penalty; delete body.presence_penalty;
     if (format === "responses") {
       delete body.thinking; delete body.reasoning_effort; delete body.max_tokens;
-      body.reasoning = { effort: parameters.thinkingEnabled === false ? "none" : parameters.reasoningEffort ?? "high" };
+      body.reasoning = { effort: parameters.thinkingEnabled === true ? parameters.reasoningEffort ?? "high" : "none" };
       if (parameters.maxTokens !== undefined) body.max_output_tokens = parameters.maxTokens;
       body.input = messages.flatMap<unknown>(m => {
         if (m.role === "assistant" && m.provider_data?.output) return m.provider_data.output;

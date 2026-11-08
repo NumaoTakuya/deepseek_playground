@@ -51,7 +51,7 @@ export function useChatWindow(
   const [systemMsgId, setSystemMsgId] = useState<string | null>(null);
   const [threadTitle, setThreadTitle] = useState("New Chat");
   const [model, setModel] = useState(DEFAULT_MODEL);
-  const [thinkingEnabled, setThinkingEnabled] = useState(true);
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<"low" | "high" | "max">("high");
   const [toolChoice, setToolChoice] = useState("auto");
   const [input, setInput] = useState("");
@@ -730,7 +730,7 @@ export function useChatWindow(
         setStreamEnabled(data.streamEnabled ?? true);
         setRequestOptionsJson(data.requestOptionsJson ?? "");
         setSettingsLoadedThread(threadId);
-        setThinkingEnabled(data.thinkingEnabled ?? true);
+        setThinkingEnabled(data.thinkingEnabled ?? false);
         setReasoningEffort(data.reasoningEffort ?? "high");
         setToolChoice(data.toolChoice ?? "auto");
         if (typeof data.title === "string") {

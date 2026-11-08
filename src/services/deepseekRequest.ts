@@ -15,7 +15,7 @@ export function parseDeepseekOptions(raw: string): Record<string, unknown> {
 }
 
 export function resolveToolChoice(model: string, thinkingEnabled: boolean | undefined, choice = "auto"): ChatCompletionToolChoiceOption {
-  const thinking = model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled !== false);
+  const thinking = model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled === true);
   if (thinking && choice !== "auto" && choice !== "none") {
     throw new Error("Disable Thinking before requiring a tool or selecting a function.");
   }
@@ -38,7 +38,7 @@ export type DeepseekParameters = {
 
 export function mapDeepseekParameters(model: string, p: DeepseekParameters = {}) {
   const current = isCurrentModel(model);
-  const thinking = current ? p.thinkingEnabled !== false : model === "deepseek-reasoner";
+  const thinking = current ? p.thinkingEnabled === true : model === "deepseek-reasoner";
   const output: Record<string, unknown> = {};
   if (current) {
     output.thinking = { type: thinking ? "enabled" : "disabled" };

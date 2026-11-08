@@ -166,7 +166,7 @@ export default function ChatHomePage() {
   const [requestOptionsJson, setRequestOptionsJson] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mediaOpen, setMediaOpen] = useState(false);
-  const [thinkingEnabled, setThinkingEnabled] = useState(true);
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<"low" | "high" | "max">("high");
 
   // system prompt

@@ -103,6 +103,7 @@ describe("hook execution paths", () => {
 
   it("exposes settingsLoaded only after the current thread snapshot is applied", () => {
     expect(renderHook().settingsLoaded).toBe(false);
+    expect(renderHook().thinkingEnabled).toBe(false);
     mocks.effects.find((effect) => effect.toString().includes("settingsThreadRef.current = null"))!();
     const callback = vi.mocked(onSnapshot).mock.calls.at(-1)![1] as unknown as (snapshot: unknown) => void;
     callback({ exists: () => true, data: () => ({ apiFormat: "messages", streamEnabled: false, requestOptionsJson: '{"logprobs":true}' }) });
@@ -111,6 +112,9 @@ describe("hook execution paths", () => {
     expect(hook.apiFormat).toBe("messages");
     expect(hook.streamEnabled).toBe(false);
     expect(hook.requestOptionsJson).toBe('{"logprobs":true}');
+    expect(hook.thinkingEnabled).toBe(false);
+    callback({ exists: () => true, data: () => ({ thinkingEnabled: true }) });
+    expect(renderHook().thinkingEnabled).toBe(true);
   });
 
   it("hydrates attachment drafts without erasing them and removes the draft after save", async () => {

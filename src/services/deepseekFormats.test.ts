@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildDeepseekRequest, callDeepseekFimServer, streamDeepseek, type ChatCompletionMessageParam } from "./deepseek";
 import { completionChunk, NativeStreamConverter } from "./deepseekFormats";
-import { labCurl, validateApiBody } from "./deepseekApi";
+import { defaultLabBody, labCurl, validateApiBody } from "./deepseekApi";
 
 const tools = [{ type: "function", function: { name: "lookup", parameters: { type: "object" } } }];
 const history: ChatCompletionMessageParam[] = [
@@ -14,6 +14,19 @@ const history: ChatCompletionMessageParam[] = [
 afterEach(() => vi.unstubAllGlobals());
 
 describe("request format conversion", () => {
+  it.each(["chat", "responses", "messages"] as const)("defaults Thinking off and honors explicit on for %s", apiFormat => {
+    const off = buildDeepseekRequest([], "deepseek-flash", { apiFormat }).body;
+    const on = buildDeepseekRequest([], "deepseek-flash", { apiFormat, thinkingEnabled: true }).body;
+    if (apiFormat === "responses") {
+      expect(off.reasoning).toEqual({ effort: "none" });
+      expect(on.reasoning).toEqual({ effort: "high" });
+    } else {
+      expect(off.thinking).toEqual({ type: "disabled" });
+      expect(on.thinking).toEqual({ type: "enabled" });
+    }
+    const example = defaultLabBody(apiFormat === "chat" ? "vision" : apiFormat);
+    expect(apiFormat === "responses" ? example.reasoning : example.thinking).toEqual(apiFormat === "responses" ? { effort: "none" } : { type: "disabled" });
+  });
   it("converts reasoning and tool calls to stateless Responses input", () => {
     const { body, endpoint } = buildDeepseekRequest(history, "deepseek-flash", { apiFormat: "responses", thinkingEnabled: false, maxTokens: 200 }, { tools, toolChoice: "lookup" });
     expect(endpoint).toBe("responses");
@@ -36,7 +49,7 @@ describe("request format conversion", () => {
   it("protects canonical request fields and preserves builtin tools", () => {
     expect(() => buildDeepseekRequest([], "deepseek-flash", { extraBody: { messages: [] } })).toThrow(/reserved/i);
     expect(buildDeepseekRequest([], "deepseek-v4-pro", { apiFormat: "responses" }, { tools: [{ type: "web_search" }] }).body.tools).toEqual([{ type: "web_search" }]);
-    expect(() => buildDeepseekRequest([], "deepseek-flash", {}, { tools, toolChoice: "required" })).toThrow(/Thinking/);
+    expect(() => buildDeepseekRequest([], "deepseek-flash", { thinkingEnabled: true }, { tools, toolChoice: "required" })).toThrow(/Thinking/);
   });
   it("matches beta URL in generated curl", () => {
     const request = buildDeepseekRequest([{ role: "assistant", content: "start", prefix: true }]);

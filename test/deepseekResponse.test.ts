@@ -9,6 +9,6 @@ describe("DeepSeek completion preservation", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(await callDeepseekCompletion("test-key", [{ role: "user", content: "hi" }], "deepseek-flash")).toMatchObject(completion);
     expect(await callDeepseekServer("test-key", [{ role: "user", content: "hi" }])).toBe("result");
-    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toHaveProperty("thinking", { type: "enabled" });
+    expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toHaveProperty("thinking", { type: "disabled" });
   });
 });

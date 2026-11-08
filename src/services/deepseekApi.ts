@@ -20,9 +20,9 @@ function list(value: unknown): unknown[] { return Array.isArray(value) ? value :
 function string(value: unknown): string { return typeof value === "string" ? value : ""; }
 
 export function defaultLabBody(endpoint: LabEndpoint, model: LabModel = "deepseek-flash"): JsonObject {
-  if (endpoint === "responses") return { model, instructions: "You are a concise, helpful assistant.", input: "Explain prompt caching in two sentences.", max_output_tokens: 1024, stream: true };
-  if (endpoint === "messages") return { model, system: "You are a concise, helpful assistant.", messages: [{ role: "user", content: [{ type: "text", text: "Explain prompt caching in two sentences." }] }], max_tokens: 1024, stream: true };
-  return { model: "deepseek-flash", messages: [{ role: "user", content: [{ type: "text", text: "Describe this image and read any visible text." }, { type: "image_url", image_url: { url: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg", detail: "auto" } }] }], max_tokens: 1024, stream: true, stream_options: { include_usage: true } };
+  if (endpoint === "responses") return { model, reasoning: { effort: "none" }, instructions: "You are a concise, helpful assistant.", input: "Explain prompt caching in two sentences.", max_output_tokens: 1024, stream: true };
+  if (endpoint === "messages") return { model, thinking: { type: "disabled" }, system: "You are a concise, helpful assistant.", messages: [{ role: "user", content: [{ type: "text", text: "Explain prompt caching in two sentences." }] }], max_tokens: 1024, stream: true };
+  return { model: "deepseek-flash", thinking: { type: "disabled" }, messages: [{ role: "user", content: [{ type: "text", text: "Describe this image and read any visible text." }, { type: "image_url", image_url: { url: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg", detail: "auto" } }] }], max_tokens: 1024, stream: true, stream_options: { include_usage: true } };
 }
 
 export function parseLabBody(source: string): JsonObject {
