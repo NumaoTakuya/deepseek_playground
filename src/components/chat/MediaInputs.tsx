@@ -80,13 +80,14 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
     </Box>
     {error && <Alert severity="error">{error}</Alert>}
     {notice && <Alert severity="success">{safe(notice)}</Alert>}
-    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 1.5, alignItems: "start", "@container (min-width: 480px)": { gridTemplateColumns: "minmax(0, 1fr) 180px auto" } }}>
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-start" }}>
       <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked}
-        sx={{ height: 40, minWidth: 0, justifyContent: "flex-start" }}>
+        sx={{ height: 40, width: 168, maxWidth: "100%", minWidth: 0, justifyContent: "flex-start" }}>
         <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{upload ? safe(upload.name) : "Choose image"}</Box>
         <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { setUpload(e.target.files?.[0]); e.target.value = ""; }} />
       </Button>
       <TextField label="Expiry (seconds)" size="small" type="number" disabled={locked} value={expiry}
+        sx={{ width: 156, maxWidth: "100%" }}
         onChange={e => setExpiry(e.target.value)} helperText="3600-2592000; blank = permanent"
         slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 3600, max: 2592000 } }} />
       <Button variant="contained" startIcon={<UploadFile />} disabled={locked || !upload || !apiKey.trim()} onClick={() => void action("upload")} sx={{ height: 40 }}>Upload</Button>
@@ -160,8 +161,8 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
 
   return <Stack spacing={2.5} sx={{ ...mediaControlsSx, pt: 1.5 }}>
     {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
-    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 2, "@container (min-width: 360px)": { gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)" } }}>
-      <TextField select fullWidth size="small" label="Image source" value={mode} disabled={locked}
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+      <TextField select size="small" label="Image source" value={mode} disabled={locked} sx={{ width: 180, maxWidth: "100%" }}
         slotProps={{ select: { MenuProps: mediaMenuProps } }}
         onChange={e => { setMode(e.target.value); setValue(""); }}>
         <MenuItem value="url">Public URL</MenuItem>
@@ -169,7 +170,7 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
         <MenuItem value="upload">Local upload</MenuItem>
         {allowInline && <MenuItem value="inline">Local inline image</MenuItem>}
       </TextField>
-      <TextField select fullWidth size="small" label="Detail" value={detail}
+      <TextField select size="small" label="Detail" value={detail} sx={{ width: 112, maxWidth: "100%" }}
         slotProps={{ select: { MenuProps: mediaMenuProps } }}
         disabled={locked || mode === "file" || mode === "upload"}
         onChange={e => setDetail(e.target.value as AttachmentDetail)}>
@@ -182,7 +183,7 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
         <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { void local(e.target.files?.[0]); e.target.value = ""; }} />
       </Button>
     ) : (
-      <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 40px", gap: 1, alignItems: "center" }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 40px", width: 408, maxWidth: "100%", gap: 1, alignItems: "center" }}>
         <TextField fullWidth size="small" label={mode === "file" ? "File ID" : "Image URL"} disabled={locked} value={value} onChange={e => setValue(e.target.value)} />
         <Tooltip title="Attach image"><span><IconButton aria-label="Attach image" disabled={locked || !value.trim()} onClick={attachReference}
           sx={{ width: 40, height: 40, border: "1px solid var(--color-border)", borderRadius: 1 }}><Add /></IconButton></span></Tooltip>
