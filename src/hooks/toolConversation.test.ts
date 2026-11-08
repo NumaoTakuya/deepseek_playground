@@ -106,15 +106,17 @@ describe("hook execution paths", () => {
     expect(renderHook().thinkingEnabled).toBe(false);
     mocks.effects.find((effect) => effect.toString().includes("settingsThreadRef.current = null"))!();
     const callback = vi.mocked(onSnapshot).mock.calls.at(-1)![1] as unknown as (snapshot: unknown) => void;
-    callback({ exists: () => true, data: () => ({ apiFormat: "messages", streamEnabled: false, requestOptionsJson: '{"logprobs":true}' }) });
+    callback({ exists: () => true, data: () => ({ apiFormat: "messages", streamEnabled: false, webSearchEnabled: true, requestOptionsJson: '{"logprobs":true}' }) });
     const hook = renderHook();
     expect(hook.settingsLoaded).toBe(true);
     expect(hook.apiFormat).toBe("messages");
     expect(hook.streamEnabled).toBe(false);
+    expect(hook.webSearchEnabled).toBe(true);
     expect(hook.requestOptionsJson).toBe('{"logprobs":true}');
     expect(hook.thinkingEnabled).toBe(false);
     callback({ exists: () => true, data: () => ({ thinkingEnabled: true }) });
     expect(renderHook().thinkingEnabled).toBe(true);
+    expect(renderHook().webSearchEnabled).toBe(false);
   });
 
   it("hydrates attachment drafts without erasing them and removes the draft after save", async () => {
@@ -132,6 +134,32 @@ describe("hook execution paths", () => {
     await hook.handleSend();
     expect(localStorage.removeItem).toHaveBeenCalledWith("thread-thread-draft-attachments");
     expect(renderHook().attachments).toEqual([]);
+  });
+
+  it.each((["responses", "messages"] as const).flatMap(format => ["send", "edit", "regenerate"].map(path => ({ format, path }))))("preserves official server search without client execution through $format / $path", async ({ format, path }) => {
+    let hook = renderHook();
+    expect(hook.webSearchEnabled).toBe(false);
+    mocks.states[0] = [{ id: "u", role: "user", content: "news" }, { id: "a", role: "assistant", content: "base" }];
+    hook.setModel("deepseek-v4-pro");
+    hook.setApiFormat(format);
+    hook.setWebSearchEnabled(true);
+    hook.setInput("news");
+    const native = format === "responses" ? { format, output: [{ type: "web_search_call", id: "s1", status: "completed" }] } : { format, content: [{ type: "server_tool_use", id: "s1", name: "web_search", input: { query: "news" } }, { type: "web_search_tool_result", tool_use_id: "s1", content: [] }] };
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    mocks.stream.mockImplementation(async () => ({ abort: vi.fn(), async *[Symbol.asyncIterator]() {
+      yield { choices: [{ delta: { content: "Server answer" }, finish_reason: "stop" }], provider_data: native };
+    } }));
+    hook = renderHook();
+    if (path === "send") await hook.handleSend();
+    if (path === "edit") await hook.handleEditMessage("u", "news");
+    if (path === "regenerate") await hook.handleRegenerateMessage("a");
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(mocks.stream.mock.calls[0][3]).toMatchObject({ apiFormat: format, webSearchEnabled: true });
+    expect(fetch).not.toHaveBeenCalled();
+    const saved = mocks.update.mock.calls.at(-1)![7];
+    expect(saved).toHaveLength(1);
+    expect(saved[0].provider_data).toEqual(native);
   });
 
   it("retains draft attachments and text when saving the user message fails", async () => {

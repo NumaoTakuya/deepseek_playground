@@ -36,6 +36,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SettingsIcon from "@mui/icons-material/Settings";
 import MediaInputs, { mediaDialogPaperSx } from "./MediaInputs";
 import ApiSettingsFields from "./ApiSettingsFields";
+import ServerSearchSetting from "./ServerSearchSetting";
 import { buildDeepseekRequest } from "../../services/deepseek";
 import type { ChatCompletionMessageParam } from "../../services/deepseek";
 import { labCurl } from "../../services/deepseekLab";
@@ -89,6 +90,8 @@ export default function ChatWindow({ threadId }: Props) {
     setApiFormat,
     streamEnabled: isStreamEnabled,
     setStreamEnabled: setIsStreamEnabled,
+    webSearchEnabled,
+    setWebSearchEnabled,
     requestOptionsJson,
     setRequestOptionsJson,
     attachments,
@@ -309,7 +312,7 @@ export default function ChatWindow({ threadId }: Props) {
     try {
       const extraBody = parseDeepseekOptions(requestOptionsJson);
       return { ...buildDeepseekRequest(conversationForSnippet, model, {
-        apiFormat, stream: isStreamEnabled, thinkingEnabled, reasoningEffort,
+        apiFormat, stream: isStreamEnabled, thinkingEnabled, reasoningEffort, webSearchEnabled,
         frequencyPenalty, presencePenalty, temperature, topP, maxTokens, extraBody,
       }, {
         tools: toolsForSnippet, strict: toolsStrict, toolChoice,
@@ -321,7 +324,7 @@ export default function ChatWindow({ threadId }: Props) {
         error: error instanceof Error ? error.message : "Invalid request" };
     }
   }, [conversationForSnippet, model, apiFormat, isStreamEnabled, thinkingEnabled,
-    reasoningEffort, frequencyPenalty, presencePenalty, temperature, topP, maxTokens,
+    reasoningEffort, webSearchEnabled, frequencyPenalty, presencePenalty, temperature, topP, maxTokens,
     requestOptionsJson, toolsForSnippet, toolsStrict, toolChoice, jsonOutput, stopSequences, useBeta]);
   const chatPayloadObject = chatRequest.body;
 
@@ -1317,6 +1320,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                     </IconButton>
                   </Box>
                   <Collapse in={showToolsBox} timeout={200} unmountOnExit>
+                    <ServerSearchSetting model={model} apiFormat={apiFormat} enabled={webSearchEnabled} onChange={setWebSearchEnabled} disabled={assistantThinking || fimActive} />
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                       <InputLabel id="thread-tool-choice-label">tool_choice</InputLabel>
                       <Select labelId="thread-tool-choice-label" label="tool_choice" value={toolChoice} onChange={(event) => setToolChoice(event.target.value)}>

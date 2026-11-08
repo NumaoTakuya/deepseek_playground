@@ -14,6 +14,21 @@ const history: ChatCompletionMessageParam[] = [
 afterEach(() => vi.unstubAllGlobals());
 
 describe("request format conversion", () => {
+  it.each(["responses", "messages"] as const)("uses only the documented server search declaration for %s", apiFormat => {
+    const request = buildDeepseekRequest([{ role: "user", content: "news" }], "deepseek-v4-pro", { apiFormat, webSearchEnabled: true }, { tools });
+    expect(request.body.tools).toContainEqual(apiFormat === "responses" ? { type: "web_search" } : { type: "web_search_20250305", name: "web_search" });
+    expect(request.body.tools).toHaveLength(2);
+    const off = buildDeepseekRequest([], "deepseek-v4-pro", { apiFormat });
+    expect(off.body.tools).toBeUndefined();
+    const unsupported = buildDeepseekRequest([], "deepseek-flash", { apiFormat, webSearchEnabled: true });
+    if (apiFormat === "responses") expect(unsupported.body.tools).toBeUndefined();
+    else expect(unsupported.body.tools).toEqual([{ type: "web_search_20250305", name: "web_search" }]);
+  });
+  it("does not add search to Chat Completions or rewrite native Messages server tools", () => {
+    expect(buildDeepseekRequest([], "deepseek-v4-pro", { webSearchEnabled: true }).body.tools).toBeUndefined();
+    const native = { type: "web_search_20250305", name: "web_search", max_uses: 1 };
+    expect(buildDeepseekRequest([], "deepseek-v4-pro", { apiFormat: "messages", webSearchEnabled: true }, { tools: [native] }).body.tools).toEqual([native]);
+  });
   it.each(["chat", "responses", "messages"] as const)("defaults Thinking off and honors explicit on for %s", apiFormat => {
     const off = buildDeepseekRequest([], "deepseek-flash", { apiFormat }).body;
     const on = buildDeepseekRequest([], "deepseek-flash", { apiFormat, thinkingEnabled: true }).body;
@@ -67,6 +82,37 @@ describe("request format conversion", () => {
 });
 
 describe("lossless native stream roundtrips", () => {
+  it("preserves Anthropic server search blocks without requesting client tool execution", () => {
+    const converter = new NativeStreamConverter("messages", "deepseek-v4-pro");
+    const events = [
+      { type: "message_start", message: { id: "m1", content: [], usage: {} } },
+      { type: "content_block_start", index: 0, content_block: { type: "server_tool_use", id: "s1", name: "web_search", input: {}, caller: { type: "direct" } } },
+      { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: '{"query":"news"}' } },
+      { type: "content_block_stop", index: 0 },
+      { type: "content_block_start", index: 1, content_block: { type: "web_search_tool_result", tool_use_id: "s1", content: [{ title: "Source", url: "https://example.com" }] } },
+      { type: "content_block_start", index: 2, content_block: { type: "text", text: "Answer" } },
+      { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { server_tool_use: { tool_search: 1, web_search_requests: 1 } } },
+      { type: "message_stop" },
+    ];
+    const chunks = events.flatMap(event => converter.convert(event, event.type));
+    expect(chunks.every(chunk => !chunk.choices[0]?.delta.tool_calls)).toBe(true);
+    const final = chunks.at(-1)!;
+    expect(final.provider_data?.content).toContainEqual(expect.objectContaining({ type: "server_tool_use", input: { query: "news" } }));
+    expect(final.provider_data?.content).toContainEqual(expect.objectContaining({ type: "web_search_tool_result" }));
+    const replay = buildDeepseekRequest([{ role: "assistant", content: "Answer", provider_data: final.provider_data }], "deepseek-v4-pro", { apiFormat: "messages", webSearchEnabled: true });
+    expect(JSON.stringify(replay.body.messages)).toContain("web_search_tool_result");
+    expect(final.usage).toHaveProperty("server_tool_use.tool_search", 1);
+  });
+  it("preserves Responses server search output and usage for replay", () => {
+    const converter = new NativeStreamConverter("responses", "deepseek-v4-pro");
+    const output = [{ type: "web_search_call", id: "s1", status: "completed", action: { type: "search", query: "news" } }, { type: "message", content: [{ type: "output_text", text: "Answer" }] }];
+    const chunks = converter.convert({ type: "response.completed", response: { id: "r1", status: "completed", output, usage: { server_tool_use: { tool_search: 1, tool_fetch: 0 } } } }, "response.completed");
+    const final = chunks.at(-1)!;
+    expect(final.choices[0].delta.tool_calls).toBeUndefined();
+    expect(final.provider_data?.output).toEqual(output);
+    expect(buildDeepseekRequest([{ role: "assistant", content: "Answer", provider_data: final.provider_data }], "deepseek-v4-pro", { apiFormat: "responses" }).body.input).toEqual(output);
+    expect(final.usage).toHaveProperty("server_tool_use.tool_search", 1);
+  });
   it("retains Anthropic thinking signatures and complete tool JSON", () => {
     const c = new NativeStreamConverter("messages", "deepseek-flash");
     const send = (p: Record<string, unknown>) => c.convert(p, String(p.type));

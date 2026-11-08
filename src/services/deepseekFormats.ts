@@ -1,6 +1,6 @@
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources/chat/completions";
 import type { ChatCompletionMessageParam, DeepseekParameters, DeepseekToolConfig } from "./deepseek";
-import { mapDeepseekParameters, resolveToolChoice, validateDeepseekOptions } from "./deepseekRequest";
+import { mapDeepseekParameters, resolveToolChoice, supportsServerSearch, validateDeepseekOptions } from "./deepseekRequest";
 import { LAB_BASE, LAB_PATHS, validateVisionBody, validateApiBody, type JsonObject, type LabEndpoint } from "./deepseekApi";
 
 export type ApiFormat = "chat" | "responses" | "messages";
@@ -44,7 +44,12 @@ export function buildDeepseekRequest(messages: ChatCompletionMessageParam[], mod
   }
   validateVisionBody({ model, messages });
   const mapped = mapDeepseekParameters(model, parameters);
-  const tools = toolConfig.tools ?? [];
+  const tools = [...(toolConfig.tools ?? [])];
+  if (parameters.webSearchEnabled && supportsServerSearch(model, format)) {
+    if (!tools.some(t => ["web_search", "web_search_20250305", "web_search_20260209"].includes(str(obj(t).type)))) {
+      tools.push(format === "responses" ? { type: "web_search" } : { type: "web_search_20250305", name: "web_search" });
+    }
+  }
   const choice = tools.length ? resolveToolChoice(model, parameters.thinkingEnabled, toolConfig.toolChoice) : undefined;
   const body: JsonObject = { model, ...mapped, stream: parameters.stream !== false };
   if (format === "chat") {
@@ -101,7 +106,7 @@ export function buildDeepseekRequest(messages: ChatCompletionMessageParam[], mod
         else nativeMessages.push({ role, content });
       }
       body.messages = nativeMessages;
-      if (tools.length) { body.tools = tools.map(t => { const f = obj(obj(t).function); return { name: f.name, description: f.description, input_schema: f.parameters }; }); body.tool_choice = typeof choice === "string" ? { type: choice === "required" ? "any" : choice } : { type: "tool", name: obj(obj(choice).function).name }; }
+      if (tools.length) { body.tools = tools.map(t => { if (obj(t).type !== "function") return t; const f = obj(obj(t).function); return { name: f.name, description: f.description, input_schema: f.parameters }; }); body.tool_choice = typeof choice === "string" ? { type: choice === "required" ? "any" : choice } : { type: "tool", name: obj(obj(choice).function).name }; }
       if (toolConfig.responseFormat) throw new Error("JSON response format is not supported by the Messages API.");
       if (toolConfig.stop?.length) body.stop_sequences = toolConfig.stop;
     }
@@ -189,13 +194,14 @@ export class NativeStreamConverter {
         if (block.type === "text") { delta.content = str(block.text); this.text += str(block.text); }
         if (block.type === "thinking") { delta.reasoning_content = str(block.thinking); this.reasoning += str(block.thinking); }
         if (block.type === "tool_use") { const ti = this.toolIndexes.size; this.toolIndexes.set(index, ti); this.toolIds.set(str(block.id), index); this.arguments.set(index, ""); delta.tool_calls = [{ index: ti, id: block.id, type: "function", function: { name: block.name, arguments: "" } }]; }
+        if (block.type === "server_tool_use") this.arguments.set(index, "");
       }
       if (type === "content_block_delta") {
         const d = obj(p.delta), block = obj(blocks[index]);
         if (d.type === "text_delta") { block.text = str(block.text) + str(d.text); delta.content = d.text; this.text += str(d.text); }
         if (d.type === "thinking_delta") { block.thinking = str(block.thinking) + str(d.thinking); delta.reasoning_content = d.thinking; this.reasoning += str(d.thinking); }
         if (d.type === "signature_delta") block.signature = str(block.signature) + str(d.signature);
-        if (d.type === "input_json_delta") { const args = (this.arguments.get(index) ?? "") + str(d.partial_json); this.arguments.set(index, args); delta.tool_calls = [{ index: this.toolIndexes.get(index) ?? index, function: { arguments: str(d.partial_json) } }]; }
+        if (d.type === "input_json_delta" && (block.type === "tool_use" || block.type === "server_tool_use")) { const args = (this.arguments.get(index) ?? "") + str(d.partial_json); this.arguments.set(index, args); if (block.type === "tool_use") delta.tool_calls = [{ index: this.toolIndexes.get(index) ?? index, function: { arguments: str(d.partial_json) } }]; }
       }
       if (type === "content_block_stop" && this.arguments.has(index)) { const args = this.arguments.get(index); if (args) obj(blocks[index]).input = JSON.parse(args); }
       if (type === "message_delta") { Object.assign(this.native, obj(p.delta)); this.native.usage = { ...obj(this.native.usage), ...obj(p.usage) }; }

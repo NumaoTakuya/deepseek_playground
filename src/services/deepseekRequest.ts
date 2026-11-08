@@ -24,6 +24,7 @@ export function resolveToolChoice(model: string, thinkingEnabled: boolean | unde
 }
 
 export type DeepseekParameters = {
+  webSearchEnabled?: boolean;
   apiFormat?: "chat" | "responses" | "messages";
   stream?: boolean;
   extraBody?: Record<string, unknown>;
@@ -35,6 +36,10 @@ export type DeepseekParameters = {
   thinkingEnabled?: boolean;
   reasoningEffort?: "low" | "high" | "max";
 };
+
+export function supportsServerSearch(model: string, apiFormat: string): boolean {
+  return (apiFormat === "messages" && isCurrentModel(model)) || (apiFormat === "responses" && model === "deepseek-v4-pro");
+}
 
 export function mapDeepseekParameters(model: string, p: DeepseekParameters = {}) {
   const current = isCurrentModel(model);

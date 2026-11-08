@@ -115,6 +115,7 @@ export function useChatWindow(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [apiFormat, setApiFormat] = useState<"chat" | "responses" | "messages">("chat");
   const [streamEnabled, setStreamEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [requestOptionsJson, setRequestOptionsJson] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [settingsLoadedThread, setSettingsLoadedThread] = useState<string | null>(null);
@@ -135,7 +136,7 @@ export function useChatWindow(
   }, [defaultMaxTokens, maxTokens, maxTokensLimit]);
 
   const settingsRef = useRef({
-    apiFormat, streamEnabled, requestOptionsJson,
+    apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
     model,
     frequencyPenalty,
     presencePenalty,
@@ -302,7 +303,7 @@ export function useChatWindow(
 
   useEffect(() => {
     settingsRef.current = {
-      apiFormat, streamEnabled, requestOptionsJson,
+      apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
       model,
       frequencyPenalty,
       presencePenalty,
@@ -332,7 +333,7 @@ export function useChatWindow(
     }, 500);
     return () => clearTimeout(timeout);
   }, [
-    apiFormat, streamEnabled, requestOptionsJson,
+    apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
     threadId,
     model,
     frequencyPenalty,
@@ -573,6 +574,7 @@ export function useChatWindow(
     const chatStream = await streamDeepseek(apiKey, conversation, modelName, {
       ...parameters,
       apiFormat: requestSettings.apiFormat,
+      webSearchEnabled: requestSettings.webSearchEnabled,
       stream: requestSettings.streamEnabled,
       extraBody: parseRequestOptions(requestSettings.requestOptionsJson),
     }, toolConfig);
@@ -701,6 +703,7 @@ export function useChatWindow(
           title?: string;
           apiFormat?: "chat" | "responses" | "messages";
           streamEnabled?: boolean;
+          webSearchEnabled?: boolean;
           requestOptionsJson?: string;
           model?: string;
           thinkingEnabled?: boolean;
@@ -728,6 +731,7 @@ export function useChatWindow(
         setModel(data.model ?? "deepseek-chat");
         setApiFormat(data.apiFormat ?? "chat");
         setStreamEnabled(data.streamEnabled ?? true);
+        setWebSearchEnabled(data.webSearchEnabled ?? false);
         setRequestOptionsJson(data.requestOptionsJson ?? "");
         setSettingsLoadedThread(threadId);
         setThinkingEnabled(data.thinkingEnabled ?? false);
@@ -1016,7 +1020,7 @@ export function useChatWindow(
       ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
-        apiFormat, streamEnabled, requestOptionsJson,
+        apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
         frequencyPenalty,
         presencePenalty,
         temperature,
@@ -1367,7 +1371,7 @@ export function useChatWindow(
     try {
       const newThreadId = await createThread(userId, branchTitle);
       await updateDoc(doc(db, "threads", newThreadId), {
-        apiFormat, streamEnabled, requestOptionsJson,
+        apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
         parentThreadId: threadId,
         branchFromMessageId: messageId,
         branchFromTitle: threadTitle,
@@ -1665,7 +1669,7 @@ export function useChatWindow(
       void ensureSystemPromptTokenCount(systemPrompt);
 
       await updateDoc(doc(db, "threads", threadId), {
-        apiFormat, streamEnabled, requestOptionsJson,
+        apiFormat, streamEnabled, requestOptionsJson, webSearchEnabled,
         model,
         frequencyPenalty,
         presencePenalty,
@@ -1755,6 +1759,7 @@ export function useChatWindow(
     settingsLoaded: settingsLoadedThread === threadId,
     apiFormat, setApiFormat,
     streamEnabled, setStreamEnabled,
+    webSearchEnabled, setWebSearchEnabled,
     requestOptionsJson, setRequestOptionsJson,
     attachments, setAttachments,
     messages,
