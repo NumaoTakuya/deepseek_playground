@@ -36,6 +36,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SettingsIcon from "@mui/icons-material/Settings";
 import MediaInputs, { mediaDialogPaperSx } from "./MediaInputs";
 import ApiSettingsFields from "./ApiSettingsFields";
+import BuiltinTools from "./BuiltinTools";
+import { withSearchTools } from "../../services/deepseekSearch";
 import { buildDeepseekRequest } from "../../services/deepseek";
 import type { ChatCompletionMessageParam } from "../../services/deepseek";
 import { labCurl } from "../../services/deepseekLab";
@@ -89,6 +91,8 @@ export default function ChatWindow({ threadId }: Props) {
     setApiFormat,
     streamEnabled: isStreamEnabled,
     setStreamEnabled: setIsStreamEnabled,
+    searchEnabled,
+    setSearchEnabled,
     requestOptionsJson,
     setRequestOptionsJson,
     attachments,
@@ -234,18 +238,18 @@ export default function ChatWindow({ threadId }: Props) {
     });
   };
 
+  const fimActive = fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
   const toolsForSnippet = useMemo(() => {
     const trimmed = toolsJson.trim();
-    if (!trimmed) return undefined;
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed = trimmed ? JSON.parse(trimmed) : [];
       if (!Array.isArray(parsed)) return undefined;
-      const adjusted = applyStrictToTools(parsed, toolsStrict);
+      const adjusted = applyStrictToTools(withSearchTools(parsed, searchEnabled && !fimActive), toolsStrict);
       return adjusted.length > 0 ? adjusted : undefined;
     } catch {
       return undefined;
     }
-  }, [toolsJson, toolsStrict]);
+  }, [toolsJson, toolsStrict, searchEnabled, fimActive]);
 
   const toolNames = useMemo(() => (toolsForSnippet ?? []).flatMap((tool) => {
     if (!tool || typeof tool !== "object" || !("function" in tool)) return [];
@@ -302,7 +306,6 @@ export default function ChatWindow({ threadId }: Props) {
     return last?.content ?? "";
   }, [messages]);
 
-  const fimActive = fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
   const normalizedFimMaxTokens = Math.min(4096, Math.max(1, fimMaxTokens));
 
   const chatRequest = useMemo(() => {
@@ -1317,6 +1320,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                     </IconButton>
                   </Box>
                   <Collapse in={showToolsBox} timeout={200} unmountOnExit>
+                    <BuiltinTools searchEnabled={searchEnabled} onSearchChange={setSearchEnabled} disabled={assistantThinking || fimActive} />
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                       <InputLabel id="thread-tool-choice-label">tool_choice</InputLabel>
                       <Select labelId="thread-tool-choice-label" label="tool_choice" value={toolChoice} onChange={(event) => setToolChoice(event.target.value)}>

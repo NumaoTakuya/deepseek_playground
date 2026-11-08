@@ -106,15 +106,17 @@ describe("hook execution paths", () => {
     expect(renderHook().thinkingEnabled).toBe(false);
     mocks.effects.find((effect) => effect.toString().includes("settingsThreadRef.current = null"))!();
     const callback = vi.mocked(onSnapshot).mock.calls.at(-1)![1] as unknown as (snapshot: unknown) => void;
-    callback({ exists: () => true, data: () => ({ apiFormat: "messages", streamEnabled: false, requestOptionsJson: '{"logprobs":true}' }) });
+    callback({ exists: () => true, data: () => ({ apiFormat: "messages", streamEnabled: false, searchEnabled: true, requestOptionsJson: '{"logprobs":true}' }) });
     const hook = renderHook();
     expect(hook.settingsLoaded).toBe(true);
     expect(hook.apiFormat).toBe("messages");
     expect(hook.streamEnabled).toBe(false);
+    expect(hook.searchEnabled).toBe(true);
     expect(hook.requestOptionsJson).toBe('{"logprobs":true}');
     expect(hook.thinkingEnabled).toBe(false);
     callback({ exists: () => true, data: () => ({ thinkingEnabled: true }) });
     expect(renderHook().thinkingEnabled).toBe(true);
+    expect(renderHook().searchEnabled).toBe(false);
   });
 
   it("hydrates attachment drafts without erasing them and removes the draft after save", async () => {
@@ -132,6 +134,32 @@ describe("hook execution paths", () => {
     await hook.handleSend();
     expect(localStorage.removeItem).toHaveBeenCalledWith("thread-thread-draft-attachments");
     expect(renderHook().attachments).toEqual([]);
+  });
+
+  it.each((["chat", "responses", "messages"] as const).flatMap((format) => ["send", "edit", "regenerate"].map((path) => ({ format, path }))))("runs built-in search and feeds results back through $format / $path", async ({ format, path }) => {
+    let hook = renderHook();
+    expect(hook.searchEnabled).toBe(false);
+    mocks.states[0] = [{ id: "u", role: "user", content: "news" }, { id: "a", role: "assistant", content: "base" }];
+    hook.setApiFormat(format);
+    hook.setSearchEnabled(true);
+    hook.setInput("news");
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [{ title: "News", url: "https://example.com", summary: "Latest news" }] })));
+    vi.stubGlobal("fetch", fetch);
+    let round = 0;
+    mocks.stream.mockImplementation(async () => {
+      const searching = round++ === 0;
+      return { abort: vi.fn(), async *[Symbol.asyncIterator]() {
+        yield { choices: [{ delta: searching ? { tool_calls: [{ index: 0, id: "search-1", type: "function", function: { name: "deepseek_web_search", arguments: '{"query":"news"}' } }] } : { content: "Answer with source" }, finish_reason: searching ? "tool_calls" : "stop" }] };
+      } };
+    });
+    hook = renderHook();
+    if (path === "send") await hook.handleSend();
+    if (path === "edit") await hook.handleEditMessage("u", "news");
+    if (path === "regenerate") await hook.handleRegenerateMessage("a");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.stream).toHaveBeenCalledTimes(2);
+    expect(mocks.stream.mock.calls[0][4].tools).toEqual(expect.arrayContaining([expect.objectContaining({ function: expect.objectContaining({ name: "deepseek_web_search" }) })]));
+    expect(mocks.stream.mock.calls[1][1]).toEqual(expect.arrayContaining([expect.objectContaining({ role: "tool", tool_call_id: "search-1", content: expect.stringContaining("Latest news") })]));
   });
 
   it("retains draft attachments and text when saving the user message fails", async () => {
