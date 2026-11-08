@@ -16,6 +16,8 @@ An **unofficial DeepSeek API verification tool** with persistent chat and an API
 - **Durable tool reasoning** retained with tool-call history for subsequent requests, including repeated tool rounds (maximum 8)
 - **Usage/raw inspector** for API-reported usage and raw response data, alongside token estimates
 - **API Lab** at `/api-lab` for Responses, Messages, Vision, and Files workflows
+- **Chat API formats**: Chat Completions, Responses, and Anthropic Messages, with real streaming/non-streaming selection and additional JSON parameters
+- **Chat images and Files**: attach image URLs or hosted file IDs, upload local images, and manage provider-hosted files from the conversation
 - **Output limits**: current-model chat output up to **393216** tokens; FIM output up to **4096** tokens (not a guarantee of generated length)
 - **Google Login** via Firebase Authentication
 - **Chat UI** with system/user/assistant roles
@@ -76,6 +78,18 @@ yarn dev
 6. Select a current model, adjust Thinking and reasoning effort, and inspect usage/raw data after a request. For forced tool calls, turn Thinking off first.
 7. Open `/api-lab` to edit request JSON for Responses (`/responses`), Messages (`/anthropic/v1/messages`), or Vision (`/chat/completions`, `deepseek-flash`). Inspect streamed events or non-streaming results, usage, and raw data; use Files (`/files`) to upload, list, or delete images and reuse file IDs in Vision requests.
 
+The same API formats and image/file controls are available in chat. Choose the format when creating a thread, use the attachment button for images and Files, and use the right pane for request settings. Local chat images are uploaded to DeepSeek Files; conversation history stores file references instead of inline image data. Images require `deepseek-flash`. Native reasoning/tool history stays in its original API format; use a new thread when changing formats after receiving native responses.
+
+## Shared API Implementation
+
+- `src/services/deepseekApi.ts`: HTTP execution, endpoints, validation, SSE parsing, Files, and raw response helpers shared by chat and API Lab
+- `src/services/deepseekFormats.ts`: request conversion and native response/tool/reasoning adapters for the three API formats
+- `src/services/deepseekRequest.ts`: model parameters and additional-option validation
+- `src/components/chat/MediaInputs.tsx`: image attachments and Files management shared by both screens
+- `src/hooks/useChatWindow.ts`: conversation persistence and generation workflow; `src/pages/api-lab.tsx`: raw JSON editing
+
+`deepseekLab.ts` remains a compatibility re-export; it does not implement a second transport.
+
 ## Security Note
 
 - The Firebase config in `src/services/firebase.ts` is typically “public” for a web app.
@@ -92,6 +106,7 @@ yarn dev
 - Added Thinking controls with `low` / `high` / `max` effort and enforced `tool_choice` constraints for Thinking
 - Preserved tool reasoning across saved history and repeated tool rounds, with a maximum of 8 rounds
 - Added usage/raw inspection and `/api-lab` workflows for Responses, Messages, Vision, and Files
+- Made all three API formats, image attachments, and Files available in chat, using the same transport and media components as API Lab
 - Set current-model maximum chat output to 393216 tokens and FIM maximum output to 4096 tokens
 - Updated dependencies and applied security patches without claiming complete protection
 
