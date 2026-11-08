@@ -21,6 +21,7 @@ export interface Thread {
 
 // チャットメッセージの型を定義したい場合
 export interface Message {
+  attachments?: import("../services/deepseekAttachments").Attachment[];
   api_messages?: import("../services/deepseek").ChatCompletionMessageParam[];
   id: string; // FirestoreドキュメントのID
   threadId: string; // どのThreadに属するか

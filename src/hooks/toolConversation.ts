@@ -1,7 +1,16 @@
 import type { ChatCompletionMessageParam } from "../services/deepseek";
 import type { Message } from "../types/index";
+import { attachmentBlocks } from "../services/deepseekAttachments";
+
+export { parseDeepseekOptions as parseRequestOptions } from "../services/deepseekRequest";
 
 export function replayMessage(message: Message): ChatCompletionMessageParam[] {
+  if (message.role === "user" && message.attachments?.length) {
+    return [{ role: "user", content: [
+      ...(message.content ? [{ type: "text", text: message.content }] : []),
+      ...attachmentBlocks(message.attachments),
+    ] } as unknown as ChatCompletionMessageParam];
+  }
   if (message.api_messages?.length) return message.api_messages;
   return [{ role: message.role, content: message.content,
     ...(message.role === "assistant" && message.thinking_content != null
@@ -14,6 +23,7 @@ export type ToolPass = {
   partialReasoningContent: string;
   finalFinishReason: string | null;
   toolCalls: ToolCall[];
+  providerData?: { format: string; content?: unknown[]; output?: unknown[] };
 };
 
 export async function runToolConversation(options: {
@@ -44,6 +54,7 @@ export async function runToolConversation(options: {
       role: "assistant",
       content: `${round === 0 ? options.prefix ?? "" : ""}${pass.partialContent}`,
       reasoning_content: pass.partialReasoningContent,
+      ...(pass.providerData ? { provider_data: pass.providerData } : {}),
       ...(pass.toolCalls.length ? { tool_calls: pass.toolCalls } : {}),
     };
     if (conversation.at(-1)?.prefix) conversation.pop();

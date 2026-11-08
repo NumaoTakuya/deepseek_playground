@@ -33,6 +33,7 @@ export async function createMessage(
   finishReason?: string | null,
   meta?: {
     kind?: Message["kind"];
+    attachments?: Message["attachments"];
     branchThreadId?: string;
     branchThreadTitle?: string;
     branchFromMessageId?: string;
@@ -77,6 +78,12 @@ export async function createMessage(
 
     if (apiMessages !== undefined) {
       payload.api_messages = JSON.parse(JSON.stringify(apiMessages));
+    }
+    if (meta?.attachments !== undefined) {
+      if (meta.attachments.some((attachment) => attachment.value.startsWith("data:"))) {
+        throw new Error("Upload local images as provider files before saving messages.");
+      }
+      payload.attachments = JSON.parse(JSON.stringify(meta.attachments));
     }
     const docRef = await addDoc(messagesRef, payload);
 

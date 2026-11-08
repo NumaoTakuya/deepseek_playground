@@ -419,6 +419,12 @@ export default function MessageList({
                   </Box>
                 )}
 
+                {!!msg.attachments?.length && <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+                  {msg.attachments.map((attachment) => <Box key={attachment.id} sx={{ maxWidth: "100%", overflowWrap: "anywhere", fontSize: 12 }}>
+                    {attachment.kind === "url" && <Box component="img" src={attachment.value} alt={attachment.name} referrerPolicy="no-referrer" sx={{ display: "block", width: 180, maxWidth: "100%", height: 120, objectFit: "contain" }} />}
+                    {attachment.name}
+                  </Box>)}
+                </Box>}
                 {msg.role === "user" && isEditing ? (
                   <Box sx={{ mt: 0.5 }}>
                     <TextField

@@ -34,6 +34,12 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SettingsIcon from "@mui/icons-material/Settings";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import MediaInputs from "./MediaInputs";
+import { buildDeepseekRequest } from "../../services/deepseek";
+import type { ChatCompletionMessageParam } from "../../services/deepseek";
+import { labCurl } from "../../services/deepseekLab";
+import { parseDeepseekOptions } from "../../services/deepseekRequest";
 import MenuIcon from "@mui/icons-material/Menu";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
@@ -46,7 +52,6 @@ import MessageList from "./MessageList";
 import InputSection from "./InputSection";
 import { useTranslation } from "../../contexts/LanguageContext";
 import { CURRENT_MODELS, getModelLimits, isCurrentModel, estimateModelCost } from "../../services/deepseekModels";
-import { mapDeepseekParameters, resolveToolChoice } from "../../services/deepseekRequest";
 import { replayMessage } from "../../hooks/toolConversation";
 
 interface Props {
@@ -80,6 +85,15 @@ export default function ChatWindow({ threadId }: Props) {
     setReasoningEffort,
     toolChoice,
     setToolChoice,
+    apiFormat,
+    setApiFormat,
+    streamEnabled: isStreamEnabled,
+    setStreamEnabled: setIsStreamEnabled,
+    requestOptionsJson,
+    setRequestOptionsJson,
+    attachments,
+    setAttachments,
+    settingsLoaded,
     toolsJson,
     setToolsJson,
     toolsStrict,
@@ -133,6 +147,11 @@ export default function ChatWindow({ threadId }: Props) {
   };
 
   const [isFirstTime, setIsFirstTime] = useState(true);
+  const [autoSendRequested, setAutoSendRequested] = useState(false);
+  useEffect(() => {
+    setIsFirstTime(true);
+    setAutoSendRequested(localStorage.getItem(`thread-${threadId}-inputValue`) !== null);
+  }, [threadId]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showAdvancedBox, setShowAdvancedBox] = useState(false);
@@ -159,7 +178,7 @@ export default function ChatWindow({ threadId }: Props) {
     window.addEventListener("deepseek:response", receive);
     return () => window.removeEventListener("deepseek:response", receive);
   }, [threadId]);
-  const [isStreamEnabled, setIsStreamEnabled] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
   const scrollToBottomRef = React.useRef<(smooth?: boolean) => void>(() => {});
 
   const sidebarWidth = isMobile ? 0 : isSidebarOpen ? 360 : 48;
@@ -248,15 +267,14 @@ export default function ChatWindow({ threadId }: Props) {
 
   const useBeta = prefixCompletionEnabled || (toolsStrict && !!toolsForSnippet);
 
-  type CodeMessage = { role: string; content: string; prefix?: boolean };
+  type CodeMessage = ChatCompletionMessageParam;
 
-  const conversationForSnippet = useMemo(() => {
+  const conversationForSnippet = useMemo<ChatCompletionMessageParam[]>(() => {
     const trimmedSystemPrompt = systemPrompt.trim();
     const baseMessages: CodeMessage[] = messages
       .filter((m) => m.role !== "system" && m.kind !== "branch_marker")
       .filter((m) => m.api_messages?.length || (m.content && m.content.trim().length > 0))
-      .flatMap(replayMessage)
-      .map((m) => ({ ...m, content: typeof m.content === "string" ? m.content : "" }));
+      .flatMap(replayMessage);
     const seeded =
       trimmedSystemPrompt.length > 0
         ? [{ role: "system" as const, content: trimmedSystemPrompt }, ...baseMessages]
@@ -275,7 +293,7 @@ export default function ChatWindow({ threadId }: Props) {
         },
       ];
     }
-    return [...seeded, { role: "assistant", content: "", prefix: true }];
+    return [...seeded, { role: "assistant" as const, content: "", prefix: true }];
   }, [messages, systemPrompt, prefixCompletionEnabled]);
 
   const lastUserMessage = useMemo(() => {
@@ -287,52 +305,32 @@ export default function ChatWindow({ threadId }: Props) {
   const fimActive = fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
   const normalizedFimMaxTokens = Math.min(4096, Math.max(1, fimMaxTokens));
 
-  const chatPayloadObject = useMemo(() => {
-    const payload: Record<string, unknown> = {
-      model,
-      messages: conversationForSnippet,
-      stream: isStreamEnabled,
-    };
-    Object.assign(payload, mapDeepseekParameters(model, {
-      frequencyPenalty, presencePenalty, temperature, topP, maxTokens,
-      thinkingEnabled, reasoningEffort,
-    }));
-    if (toolsForSnippet) {
-      payload.tools = toolsForSnippet;
-      const forcedChoice = toolChoice !== "auto" && toolChoice !== "none";
-      payload.tool_choice = resolveToolChoice(model, thinkingEnabled,
-        forcedChoice && (model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)) ? "auto" : toolChoice);
+  const chatRequest = useMemo(() => {
+    try {
+      const extraBody = parseDeepseekOptions(requestOptionsJson);
+      return { ...buildDeepseekRequest(conversationForSnippet, model, {
+        apiFormat, stream: isStreamEnabled, thinkingEnabled, reasoningEffort,
+        frequencyPenalty, presencePenalty, temperature, topP, maxTokens, extraBody,
+      }, {
+        tools: toolsForSnippet, strict: toolsStrict, toolChoice,
+        responseFormat: jsonOutput ? { type: "json_object" } : undefined,
+        stop: stopSequences, useBeta,
+      }), error: "" };
+    } catch (error) {
+      return { endpoint: "vision" as const, body: {}, url: "https://api.deepseek.com/chat/completions",
+        error: error instanceof Error ? error.message : "Invalid request" };
     }
-    if (jsonOutput) {
-      payload.response_format = { type: "json_object" };
-    }
-    if (stopSequences && stopSequences.length > 0) {
-      payload.stop = stopSequences;
-    }
-    return payload;
-  }, [
-    model,
-    thinkingEnabled,
-    reasoningEffort,
-    toolChoice,
-    conversationForSnippet,
-    isStreamEnabled,
-    frequencyPenalty,
-    presencePenalty,
-    temperature,
-    topP,
-    maxTokens,
-    toolsForSnippet,
-    jsonOutput,
-    stopSequences,
-  ]);
+  }, [conversationForSnippet, model, apiFormat, isStreamEnabled, thinkingEnabled,
+    reasoningEffort, frequencyPenalty, presencePenalty, temperature, topP, maxTokens,
+    requestOptionsJson, toolsForSnippet, toolsStrict, toolChoice, jsonOutput, stopSequences, useBeta]);
+  const chatPayloadObject = chatRequest.body;
 
   const fimPayloadObject = useMemo(() => {
     const promptBase = fimPrefix + (lastUserMessage || "");
     const payload: Record<string, unknown> = {
       model,
       prompt: promptBase,
-      stream: isStreamEnabled,
+      stream: false,
       max_tokens: normalizedFimMaxTokens,
     };
     if (fimSuffix.trim().length > 0) {
@@ -351,309 +349,14 @@ export default function ChatWindow({ threadId }: Props) {
   const payloadJson = useMemo(() => {
     return JSON.stringify(fimActive ? fimPayloadObject : chatPayloadObject, null, 2);
   }, [fimActive, fimPayloadObject, chatPayloadObject]);
-
-  const escapeForPython = (value: string) =>
-    value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
-
-  const toPythonLiteral = (value: unknown) => {
-    const json = JSON.stringify(value, null, 2);
-    if (!json) return "None";
-    return json
-      .replace(/\btrue\b/g, "True")
-      .replace(/\bfalse\b/g, "False")
-      .replace(/\bnull\b/g, "None");
-  };
-
-  const indentPython = (value: string, spaces: number) =>
-    value
-      .split("\n")
-      .map((line) => `${" ".repeat(spaces)}${line}`)
-      .join("\n");
-
-  const pythonMessagesSnippet = useMemo(() => {
-    if (conversationForSnippet.length === 0) {
-      return "[]";
-    }
-    const lines = conversationForSnippet.map((message) => {
-      const base = `{"role": "${message.role}", "content": "${escapeForPython(
-        message.content
-      )}"`;
-      if (message.prefix) {
-        return `        ${base}, "prefix": True}`;
-      }
-      return `        ${base}}`;
-    });
-    return `[\n${lines.join(",\n")}\n    ]`;
-  }, [conversationForSnippet]);
-
-  const curlSnippet = useMemo(() => {
-    const baseUrl = fimActive
-      ? "https://api.deepseek.com/beta"
-      : useBeta
-      ? "https://api.deepseek.com/beta"
-      : "https://api.deepseek.com";
-    const endpoint = fimActive
-      ? `${baseUrl}/completions`
-      : `${baseUrl}/chat/completions`;
-    const escapedPayload = payloadJson.replace(/'/g, "'\"'\"'");
-    return `curl ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer \${DEEPSEEK_API_KEY}" \\\n  -d '${escapedPayload}'`;
-  }, [payloadJson, fimActive, useBeta]);
-
-  const pythonSnippet = useMemo(() => {
-    const pythonTools = toolsForSnippet
-      ? `\n${indentPython(toPythonLiteral(toolsForSnippet), 4)}`
-      : null;
-    const pythonResponseFormat = jsonOutput
-      ? `\n${indentPython(toPythonLiteral({ type: "json_object" }), 4)}`
-      : null;
-    const pythonStop =
-      stopSequences && stopSequences.length > 0
-        ? `\n${indentPython(toPythonLiteral(stopSequences), 4)}`
-        : null;
-    const baseUrl = fimActive
-      ? "https://api.deepseek.com/beta"
-      : useBeta
-      ? "https://api.deepseek.com/beta"
-      : "https://api.deepseek.com";
-    if (fimActive) {
-      if (!isStreamEnabled) {
-        return `# Please install OpenAI SDK first: \`pip3 install openai\`
-import os
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
-
-response = client.completions.create(
-    model="${model}",
-    prompt="${escapeForPython(fimPrefix + (lastUserMessage || ""))}",
-    ${fimSuffix.trim().length > 0 ? `suffix="${escapeForPython(fimSuffix)}",\n    ` : ""}max_tokens=${normalizedFimMaxTokens},
-    stream=False
-)
-
-print(response.choices[0].text)`;
-      }
-      return `# Please install OpenAI SDK first: \`pip3 install openai\`
-import os
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
-
-stream = client.completions.create(
-    model="${model}",
-    prompt="${escapeForPython(fimPrefix + (lastUserMessage || ""))}",
-    ${fimSuffix.trim().length > 0 ? `suffix="${escapeForPython(fimSuffix)}",\n    ` : ""}max_tokens=${normalizedFimMaxTokens},
-    stream=True
-)
-
-for chunk in stream:
-    if chunk.choices and chunk.choices[0].text:
-        print(chunk.choices[0].text, end="", flush=True)`;
-    }
-    if (!isStreamEnabled) {
-      return `# Please install OpenAI SDK first: \`pip3 install openai\`
-import os
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
-
-response = client.chat.completions.create(
-    model="${model}",
-    messages=${pythonMessagesSnippet},
-    frequency_penalty=${frequencyPenalty},
-    presence_penalty=${presencePenalty},
-    temperature=${temperature},
-    top_p=${topP},
-    max_tokens=${maxTokens},
-    ${pythonTools ? `tools=${pythonTools},\n    ` : ""}${pythonResponseFormat ? `response_format=${pythonResponseFormat},\n    ` : ""}${pythonStop ? `stop=${pythonStop},\n    ` : ""}stream=False,
-)
-
-print(response.choices[0].message.content)`;
-    }
-    return `# Please install OpenAI SDK first: \`pip3 install openai\`
-import os
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'), base_url="${baseUrl}")
-
-stream = client.chat.completions.create(
-    model="${model}",
-    messages=${pythonMessagesSnippet},
-    frequency_penalty=${frequencyPenalty},
-    presence_penalty=${presencePenalty},
-    temperature=${temperature},
-    top_p=${topP},
-    max_tokens=${maxTokens},
-    ${pythonTools ? `tools=${pythonTools},\n    ` : ""}${pythonResponseFormat ? `response_format=${pythonResponseFormat},\n    ` : ""}${pythonStop ? `stop=${pythonStop},\n    ` : ""}stream=True,
-)
-
-for chunk in stream:
-    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)`;
-  }, [
-    model,
-    pythonMessagesSnippet,
-    fimActive,
-    useBeta,
-    fimPrefix,
-    fimSuffix,
-    lastUserMessage,
-    normalizedFimMaxTokens,
-    toolsForSnippet,
-    jsonOutput,
-    stopSequences,
-    isStreamEnabled,
-    frequencyPenalty,
-    presencePenalty,
-    temperature,
-    topP,
-    maxTokens,
-  ]);
-
-  const nodeSnippet = useMemo(() => {
-    const baseUrl = fimActive
-      ? "https://api.deepseek.com/beta"
-      : useBeta
-      ? "https://api.deepseek.com/beta"
-      : "https://api.deepseek.com";
-    const messagesJson = JSON.stringify(conversationForSnippet, null, 2);
-    const toolsJson = toolsForSnippet
-      ? JSON.stringify(toolsForSnippet, null, 2)
-      : null;
-    const responseFormatJson = jsonOutput
-      ? JSON.stringify({ type: "json_object" }, null, 2)
-      : null;
-    const stopJson =
-      stopSequences && stopSequences.length > 0
-        ? JSON.stringify(stopSequences, null, 2)
-        : null;
-    if (fimActive) {
-      if (!isStreamEnabled) {
-        return `// Please install OpenAI SDK first: \`npm install openai\`
-
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: "${baseUrl}",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
-
-async function main() {
-  const completion = await openai.completions.create({
-    model: "${model}",
-    prompt: ${JSON.stringify(fimPrefix + (lastUserMessage || ""), null, 2)},
-    ${fimSuffix.trim().length > 0 ? `suffix: ${JSON.stringify(fimSuffix)},\n    ` : ""}max_tokens: ${normalizedFimMaxTokens},
-    stream: false,
-  });
-
-  console.log(completion.choices[0].text);
-}
-
-main();`;
-      }
-      return `// Please install OpenAI SDK first: \`npm install openai\`
-
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: "${baseUrl}",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
-
-async function main() {
-  const stream = await openai.completions.create({
-    model: "${model}",
-    prompt: ${JSON.stringify(fimPrefix + (lastUserMessage || ""), null, 2)},
-    ${fimSuffix.trim().length > 0 ? `suffix: ${JSON.stringify(fimSuffix)},\n    ` : ""}max_tokens: ${normalizedFimMaxTokens},
-    stream: true,
-  });
-
-  for await (const chunk of stream) {
-    if (chunk.choices?.[0]?.text) {
-      process.stdout.write(chunk.choices[0].text);
-    }
-  }
-}
-
-main();`;
-    }
-    if (!isStreamEnabled) {
-      return `// Please install OpenAI SDK first: \`npm install openai\`
-
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: "${baseUrl}",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
-
-async function main() {
-  const completion = await openai.chat.completions.create({
-    model: "${model}",
-    messages: ${messagesJson},
-    frequency_penalty: ${frequencyPenalty},
-    presence_penalty: ${presencePenalty},
-    temperature: ${temperature},
-    top_p: ${topP},
-    max_tokens: ${maxTokens},
-    ${toolsJson ? `tools: ${toolsJson},\n    ` : ""}${responseFormatJson ? `response_format: ${responseFormatJson},\n    ` : ""}${stopJson ? `stop: ${stopJson},\n    ` : ""}stream: false,
-  });
-
-  console.log(completion.choices[0].message.content);
-}
-
-main();`;
-    }
-    return `// Please install OpenAI SDK first: \`npm install openai\`
-
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: "${baseUrl}",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
-
-async function main() {
-  const stream = await openai.chat.completions.create({
-    model: "${model}",
-    messages: ${messagesJson},
-    frequency_penalty: ${frequencyPenalty},
-    presence_penalty: ${presencePenalty},
-    temperature: ${temperature},
-    top_p: ${topP},
-    max_tokens: ${maxTokens},
-    ${toolsJson ? `tools: ${toolsJson},\n    ` : ""}${responseFormatJson ? `response_format: ${responseFormatJson},\n    ` : ""}${stopJson ? `stop: ${stopJson},\n    ` : ""}stream: true,
-  });
-
-  for await (const chunk of stream) {
-    if (chunk.choices?.[0]?.delta?.content) {
-      process.stdout.write(chunk.choices[0].delta.content);
-    }
-  }
-}
-
-main();`;
-  }, [
-    conversationForSnippet,
-    model,
-    fimActive,
-    useBeta,
-    fimPrefix,
-    fimSuffix,
-    lastUserMessage,
-    normalizedFimMaxTokens,
-    toolsForSnippet,
-    jsonOutput,
-    stopSequences,
-    isStreamEnabled,
-    frequencyPenalty,
-    presencePenalty,
-    temperature,
-    topP,
-    maxTokens,
-  ]);
+  const curlSnippet = useMemo(() => labCurl(
+    fimActive ? "vision" : chatRequest.endpoint,
+    fimActive ? fimPayloadObject : chatPayloadObject, "",
+    fimActive ? "https://api.deepseek.com/beta/completions" : chatRequest.url
+  ), [fimActive, fimPayloadObject, chatRequest.endpoint, chatRequest.url, chatPayloadObject]);
 
   const codeSnippet = useMemo(() => {
-    const endpoint = `https://api.deepseek.com${fimActive || useBeta ? "/beta" : ""}/${fimActive ? "completions" : "chat/completions"}`;
+    const endpoint = fimActive ? "https://api.deepseek.com/beta/completions" : chatRequest.url;
     if (codeViewType === "python") return `import json, os, urllib.request
 
 payload = json.loads(${JSON.stringify(payloadJson)})
@@ -675,7 +378,7 @@ if (!response.ok) throw new Error(await response.text());
 for await (const chunk of response.body) process.stdout.write(chunk);
 `;
     return curlSnippet;
-  }, [codeViewType, curlSnippet, payloadJson, fimActive, useBeta]);
+  }, [codeViewType, curlSnippet, payloadJson, fimActive, chatRequest.url]);
 
   const codeLanguage = useMemo(() => {
     if (codeViewType === "python") return "python";
@@ -858,20 +561,13 @@ for await (const chunk of response.body) process.stdout.write(chunk);
       `thread-${threadId}-jsonOutput`
     );
 
-    if (storedModel && storedInput && storedSystemInput) {
+    if (storedModel && storedInput !== null && storedSystemInput !== null) {
       setModel(storedModel);
       setInput(storedInput);
       setSystemPrompt(storedSystemInput);
       localStorage.removeItem(`thread-${threadId}-model`);
       localStorage.removeItem(`thread-${threadId}-inputValue`);
       localStorage.removeItem(`thread-${threadId}-systemInput`);
-    } else if (
-      isFirstTime &&
-      !storedModel &&
-      !storedInput &&
-      !storedSystemInput
-    ) {
-      setIsFirstTime(false);
     }
 
     if (storedFrequencyPenalty) {
@@ -962,15 +658,16 @@ for await (const chunk of response.body) process.stdout.write(chunk);
 
   // 初回自動送信
   useEffect(() => {
-    if (isFirstTime && model && input && systemPrompt) {
+    if (isFirstTime && autoSendRequested && settingsLoaded && model && (input.trim() || attachments.length) && systemPrompt) {
       setIsFirstTime(false);
+      setAutoSendRequested(false);
       handleSend();
       return;
     }
-  }, [model, input, systemPrompt, isFirstTime, handleSend]);
+  }, [model, input, systemPrompt, isFirstTime, handleSend, settingsLoaded, attachments.length, autoSendRequested]);
 
   return (
-    <Box display="flex" height="100%" position="relative" overflow="hidden">
+    <Box display="flex" height="100%" position="relative" overflow="hidden" sx={{ "& .MuiInputBase-root, & .MuiInputLabel-root, & .MuiFormLabel-root": { color: "var(--color-text)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-border)" } }}>
       <Box flex="1" display="flex" flexDirection="column" minWidth={0}>
         {errorMessage && (
           <Alert severity="error" sx={{ mx: 2, my: 1 }}>
@@ -1091,6 +788,10 @@ for await (const chunk of response.body) process.stdout.write(chunk);
           )}
         </Box>
 
+        <Box sx={{ px: 2, pt: 1, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title="Images and Files"><span><IconButton aria-label="Images and Files" disabled={assistantThinking} onClick={() => setMediaOpen(true)} sx={{ color: "var(--color-text)" }}><AttachFileIcon /></IconButton></span></Tooltip>
+          {attachments.map((attachment) => <Button key={attachment.id} size="small" onClick={() => setMediaOpen(true)} sx={{ maxWidth: "100%", overflowWrap: "anywhere" }}>{attachment.name}</Button>)}
+        </Box>
         <InputSection
           input={input}
           setInput={setInput}
@@ -1222,6 +923,15 @@ for await (const chunk of response.body) process.stdout.write(chunk);
               </FormControl>
             </Box>
 
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+              <InputLabel id="thread-api-format-label">API Format</InputLabel>
+              <Select labelId="thread-api-format-label" label="API Format" value={apiFormat} disabled={assistantThinking} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>
+                <MenuItem value="chat">Chat Completions</MenuItem>
+                <MenuItem value="responses">Responses</MenuItem>
+                <MenuItem value="messages">Anthropic Messages</MenuItem>
+              </Select>
+            </FormControl>
+            <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}><Typography>Stream</Typography><Switch checked={isStreamEnabled} onChange={(_, checked) => setIsStreamEnabled(checked)} disabled={assistantThinking || fimActive} inputProps={{ "aria-label": "Stream" }} /></Box>
             {isCurrentModel(model) && (
               <Box sx={{ mb: 2 }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -1229,8 +939,8 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                   <Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} />
                 </Box>
                 <FormControl fullWidth size="small" disabled={!thinkingEnabled}>
-                  <InputLabel>reasoning_effort</InputLabel>
-                  <Select label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>
+                  <InputLabel id="thread-effort-label">reasoning_effort</InputLabel>
+                  <Select labelId="thread-effort-label" label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>
                     {["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}
                   </Select>
                 </FormControl>
@@ -1239,6 +949,8 @@ for await (const chunk of response.body) process.stdout.write(chunk);
             <Box sx={{ mb: 2 }}>
               <Button onClick={() => setInspectorOpen(true)} startIcon={<CodeIcon />}>API Response</Button>
               <Button href="/api-lab" startIcon={<CodeIcon />}>API Lab</Button>
+              <TextField label="Additional API Parameters (JSON)" slotProps={{ inputLabel: { shrink: true } }} value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)} disabled={assistantThinking} multiline minRows={2} fullWidth size="small" sx={{ my: 2 }} />
+              {chatRequest.error && <Alert severity="error" sx={{ mb: 2 }}>{chatRequest.error}</Alert>}
               <SystemPromptSection
                 systemPrompt={systemPrompt}
                 setSystemPrompt={setSystemPrompt}
@@ -1612,8 +1324,8 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                   </Box>
                   <Collapse in={showToolsBox} timeout={200} unmountOnExit>
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                      <InputLabel>tool_choice</InputLabel>
-                      <Select label="tool_choice" value={toolChoice} onChange={(event) => setToolChoice(event.target.value)}>
+                      <InputLabel id="thread-tool-choice-label">tool_choice</InputLabel>
+                      <Select labelId="thread-tool-choice-label" label="tool_choice" value={toolChoice} onChange={(event) => setToolChoice(event.target.value)}>
                         {["auto", "none", "required"].map((choice) => <MenuItem key={choice} value={choice} disabled={choice === "required" && (model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled))}>{choice}</MenuItem>)}
                         {toolNames.map((name) => <MenuItem key={name} value={name} disabled={model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled)}>{name}</MenuItem>)}
                       </Select>
@@ -1749,6 +1461,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                       </Typography>
                       <Switch
                         checked={prefixCompletionEnabled}
+                        disabled={apiFormat !== "chat"}
                         onChange={(e) =>
                           handlePrefixCompletionToggle(e.target.checked)
                         }
@@ -1995,6 +1708,11 @@ for await (const chunk of response.body) process.stdout.write(chunk);
         )}
       </Box>
 
+      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Images and Files</DialogTitle>
+        <DialogContent>{model !== "deepseek-flash" && <Alert severity="info" sx={{ mb: 2 }}>Image inputs require deepseek-flash.</Alert>}<MediaInputs apiKey={apiKey} attachments={attachments} onChange={setAttachments} disabled={assistantThinking} /></DialogContent>
+        <DialogActions><Button onClick={() => setMediaOpen(false)}>{t("common.cancel")}</Button></DialogActions>
+      </Dialog>
       <Dialog open={inspectorOpen} onClose={() => setInspectorOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>API Response</DialogTitle>
         <DialogContent>
@@ -2093,7 +1811,8 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                 stream
               </Typography>
               <Switch
-                checked={isStreamEnabled}
+                checked={!fimActive && isStreamEnabled}
+                disabled={assistantThinking || fimActive}
                 onChange={(e) => setIsStreamEnabled(e.target.checked)}
                 color="primary"
               />

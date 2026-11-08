@@ -20,11 +20,13 @@ import {
   callDeepseekFim,
   streamDeepseek,
   type ChatCompletionMessageParam,
+  type NativeChunk,
 } from "../services/deepseek";
 import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
-import { replayMessage, runToolConversation } from "./toolConversation";
+import { replayMessage, runToolConversation, parseRequestOptions, type ToolPass } from "./toolConversation";
+import { attachmentBlocks, type Attachment } from "../services/deepseekAttachments";
 import { DEFAULT_MODEL, getModelLimits } from "../services/deepseekModels";
 
 type ChatRole = "system" | "user" | "assistant";
@@ -111,6 +113,12 @@ export function useChatWindow(
     string | null
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [apiFormat, setApiFormat] = useState<"chat" | "responses" | "messages">("chat");
+  const [streamEnabled, setStreamEnabled] = useState(true);
+  const [requestOptionsJson, setRequestOptionsJson] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [settingsLoadedThread, setSettingsLoadedThread] = useState<string | null>(null);
+  const attachmentDraftThreadRef = useRef<string | null>(null);
   const { t } = useTranslation();
   const { defaultMaxTokens, maxTokensLimit } = getModelLimits(model);
   const previousDefaultMaxTokensRef = useRef(defaultMaxTokens);
@@ -127,6 +135,7 @@ export function useChatWindow(
   }, [defaultMaxTokens, maxTokens, maxTokensLimit]);
 
   const settingsRef = useRef({
+    apiFormat, streamEnabled, requestOptionsJson,
     model,
     frequencyPenalty,
     presencePenalty,
@@ -150,6 +159,16 @@ export function useChatWindow(
 
   const generationRef = useRef<AbortController | null>(null);
 
+  function validateGeneration(settings: typeof settingsRef.current, imageAttachments: Attachment[] = []) {
+    parseRequestOptions(settings.requestOptionsJson);
+    if (settings.apiFormat !== "chat" && (settings.prefixCompletionEnabled || settings.fimPrefix.trim() || settings.fimSuffix.trim())) {
+      throw new Error("Prefix completion and FIM require the chat API format.");
+    }
+    if ((settings.fimPrefix.trim() || settings.fimSuffix.trim()) && imageAttachments.length) {
+      throw new Error("FIM does not support image attachments.");
+    }
+  }
+
   useEffect(() => () => {
     generationRef.current?.abort();
     chatStreamRef.current?.abort();
@@ -160,6 +179,33 @@ export function useChatWindow(
   > | null>(null);
 
   const buildDraftKey = (suffix: string) => `thread-${threadId}-draft-${suffix}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(buildDraftKey("attachments"));
+      const draft: unknown = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(draft)) throw new Error("Invalid attachment draft.");
+      attachmentBlocks(draft);
+      setAttachments(draft);
+    } catch (error) {
+      setAttachments([]);
+      setErrorMessage(error instanceof Error ? error.message : "Invalid attachment draft.");
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (attachmentDraftThreadRef.current !== threadId) {
+      attachmentDraftThreadRef.current = threadId;
+      return;
+    }
+    if (attachments.length) {
+      window.localStorage.setItem(buildDraftKey("attachments"), JSON.stringify(attachments));
+    } else {
+      window.localStorage.removeItem(buildDraftKey("attachments"));
+    }
+  }, [threadId, attachments]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -256,6 +302,7 @@ export function useChatWindow(
 
   useEffect(() => {
     settingsRef.current = {
+      apiFormat, streamEnabled, requestOptionsJson,
       model,
       frequencyPenalty,
       presencePenalty,
@@ -285,6 +332,7 @@ export function useChatWindow(
     }, 500);
     return () => clearTimeout(timeout);
   }, [
+    apiFormat, streamEnabled, requestOptionsJson,
     threadId,
     model,
     frequencyPenalty,
@@ -518,10 +566,16 @@ export function useChatWindow(
     },
     toolConfig?: { tools?: unknown[]; strict?: boolean },
     draftPrefix: string = "",
-    signal = generationRef.current?.signal
+    signal = generationRef.current?.signal,
+    requestSettings = settingsRef.current
   ) => {
     if (signal?.aborted) throw new DOMException("Generation stopped", "AbortError");
-    const chatStream = await streamDeepseek(apiKey, conversation, modelName, parameters, toolConfig);
+    const chatStream = await streamDeepseek(apiKey, conversation, modelName, {
+      ...parameters,
+      apiFormat: requestSettings.apiFormat,
+      stream: requestSettings.streamEnabled,
+      extraBody: parseRequestOptions(requestSettings.requestOptionsJson),
+    }, toolConfig);
     if (signal?.aborted) {
       chatStream.abort();
       throw new DOMException("Generation stopped", "AbortError");
@@ -531,10 +585,13 @@ export function useChatWindow(
     let partialReasoningContent = "";
     let partialContent = "";
     let finalFinishReason: string | null = null;
+    let providerData: ToolPass["providerData"];
     let first = true;
     const toolCallsByIndex = new Map<number, ToolCall>();
 
     for await (const chunk of chatStream) {
+      const nativeChunk = chunk as NativeChunk;
+      if (nativeChunk.provider_data) providerData = nativeChunk.provider_data;
       if (signal?.aborted) throw new DOMException("Generation stopped", "AbortError");
       interface Delta {
         reasoning_content?: string;
@@ -608,6 +665,7 @@ export function useChatWindow(
       partialReasoningContent,
       finalFinishReason,
       toolCalls,
+      providerData,
     };
   };
 
@@ -635,11 +693,15 @@ export function useChatWindow(
   // -- thread購読 (model/parametersなど) --
   useEffect(() => {
     settingsThreadRef.current = null;
+    setSettingsLoadedThread(null);
     const unsub = onSnapshot(doc(db, "threads", threadId), (snapshot) => {
       if (snapshot.exists()) {
         settingsThreadRef.current = threadId;
         const data = snapshot.data() as {
           title?: string;
+          apiFormat?: "chat" | "responses" | "messages";
+          streamEnabled?: boolean;
+          requestOptionsJson?: string;
           model?: string;
           thinkingEnabled?: boolean;
           reasoningEffort?: "low" | "high" | "max";
@@ -664,6 +726,10 @@ export function useChatWindow(
           fimMaxTokens?: number;
         };
         setModel(data.model ?? "deepseek-chat");
+        setApiFormat(data.apiFormat ?? "chat");
+        setStreamEnabled(data.streamEnabled ?? true);
+        setRequestOptionsJson(data.requestOptionsJson ?? "");
+        setSettingsLoadedThread(threadId);
         setThinkingEnabled(data.thinkingEnabled ?? true);
         setReasoningEffort(data.reasoningEffort ?? "high");
         setToolChoice(data.toolChoice ?? "auto");
@@ -877,7 +943,7 @@ export function useChatWindow(
       }
       return;
     }
-    if (!input.trim()) return;
+    if (!input.trim() && !attachments.length) return;
 
     setErrorMessage(null);
 
@@ -891,7 +957,6 @@ export function useChatWindow(
         messageLength: userText.length,
       });
     }
-    setInput("");
     const generation = new AbortController();
     generationRef.current = generation;
     setAssistantThinking(true);
@@ -902,6 +967,11 @@ export function useChatWindow(
     const pendingAssistantMessageIds = new Set<string>();
 
     try {
+      validateGeneration(settingsRef.current, attachments);
+      attachmentBlocks(attachments);
+      if (attachments.some((attachment) => attachment.value.startsWith("data:"))) {
+        throw new Error("Upload local images as provider files before sending.");
+      }
       const hasFim =
         fimPrefix.trim().length > 0 || fimSuffix.trim().length > 0;
       const tooling = hasFim
@@ -925,7 +995,10 @@ export function useChatWindow(
       void ensureSystemPromptTokenCount(systemPrompt);
 
       // 2) userメッセージ
-      const userMsgId = await createMessage(threadId, "user", userText);
+      const userMsgId = await createMessage(threadId, "user", userText, undefined, undefined, { attachments });
+      setInput("");
+      setAttachments([]);
+      if (typeof window !== "undefined") window.localStorage.removeItem(buildDraftKey("attachments"));
       void updateMessageTokenCount(userMsgId, userText);
 
       // 3) 空のassistantメッセージ (Firestore) → ID取得
@@ -939,10 +1012,11 @@ export function useChatWindow(
         ...messages
           .filter((m) => m.role !== "system")
           .flatMap(replayMessage),
-        { role: "user", content: userText },
+        ...replayMessage({ id: userMsgId, threadId, role: "user", content: userText, attachments }),
       ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
+        apiFormat, streamEnabled, requestOptionsJson,
         frequencyPenalty,
         presencePenalty,
         temperature,
@@ -1018,7 +1092,8 @@ export function useChatWindow(
             tooling.toolConfig?.strict === true
           ),
           "",
-          generation.signal
+          generation.signal,
+          { ...settingsRef.current, apiFormat, streamEnabled, requestOptionsJson }
         ),
         resolve: async (calls) => {
           try {
@@ -1083,7 +1158,7 @@ export function useChatWindow(
 
   async function handleEditMessage(messageId: string, newContent: string) {
     const trimmed = newContent.trim();
-    if (!trimmed) return;
+    if (!trimmed && !messages.find((message) => message.id === messageId)?.attachments?.length) return;
 
     const currentSettings = settingsRef.current;
 
@@ -1115,6 +1190,7 @@ export function useChatWindow(
     }
 
     try {
+      validateGeneration(currentSettings, target.attachments);
       const hasFim =
         currentSettings.fimPrefix.trim().length > 0 ||
         currentSettings.fimSuffix.trim().length > 0;
@@ -1158,6 +1234,9 @@ export function useChatWindow(
       ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
+        apiFormat: currentSettings.apiFormat,
+        streamEnabled: currentSettings.streamEnabled,
+        requestOptionsJson: currentSettings.requestOptionsJson,
         model: currentSettings.model,
         frequencyPenalty: currentSettings.frequencyPenalty,
         presencePenalty: currentSettings.presencePenalty,
@@ -1228,7 +1307,8 @@ export function useChatWindow(
             tooling.toolConfig?.strict === true
           ),
           "",
-          generation.signal
+          generation.signal,
+          currentSettings
         ),
         resolve: async (calls) => {
           try {
@@ -1287,6 +1367,7 @@ export function useChatWindow(
     try {
       const newThreadId = await createThread(userId, branchTitle);
       await updateDoc(doc(db, "threads", newThreadId), {
+        apiFormat, streamEnabled, requestOptionsJson,
         parentThreadId: threadId,
         branchFromMessageId: messageId,
         branchFromTitle: threadTitle,
@@ -1344,7 +1425,7 @@ export function useChatWindow(
             msg.content,
             undefined,
             undefined,
-            undefined,
+            { attachments: msg.attachments },
             msg.token_count
           );
         }
@@ -1404,6 +1485,7 @@ export function useChatWindow(
     }
 
     try {
+      validateGeneration(currentSettings);
       const tooling = buildToolConfig(
         currentSettings.toolsJson,
         currentSettings.toolsStrict
@@ -1435,6 +1517,9 @@ export function useChatWindow(
       ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
+        apiFormat: currentSettings.apiFormat,
+        streamEnabled: currentSettings.streamEnabled,
+        requestOptionsJson: currentSettings.requestOptionsJson,
         model: currentSettings.model,
         frequencyPenalty: currentSettings.frequencyPenalty,
         presencePenalty: currentSettings.presencePenalty,
@@ -1477,7 +1562,8 @@ export function useChatWindow(
             tooling.toolConfig?.strict === true
           ),
           "",
-          generation.signal
+          generation.signal,
+          currentSettings
         ),
         resolve: async (calls) => {
           try {
@@ -1552,6 +1638,7 @@ export function useChatWindow(
     setAssistantMsgId(messageId);
 
     try {
+      validateGeneration({ ...settingsRef.current, apiFormat, streamEnabled, requestOptionsJson });
       const tooling = buildToolConfig(toolsJson, toolsStrict);
       if (tooling.error) {
         setAssistantThinking(false);
@@ -1578,6 +1665,7 @@ export function useChatWindow(
       void ensureSystemPromptTokenCount(systemPrompt);
 
       await updateDoc(doc(db, "threads", threadId), {
+        apiFormat, streamEnabled, requestOptionsJson,
         model,
         frequencyPenalty,
         presencePenalty,
@@ -1622,7 +1710,8 @@ export function useChatWindow(
             prefixCompletionEnabled || tooling.toolConfig?.strict === true
           ),
           baseContent,
-          generation.signal
+          generation.signal,
+          { ...settingsRef.current, apiFormat, streamEnabled, requestOptionsJson }
         ),
         resolve: async (calls) => {
           try {
@@ -1663,6 +1752,11 @@ export function useChatWindow(
   }
 
   return {
+    settingsLoaded: settingsLoadedThread === threadId,
+    apiFormat, setApiFormat,
+    streamEnabled, setStreamEnabled,
+    requestOptionsJson, setRequestOptionsJson,
+    attachments, setAttachments,
     messages,
     input,
     setInput,

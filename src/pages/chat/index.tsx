@@ -16,10 +16,18 @@ import {
   Switch,
   Divider,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import MediaInputs from "../../components/chat/MediaInputs";
+import type { Attachment } from "../../services/deepseekAttachments";
+import { parseDeepseekOptions } from "../../services/deepseekRequest";
 import { useRouter } from "next/router";
 import ApiKeyOnboardingDialog from "@/src/components/ApiKeyOnboardingDialog";
 import { useAuth } from "../../contexts/AuthContext";
@@ -152,6 +160,11 @@ export default function ChatHomePage() {
 
   // Deepseekモデル選択
   const [model, setModel] = useState(DEFAULT_MODEL);
+  const [apiFormat, setApiFormat] = useState<"chat" | "responses" | "messages">("chat");
+  const [streamEnabled, setStreamEnabled] = useState(true);
+  const [requestOptionsJson, setRequestOptionsJson] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [mediaOpen, setMediaOpen] = useState(false);
   const [thinkingEnabled, setThinkingEnabled] = useState(true);
   const [reasoningEffort, setReasoningEffort] = useState<"low" | "high" | "max">("high");
 
@@ -307,7 +320,15 @@ export default function ChatHomePage() {
       );
       return;
     }
-    if (!userInput.trim()) return;
+    if (!userInput.trim() && !attachments.length) return;
+    try {
+      parseDeepseekOptions(requestOptionsJson);
+      if (apiFormat !== "chat" && (fimPrefix.trim() || fimSuffix.trim())) throw new Error("FIM requires Chat Completions.");
+      if (attachments.length && model !== "deepseek-flash") throw new Error("Image inputs require deepseek-flash.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Invalid request options.");
+      return;
+    }
 
     const toolsParsed = parseToolsJson(toolsJson);
     if (toolsParsed.error) {
@@ -337,6 +358,7 @@ export default function ChatHomePage() {
       localStorage.setItem(`thread-${newThreadId}-model`, model);
       localStorage.setItem(`thread-${newThreadId}-systemInput`, systemInput);
       localStorage.setItem(`thread-${newThreadId}-inputValue`, inputValue);
+      localStorage.setItem(`thread-${newThreadId}-draft-attachments`, JSON.stringify(attachments));
       localStorage.setItem(
         `thread-${newThreadId}-frequencyPenalty`,
         String(frequencyPenalty)
@@ -378,7 +400,7 @@ export default function ChatHomePage() {
       localStorage.removeItem(DRAFT_FIM_MAX_TOKENS_KEY);
 
       await updateDoc(doc(db, "threads", newThreadId), {
-        model, thinkingEnabled, reasoningEffort, frequencyPenalty, presencePenalty,
+        model, apiFormat, streamEnabled, requestOptionsJson, thinkingEnabled, reasoningEffort, frequencyPenalty, presencePenalty,
         temperature, topP, maxTokens, toolsJson, toolsStrict, toolHandlersJson,
         jsonOutput, fimPrefix, fimSuffix, fimMaxTokens,
       });
@@ -461,6 +483,7 @@ export default function ChatHomePage() {
         p={{ xs: 1.5, sm: 2 }}
         pt={{ xs: 9, md: 4 }}
         pb={{ xs: 2, md: 4 }}
+        sx={{ "& .MuiInputBase-root, & .MuiInputLabel-root, & .MuiFormLabel-root": { color: "var(--color-text)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-border)" } }}
       >
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -535,9 +558,12 @@ export default function ChatHomePage() {
                     deepseek-reasoner
                   </MenuItem>
                 </Select>
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}><InputLabel id="new-api-format-label">API Format</InputLabel><Select labelId="new-api-format-label" label="API Format" value={apiFormat} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}><MenuItem value="chat">Chat Completions</MenuItem><MenuItem value="responses">Responses</MenuItem><MenuItem value="messages">Anthropic Messages</MenuItem></Select></FormControl>
+                <Box display="flex" alignItems="center" justifyContent="space-between"><Typography>Stream</Typography><Switch checked={streamEnabled} onChange={(_, checked) => setStreamEnabled(checked)} inputProps={{ "aria-label": "Stream" }} /></Box>
+                <TextField label="Additional API Parameters (JSON)" slotProps={{ inputLabel: { shrink: true } }} value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)} multiline minRows={2} fullWidth size="small" sx={{ mt: 2 }} />
                 {isCurrentModel(model) && <Box sx={{ mt: 2 }}>
                   <Box display="flex" alignItems="center" justifyContent="space-between"><Typography>Thinking</Typography><Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} /></Box>
-                  <FormControl fullWidth size="small" disabled={!thinkingEnabled}><InputLabel>reasoning_effort</InputLabel><Select label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>{["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}</Select></FormControl>
+                  <FormControl fullWidth size="small" disabled={!thinkingEnabled}><InputLabel id="new-effort-label">reasoning_effort</InputLabel><Select labelId="new-effort-label" label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>{["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}</Select></FormControl>
                 </Box>}
               </FormControl>
             </Box>
@@ -1203,6 +1229,7 @@ export default function ChatHomePage() {
             </Typography>
 
             <Box display="flex" alignItems="flex-end" gap={1}>
+              <IconButton aria-label="Images and Files" disabled={loading} onClick={() => setMediaOpen(true)} sx={{ color: "var(--color-text)" }}><AttachFileIcon /></IconButton>
               <TextField
                 multiline
                 minRows={1}
@@ -1261,9 +1288,11 @@ export default function ChatHomePage() {
                 <ArrowUpwardIcon />
               </IconButton>
             </Box>
+            {attachments.map((attachment) => <Button key={attachment.id} onClick={() => setMediaOpen(true)} size="small" sx={{ overflowWrap: "anywhere", maxWidth: "100%" }}>{attachment.name}</Button>)}
           </Box>
         )}
       </Box>
+      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md"><DialogTitle>Images and Files</DialogTitle><DialogContent><MediaInputs apiKey={apiKey} attachments={attachments} onChange={setAttachments} disabled={loading} /></DialogContent><DialogActions><Button onClick={() => setMediaOpen(false)}>{t("common.close")}</Button></DialogActions></Dialog>
     </>
   );
 }

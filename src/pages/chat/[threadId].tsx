@@ -58,7 +58,7 @@ export default function ThreadPage() {
           content="https://deepseek-playground.vercel.app/images/screenshot-small.png"
         />
       </Head>
-      <Box sx={{ height: "100dvh", minHeight: "100dvh", overflow: "hidden" }}>
+      <Box sx={{ height: "100%", minHeight: 0, overflow: "hidden" }}>
         <ChatWindow threadId={threadId} />
       </Box>
     </>
