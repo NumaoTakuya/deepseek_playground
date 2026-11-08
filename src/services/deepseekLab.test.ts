@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultLabBody, labCurl, normalizeLabResponse, parseSSE, runLab } from "./deepseekLab";
+import { defaultLabBody, labCurl, normalizeLabResponse, parseSSE, runLab, validateImage, validateVisionBody, visionBlock } from "./deepseekLab";
 
 function bytes(text: string, size = 1) {
   const data = new TextEncoder().encode(text);
@@ -60,6 +60,47 @@ describe("Responses primary checkpoint", () => {
     expect(result.raw).toEqual(payload); expect(result.content).toBe("ok");
     const curl = labCurl("responses", { input: "secret's" }, "secret");
     expect(curl).not.toContain("secret"); expect(curl).toContain("<DEEPSEEK_API_KEY>"); expect(curl).toContain(`'"'"'`);
+  });
+});
+
+describe("Vision checkpoint", () => {
+  it("builds correct URL, file ID and local inline blocks", () => {
+    expect(visionBlock("url", "https://example.com/image.png", "low")).toEqual({ type: "image_url", image_url: { url: "https://example.com/image.png", detail: "low" } });
+    expect(visionBlock("file", "file-api-123")).toEqual({ type: "file", file_id: "file-api-123" });
+    expect(visionBlock("inline", "data:image/png;base64,YWJj")).toMatchObject({ type: "image_url" });
+    expect(() => visionBlock("url", "javascript:alert(1)")).toThrow("HTTP(S)");
+    expect(() => visionBlock("url", "https://user:password@example.com/x")).toThrow("without credentials");
+    expect(() => visionBlock("url", "https://example.com/" + "a".repeat(8192))).toThrow("8192");
+    expect(() => visionBlock("file", "bad-id")).toThrow("file-api");
+    expect(() => visionBlock("inline", "data:image/svg+xml;base64,YWJj")).toThrow("supported");
+    expect(() => visionBlock("inline", "data:image/png;base64,!!!!")).toThrow("supported");
+  });
+  it("detects actual image signatures instead of filename/MIME", async () => {
+    const formats = [
+      { bytes: [255, 216, 255, 0], mime: "image/jpeg" },
+      { bytes: [137,80,78,71,13,10,26,10], mime: "image/png" },
+      { bytes: Array.from(new TextEncoder().encode("GIF89a")), mime: "image/gif" },
+      { bytes: Array.from(new TextEncoder().encode("RIFF1234WEBP")), mime: "image/webp" },
+    ];
+    for (const format of formats) expect(await validateImage(new Blob([new Uint8Array(format.bytes)], { type: "text/plain" }))).toBe(format.mime);
+    await expect(validateImage(new Blob(["<svg/>"]))).rejects.toThrow("Only JPEG");
+    await expect(validateImage(new Blob([]))).rejects.toThrow("nonempty");
+    await expect(validateImage({ size: 32 * 1024 * 1024 + 1 } as Blob)).rejects.toThrow("32 MiB");
+  });
+  it("validates image model, role, count and mutually exclusive file fields", () => {
+    const body = defaultLabBody("vision"); expect(() => validateVisionBody(body)).not.toThrow();
+    expect(() => validateVisionBody({ ...body, model: "deepseek-v4-pro" })).toThrow("require deepseek-flash");
+    expect(() => validateVisionBody({ ...body, messages: [{ role: "assistant", content: [visionBlock("file", "file-api-1")] }] })).toThrow("user messages");
+    expect(() => validateVisionBody({ ...body, messages: [{ role: "user", content: Array(601).fill(visionBlock("file", "file-api-1")) }] })).toThrow("600");
+    expect(() => validateVisionBody({ ...body, messages: [{ role: "user", content: [{ type: "file", file_id: "file-api-1", filename: "a.png" }] }] })).toThrow("cannot be combined");
+  });
+  it("streams chat content/reasoning and usage, requiring DONE", async () => {
+    stream('data: {"choices":[{"delta":{"content":"answer","reasoning_content":"reason"},"finish_reason":null}]}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}}\n\ndata: [DONE]\n\n');
+    const result = await runLab("vision", "secret", defaultLabBody("vision"), new AbortController().signal, vi.fn());
+    expect(result).toMatchObject({ content: "answer", reasoning: "reason", usage: { prompt_tokens: 20, completion_tokens: 3, total_tokens: 23 }, status: "stop" });
+    expect(fetch).toHaveBeenCalledWith("https://api.deepseek.com/chat/completions", expect.any(Object));
+    stream('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    await expect(runLab("vision", "secret", {}, new AbortController().signal, vi.fn())).rejects.toThrow("Truncated SSE");
   });
 });
 

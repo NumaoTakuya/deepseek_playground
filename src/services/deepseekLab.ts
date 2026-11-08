@@ -33,6 +33,7 @@ export function parseLabBody(source: string): JsonObject {
 }
 
 export function visionBlock(mode: "url" | "file" | "inline", value: string, detail = "auto"): JsonObject {
+  if (!["auto", "low", "high", "original"].includes(detail)) throw new Error("Invalid image detail level.");
   if (mode === "file") {
     if (!/^file-api-[\w-]+$/.test(value)) throw new Error("Enter a file-api-... ID.");
     return { type: "file", file_id: value };
@@ -41,8 +42,41 @@ export function visionBlock(mode: "url" | "file" | "inline", value: string, deta
     if (value.length > 8192) throw new Error("Image URL exceeds 8192 characters.");
     const url = new URL(value);
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Use a public HTTP(S) image URL without credentials.");
-  } else if (!/^data:image\/(jpeg|png|gif|webp);base64,/.test(value)) throw new Error("Select a supported local image.");
+  } else {
+    const match = /^data:image\/(jpeg|png|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+    if (!match || match[2].length % 4 !== 0) throw new Error("Select a supported local image.");
+    if (match[2].length / 4 * 3 - (match[2].match(/=+$/)?.[0].length || 0) > 32 * MIB) throw new Error("Inline image exceeds 32 MiB.");
+  }
   return { type: "image_url", image_url: { url: value, detail } };
+}
+
+export function validateVisionBody(body: JsonObject): void {
+  let count = 0, inlineBytes = 0, hasFile = false;
+  for (const message of list(body.messages)) {
+    const m = object(message);
+    for (const part of list(m.content)) {
+      const p = object(part);
+      if (p.type !== "image_url" && p.type !== "file") continue;
+      count++;
+      if (m.role !== "user") throw new Error("Vision images are allowed in user messages only.");
+      if (p.type === "file" && p.file_id) {
+        if (p.file_data || p.filename) throw new Error("file_id cannot be combined with file_data or filename.");
+        visionBlock("file", string(p.file_id)); hasFile = true;
+      } else {
+        const image = object(p.image_url);
+        const url = string(p.type === "file" ? p.file_data : image.url);
+        const inline = url.startsWith("data:");
+        visionBlock(inline ? "inline" : "url", url, string(image.detail) || "auto");
+        if (inline) {
+          const data = url.slice(url.indexOf(",") + 1);
+          inlineBytes += data.length / 4 * 3 - (data.match(/=+$/)?.[0].length || 0);
+        }
+      }
+    }
+  }
+  if (count && body.model !== "deepseek-flash") throw new Error("Vision image inputs require deepseek-flash.");
+  if (count > 600) throw new Error("At most 600 images are allowed per request.");
+  if (inlineBytes > (hasFile ? 200 : 64) * MIB) throw new Error("Total inline image size exceeds the request limit.");
 }
 
 export async function validateImage(file: Blob, upload = false): Promise<string> {
@@ -153,6 +187,7 @@ async function checkResponse(response: Response, key: string): Promise<void> {
 export async function runLab(endpoint: LabEndpoint, key: string, body: JsonObject, signal: AbortSignal, onEvent: (event: LabEvent, result: LabResult) => void): Promise<LabResult> {
   if (!key.trim()) throw new Error("An API key is required.");
   parseLabBody(JSON.stringify(body));
+  if (endpoint === "vision") validateVisionBody(body);
   let response: Response;
   try {
     response = await fetch(LAB_BASE + LAB_PATHS[endpoint], { method: "POST", headers: labHeaders(endpoint, key), body: JSON.stringify(body), signal, credentials: "omit", redirect: "error", cache: "no-store" });
