@@ -1,6 +1,19 @@
 import { isCurrentModel } from "./deepseekModels";
 import type { ChatCompletionToolChoiceOption } from "openai/resources/chat/completions";
 
+const RESERVED_FIELDS = new Set(["model", "messages", "input", "instructions", "system", "stream", "stream_options", "prompt", "suffix", "prefix", "apiKey", "api_key", "authorization", "headers", "url", "baseURL", "endpoint"]);
+
+export function validateDeepseekOptions(value: unknown): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Request options must be a JSON object.");
+  for (const name of Object.keys(value)) if (RESERVED_FIELDS.has(name)) throw new Error(`Request option '${name}' is reserved.`);
+}
+
+export function parseDeepseekOptions(raw: string): Record<string, unknown> {
+  const value: unknown = raw.trim() ? JSON.parse(raw) : {};
+  validateDeepseekOptions(value);
+  return value;
+}
+
 export function resolveToolChoice(model: string, thinkingEnabled: boolean | undefined, choice = "auto"): ChatCompletionToolChoiceOption {
   const thinking = model === "deepseek-reasoner" || (isCurrentModel(model) && thinkingEnabled !== false);
   if (thinking && choice !== "auto" && choice !== "none") {

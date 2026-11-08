@@ -34,7 +34,7 @@ describe("request format conversion", () => {
     expect(() => buildDeepseekRequest([{ role: "assistant", content: "", provider_data: { format: "chat" } }], "deepseek-flash", { apiFormat })).toThrow(/different API/);
   });
   it("protects canonical request fields and preserves builtin tools", () => {
-    expect(() => buildDeepseekRequest([], "deepseek-flash", { extraBody: { messages: [] } })).toThrow(/Reserved/);
+    expect(() => buildDeepseekRequest([], "deepseek-flash", { extraBody: { messages: [] } })).toThrow(/reserved/i);
     expect(buildDeepseekRequest([], "deepseek-v4-pro", { apiFormat: "responses" }, { tools: [{ type: "web_search" }] }).body.tools).toEqual([{ type: "web_search" }]);
     expect(() => buildDeepseekRequest([], "deepseek-flash", {}, { tools, toolChoice: "required" })).toThrow(/Thinking/);
   });

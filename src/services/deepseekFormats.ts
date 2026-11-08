@@ -1,6 +1,6 @@
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources/chat/completions";
 import type { ChatCompletionMessageParam, DeepseekParameters, DeepseekToolConfig } from "./deepseek";
-import { mapDeepseekParameters, resolveToolChoice } from "./deepseekRequest";
+import { mapDeepseekParameters, resolveToolChoice, validateDeepseekOptions } from "./deepseekRequest";
 import { LAB_BASE, LAB_PATHS, validateVisionBody, validateApiBody, type JsonObject, type LabEndpoint } from "./deepseekApi";
 
 export type ApiFormat = "chat" | "responses" | "messages";
@@ -36,8 +36,7 @@ export function buildDeepseekRequest(messages: ChatCompletionMessageParam[], mod
   const format = parameters.apiFormat ?? "chat";
   if (!["chat", "responses", "messages"].includes(format)) throw new Error("Unsupported API format.");
   const endpoint: LabEndpoint = format === "chat" ? "vision" : format;
-  const reserved = new Set(["model", "messages", "input", "instructions", "system", "stream", "stream_options", "prompt", "suffix", "prefix", "apiKey", "api_key", "authorization", "headers", "url", "baseURL", "endpoint"]);
-  for (const name of Object.keys(parameters.extraBody ?? {})) if (reserved.has(name)) throw new Error(`Reserved request field: ${name}`);
+  validateDeepseekOptions(parameters.extraBody ?? {});
   for (const m of messages) {
     if (format !== "chat" && m.prefix) throw new Error("Prefix completion is supported only by Chat Completions.");
     if (m.provider_data && m.provider_data.format !== format) throw new Error("Native assistant history belongs to a different API format. Start a new conversation before switching formats.");
