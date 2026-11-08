@@ -41,31 +41,35 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
   const [expiry, setExpiry] = useState(defaultExpiry);
   const [pending, setPending] = useState<LabFile>();
   const [busy, setBusy] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const epoch = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const operation = useRef<"list" | "upload" | "delete" | null>(null);
   useEffect(() => {
-    epoch.current++; controller.current?.abort(); setFiles([]); setPage(undefined); setRaw(undefined); setPending(undefined); setUpload(undefined); setError(""); setNotice(""); setBusy(false);
-    return () => { epoch.current++; controller.current?.abort(); };
+    epoch.current++; controller.current?.abort(); operation.current = null;
+    setFiles([]); setPage(undefined); setRaw(undefined); setPending(undefined); setUpload(undefined); setError(""); setNotice(""); setBusy(false); setLoadingFiles(false);
+    return () => { epoch.current++; controller.current?.abort(); operation.current = null; };
   }, [apiKey]);
   const locked = disabled || busy;
   const safe = (value: string) => redactLab(value, apiKey);
-  async function action(operation: "list" | "upload" | "delete", more = false) {
-    if (locked) return;
+  async function action(kind: "list" | "upload" | "delete", more = false) {
+    if (disabled || operation.current) return;
+    operation.current = kind;
     const token = ++epoch.current;
     const abort = new AbortController(); controller.current = abort;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setLoadingFiles(kind === "list"); setError(""); setNotice("");
     try {
-      if (operation === "upload" && upload) await validateAttachmentImage(upload);
+      if (kind === "upload" && upload) await validateAttachmentImage(upload);
       if (token !== epoch.current) return;
-      const result = await labFiles(apiKey, operation, { file: upload, id: pending?.id, after: more ? page?.last_id : undefined, expires: expiry === "" ? undefined : Number(expiry), signal: abort.signal });
+      const result = await labFiles(apiKey, kind, { file: upload, id: pending?.id, after: more ? page?.last_id : undefined, expires: expiry === "" ? undefined : Number(expiry), signal: abort.signal });
       if (token !== epoch.current) return;
       setRaw(result);
-      if (operation === "list") {
+      if (kind === "list") {
         const next = result as FileList;
         setFiles(previous => more ? [...previous, ...next.data.filter(file => !previous.some(old => old.id === file.id))] : next.data); setPage(next);
-      } else if (operation === "upload") {
+      } else if (kind === "upload") {
         const file = result as LabFile;
         attachmentBlocks([{ id: file.id, kind: "file", value: file.id, name: file.filename }]);
         setFiles(previous => [file, ...previous.filter(old => old.id !== file.id)]); setUpload(undefined); setNotice(`Uploaded ${file.filename}: ${file.id}`);
@@ -75,8 +79,13 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
         setFiles(previous => previous.filter(file => file.id !== id)); setPending(undefined); onDeleted?.(id); setNotice("File deleted.");
       }
     } catch (e) { if (token === epoch.current) setError(safe(e instanceof Error ? e.message : "File operation failed.")); }
-    finally { if (token === epoch.current) setBusy(false); }
+    finally { if (token === epoch.current) { operation.current = null; setBusy(false); setLoadingFiles(false); } }
   }
+  const latestAction = useRef(action);
+  latestAction.current = action;
+  useEffect(() => {
+    if (apiKey.trim() && !disabled) void latestAction.current("list");
+  }, [apiKey, disabled]);
   return <Stack spacing={1.5} sx={mediaControlsSx}>
     <Box sx={{ display: "flex", height: 32, alignItems: "center", justifyContent: "space-between" }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Files</Typography>
@@ -100,7 +109,7 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
     </Box>
     {error && <Alert severity="error">{error}</Alert>}
     {notice && <Alert severity="success">{safe(notice)}</Alert>}
-    {!files.length && <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>{page ? "No files returned." : "Files not loaded."}</Typography>}
+    {!files.length && !error && <Typography variant="caption" role="status" sx={{ color: "var(--color-subtext)" }}>{loadingFiles ? "Loading files..." : page ? "No files returned." : "Files not loaded."}</Typography>}
     {!!files.length && <Box>
       {files.map(file => <Box key={file.id} sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 36px 36px", alignItems: "center", gap: 0.5, borderBottom: "1px solid var(--color-border)", py: 1 }}>
         <Box sx={{ minWidth: 0, overflowWrap: "anywhere", pr: 1 }}>
