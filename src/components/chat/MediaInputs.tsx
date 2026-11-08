@@ -28,6 +28,10 @@ const mediaControlsSx = {
   "& .Mui-disabled": { color: "var(--color-subtext)", opacity: 0.5 },
   "& .MuiButton-root.Mui-disabled": { color: "var(--color-subtext)", backgroundColor: "var(--color-sidebar)", borderColor: "var(--color-border)", opacity: 0.65 },
 };
+const controlRowSx = {
+  display: "grid", gridTemplateColumns: "minmax(0, 1fr) 112px",
+  gap: 1, alignItems: "center", width: "100%", maxWidth: 420,
+};
 
 export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, defaultExpiry = "" }: { apiKey: string; disabled?: boolean; onSelect: (file: LabFile) => void; onDeleted?: (id: string) => void; defaultExpiry?: string }) {
   const [files, setFiles] = useState<LabFile[]>([]);
@@ -73,27 +77,30 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
     } catch (e) { if (token === epoch.current) setError(safe(e instanceof Error ? e.message : "File operation failed.")); }
     finally { if (token === epoch.current) setBusy(false); }
   }
-  return <Stack spacing={2} sx={mediaControlsSx}>
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+  return <Stack spacing={1.5} sx={mediaControlsSx}>
+    <Box sx={{ display: "flex", height: 32, alignItems: "center", justifyContent: "space-between" }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Files</Typography>
       <Tooltip title="Refresh files"><span><IconButton size="small" aria-label="Refresh files" disabled={locked || !apiKey.trim()} onClick={() => void action("list")}><Refresh fontSize="small" /></IconButton></span></Tooltip>
     </Box>
-    {error && <Alert severity="error">{error}</Alert>}
-    {notice && <Alert severity="success">{safe(notice)}</Alert>}
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-start" }}>
+    <Box sx={controlRowSx}>
       <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked}
-        sx={{ height: 40, width: 168, maxWidth: "100%", minWidth: 0, justifyContent: "flex-start" }}>
+        sx={{ height: 40, minWidth: 0, justifyContent: "flex-start" }}>
         <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{upload ? safe(upload.name) : "Choose image"}</Box>
         <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { setUpload(e.target.files?.[0]); e.target.value = ""; }} />
       </Button>
-      <TextField label="Expiry (seconds)" size="small" type="number" disabled={locked} value={expiry}
-        sx={{ width: 156, maxWidth: "100%" }}
-        onChange={e => setExpiry(e.target.value)} helperText="3600-2592000; blank = permanent"
-        slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 3600, max: 2592000 } }} />
+      <TextField label="Expiry (sec)" size="small" type="number" disabled={locked} value={expiry}
+        onChange={e => setExpiry(e.target.value)}
+        slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 3600, max: 2592000, "aria-label": "Expiry (seconds)", title: "3600-2592000; blank = permanent" } }} />
+    </Box>
+    <Box sx={{ ...controlRowSx, minHeight: 40 }}>
+      <Tooltip title="Images up to 64 MiB. Hosted by DeepSeek until expiry or deletion.">
+        <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>64 MiB max</Typography>
+      </Tooltip>
       <Button variant="contained" startIcon={<UploadFile />} disabled={locked || !upload || !apiKey.trim()} onClick={() => void action("upload")} sx={{ height: 40 }}>Upload</Button>
     </Box>
-    <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>Images up to 64 MiB. Hosted by DeepSeek until expiry or deletion.</Typography>
-    {!files.length && <Typography variant="body2" sx={{ color: "var(--color-subtext)", py: 1 }}>{page ? "No files returned." : "Files not loaded."}</Typography>}
+    {error && <Alert severity="error">{error}</Alert>}
+    {notice && <Alert severity="success">{safe(notice)}</Alert>}
+    {!files.length && <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>{page ? "No files returned." : "Files not loaded."}</Typography>}
     {!!files.length && <Box>
       {files.map(file => <Box key={file.id} sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 36px 36px", alignItems: "center", gap: 0.5, borderBottom: "1px solid var(--color-border)", py: 1 }}>
         <Box sx={{ minWidth: 0, overflowWrap: "anywhere", pr: 1 }}>
@@ -159,36 +166,44 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
     }
   }
 
-  return <Stack spacing={2.5} sx={{ ...mediaControlsSx, pt: 1.5 }}>
-    {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-      <TextField select size="small" label="Image source" value={mode} disabled={locked} sx={{ width: 180, maxWidth: "100%" }}
-        slotProps={{ select: { MenuProps: mediaMenuProps } }}
-        onChange={e => { setMode(e.target.value); setValue(""); }}>
-        <MenuItem value="url">Public URL</MenuItem>
-        <MenuItem value="file">Uploaded file ID</MenuItem>
-        <MenuItem value="upload">Local upload</MenuItem>
-        {allowInline && <MenuItem value="inline">Local inline image</MenuItem>}
-      </TextField>
-      <TextField select size="small" label="Detail" value={detail} sx={{ width: 112, maxWidth: "100%" }}
-        slotProps={{ select: { MenuProps: mediaMenuProps } }}
-        disabled={locked || mode === "file" || mode === "upload"}
-        onChange={e => setDetail(e.target.value as AttachmentDetail)}>
-        {["auto", "low", "high", "original"].map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-      </TextField>
-    </Box>
-    {mode === "upload" || mode === "inline" ? (
-      <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked || (mode === "upload" && !apiKey.trim())} sx={{ height: 40, alignSelf: "flex-start" }}>
-        {busy ? "Uploading..." : "Choose image"}
-        <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { void local(e.target.files?.[0]); e.target.value = ""; }} />
-      </Button>
-    ) : (
-      <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 40px", width: 408, maxWidth: "100%", gap: 1, alignItems: "center" }}>
-        <TextField fullWidth size="small" label={mode === "file" ? "File ID" : "Image URL"} disabled={locked} value={value} onChange={e => setValue(e.target.value)} />
-        <Tooltip title="Attach image"><span><IconButton aria-label="Attach image" disabled={locked || !value.trim()} onClick={attachReference}
-          sx={{ width: 40, height: 40, border: "1px solid var(--color-border)", borderRadius: 1 }}><Add /></IconButton></span></Tooltip>
-      </Box>
-    )}
+  return <Box sx={mediaControlsSx}>
+    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 3,
+      "@container (min-width: 720px)": { gridTemplateColumns: showFiles ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)" } }}>
+      <Stack component="section" aria-label="Images" spacing={1.5} sx={{ minWidth: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "center", height: 32 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Images</Typography>
+        </Box>
+        <Box sx={controlRowSx}>
+          <TextField select fullWidth size="small" label="Image source" value={mode} disabled={locked}
+            slotProps={{ select: { MenuProps: mediaMenuProps } }}
+            onChange={e => { setMode(e.target.value); setValue(""); }}>
+            <MenuItem value="url">Public URL</MenuItem>
+            <MenuItem value="file">Uploaded file ID</MenuItem>
+            <MenuItem value="upload">Local upload</MenuItem>
+            {allowInline && <MenuItem value="inline">Local inline image</MenuItem>}
+          </TextField>
+          <TextField select fullWidth size="small" label="Detail" value={detail}
+            slotProps={{ select: { MenuProps: mediaMenuProps } }}
+            disabled={locked || mode === "file" || mode === "upload"}
+            onChange={e => setDetail(e.target.value as AttachmentDetail)}>
+            {["auto", "low", "high", "original"].map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+          </TextField>
+        </Box>
+        {mode === "upload" || mode === "inline" ? (
+          <Box sx={{ height: 40 }}>
+            <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked || (mode === "upload" && !apiKey.trim())} sx={{ height: 40 }}>
+              {busy ? "Uploading..." : "Choose image"}
+              <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { void local(e.target.files?.[0]); e.target.value = ""; }} />
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ ...controlRowSx, gridTemplateColumns: "minmax(0, 1fr) 40px" }}>
+            <TextField fullWidth size="small" label={mode === "file" ? "File ID" : "Image URL"} disabled={locked} value={value} onChange={e => setValue(e.target.value)} />
+            <Tooltip title="Attach image"><span><IconButton aria-label="Attach image" disabled={locked || !value.trim()} onClick={attachReference}
+              sx={{ width: 40, height: 40, border: "1px solid var(--color-border)", borderRadius: 1 }}><Add /></IconButton></span></Tooltip>
+          </Box>
+        )}
+        {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
     {!!attachments.length && <Box>
       {attachments.map((attachment, index) => <Box key={`${attachment.id}-${index}`} sx={{ display: "grid", gridTemplateColumns: "72px minmax(0, 1fr) 32px", alignItems: "center", gap: 1.5, py: 1, borderBottom: "1px solid var(--color-border)" }}>
         {attachment.kind === "url" ? <AttachmentPreview value={attachment.value} /> : <Box sx={{ width: 72, height: 56, display: "grid", placeItems: "center", backgroundColor: "var(--color-sidebar)", borderRadius: 1 }}><InsertDriveFile sx={{ color: "var(--color-subtext)" }} /></Box>}
@@ -199,13 +214,17 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
         <Tooltip title="Remove attachment"><span><IconButton size="small" aria-label={`Remove ${attachment.name}`} disabled={locked} onClick={() => onChange(attachments.filter((_, i) => i !== index))}><DeleteOutline fontSize="small" /></IconButton></span></Tooltip>
       </Box>)}
     </Box>}
-    {showFiles && <Box sx={{ borderTop: "1px solid var(--color-border)", pt: 2 }}>
-      <FilesManager apiKey={apiKey} disabled={locked}
-        onSelect={file => { try { attach({ id: file.id, kind: "file", value: file.id, name: file.filename }); } catch (e) { setError(e instanceof Error ? e.message : "Invalid file."); } }}
-        onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))}
-      />
-    </Box>}
-  </Stack>;
+
+      </Stack>
+      {showFiles && <Box component="section" aria-label="Files" sx={{ minWidth: 0, borderTop: "1px solid var(--color-border)", pt: 2,
+        "@container (min-width: 720px)": { borderTop: 0, pt: 0 } }}>
+        <FilesManager apiKey={apiKey} disabled={locked}
+          onSelect={file => { try { attach({ id: file.id, kind: "file", value: file.id, name: file.filename }); } catch (e) { setError(e instanceof Error ? e.message : "Invalid file."); } }}
+          onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))}
+        />
+      </Box>}
+    </Box>
+  </Box>;
 }
 
 function AttachmentPreview({ value }: { value: string }) {
