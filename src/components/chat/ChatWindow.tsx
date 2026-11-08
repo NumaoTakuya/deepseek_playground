@@ -34,8 +34,7 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SettingsIcon from "@mui/icons-material/Settings";
-import AttachFileIcon from "@mui/icons-material/AttachFile";
-import MediaInputs from "./MediaInputs";
+import MediaInputs, { mediaDialogPaperSx } from "./MediaInputs";
 import ApiSettingsFields from "./ApiSettingsFields";
 import { buildDeepseekRequest } from "../../services/deepseek";
 import type { ChatCompletionMessageParam } from "../../services/deepseek";
@@ -789,16 +788,15 @@ for await (const chunk of response.body) process.stdout.write(chunk);
           )}
         </Box>
 
-        <Box sx={{ px: 2, pt: 1, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <Tooltip title="Images and Files"><span><IconButton aria-label="Images and Files" disabled={assistantThinking} onClick={() => setMediaOpen(true)} sx={{ color: "var(--color-text)" }}><AttachFileIcon /></IconButton></span></Tooltip>
-          {attachments.map((attachment) => <Button key={attachment.id} size="small" onClick={() => setMediaOpen(true)} sx={{ maxWidth: "100%", overflowWrap: "anywhere" }}>{attachment.name}</Button>)}
-        </Box>
         <InputSection
           input={input}
           setInput={setInput}
           handleSend={handleSend}
           handleKeyDown={handleKeyDown}
           assistantThinking={assistantThinking}
+          onOpenAttachments={() => setMediaOpen(true)}
+          attachments={attachments}
+          onRemoveAttachment={(index) => setAttachments(attachments.filter((_, i) => i !== index))}
         />
 
       </Box>
@@ -1703,10 +1701,10 @@ for await (const chunk of response.body) process.stdout.write(chunk);
         )}
       </Box>
 
-      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md">
+      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md" PaperProps={{ sx: mediaDialogPaperSx }}>
         <DialogTitle>Images and Files</DialogTitle>
         <DialogContent>{model !== "deepseek-flash" && <Alert severity="info" sx={{ mb: 2 }}>Image inputs require deepseek-flash.</Alert>}<MediaInputs apiKey={apiKey} attachments={attachments} onChange={setAttachments} disabled={assistantThinking} /></DialogContent>
-        <DialogActions><Button onClick={() => setMediaOpen(false)}>{t("common.cancel")}</Button></DialogActions>
+        <DialogActions><Button onClick={() => setMediaOpen(false)} sx={{ color: "var(--color-text)" }}>{t("common.close")}</Button></DialogActions>
       </Dialog>
       <Dialog open={inspectorOpen} onClose={() => setInspectorOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>API Response</DialogTitle>

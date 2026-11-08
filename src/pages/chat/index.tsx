@@ -25,7 +25,7 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
-import MediaInputs from "../../components/chat/MediaInputs";
+import MediaInputs, { mediaDialogPaperSx } from "../../components/chat/MediaInputs";
 import ApiSettingsFields from "../../components/chat/ApiSettingsFields";
 import type { Attachment } from "../../services/deepseekAttachments";
 import { parseDeepseekOptions } from "../../services/deepseekRequest";
@@ -1211,7 +1211,7 @@ export default function ChatHomePage() {
           </Box>
         )}
       </Box>
-      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md"><DialogTitle>Images and Files</DialogTitle><DialogContent><MediaInputs apiKey={apiKey} attachments={attachments} onChange={setAttachments} disabled={loading} /></DialogContent><DialogActions><Button onClick={() => setMediaOpen(false)}>{t("common.close")}</Button></DialogActions></Dialog>
+      <Dialog open={mediaOpen} onClose={() => setMediaOpen(false)} fullWidth maxWidth="md" PaperProps={{ sx: mediaDialogPaperSx }}><DialogTitle>Images and Files</DialogTitle><DialogContent><MediaInputs apiKey={apiKey} attachments={attachments} onChange={setAttachments} disabled={loading} /></DialogContent><DialogActions><Button onClick={() => setMediaOpen(false)}>{t("common.close")}</Button></DialogActions></Dialog>
     </>
   );
 }

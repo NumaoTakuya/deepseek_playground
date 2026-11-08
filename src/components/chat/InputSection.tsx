@@ -1,6 +1,8 @@
 // src/components/chat/InputSection.tsx
 
-import { Box, TextField, IconButton, Alert } from "@mui/material";
+import { Box, TextField, IconButton, Alert, Chip, Tooltip } from "@mui/material";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import type { Attachment } from "../../services/deepseekAttachments";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import StopIcon from "@mui/icons-material/Stop"; // ← 追加
 import { useApiKey } from "../../contexts/ApiKeyContext";
@@ -13,6 +15,9 @@ interface InputSectionProps {
   handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   // 追加: thinking中かどうか (ボタンアイコン切替)
   assistantThinking?: boolean;
+  onOpenAttachments?: () => void;
+  attachments?: Attachment[];
+  onRemoveAttachment?: (index: number) => void;
 }
 
 export default function InputSection({
@@ -21,6 +26,9 @@ export default function InputSection({
   handleSend,
   handleKeyDown,
   assistantThinking = false,
+  onOpenAttachments,
+  attachments = [],
+  onRemoveAttachment,
 }: InputSectionProps) {
   const { apiKey } = useApiKey();
   const { t } = useTranslation();
@@ -41,7 +49,18 @@ export default function InputSection({
         </Alert>
       )}
 
+      {!!attachments.length && <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+        {attachments.map((attachment, index) => <Chip key={`${attachment.id}-${index}`} label={attachment.name} size="small"
+          onClick={onOpenAttachments} onDelete={onRemoveAttachment && !assistantThinking ? () => onRemoveAttachment(index) : undefined}
+          sx={{ maxWidth: "100%", color: "var(--color-text)", backgroundColor: "var(--color-panel)", "& .MuiChip-deleteIcon": { color: "var(--color-subtext)" } }} />)}
+      </Box>}
       <Box display="flex" gap={1} alignItems="flex-end" sx={{ m: 0 }}>
+        {onOpenAttachments && <Tooltip title="Images and Files"><span>
+          <IconButton aria-label="Images and Files" onClick={onOpenAttachments} disabled={assistantThinking}
+            sx={{ width: 40, height: { xs: 44, sm: 48 }, color: "var(--color-text)", flexShrink: 0 }}>
+            <AttachFileIcon />
+          </IconButton>
+        </span></Tooltip>}
         <TextField
           margin="none"
           multiline

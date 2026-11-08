@@ -4,12 +4,30 @@ import UploadFile from "@mui/icons-material/UploadFile";
 import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import Refresh from "@mui/icons-material/Refresh";
 import Add from "@mui/icons-material/Add";
+import InsertDriveFile from "@mui/icons-material/InsertDriveFile";
 import { IMAGE_ACCEPT, inlineImage, labFiles, redactLab } from "../../services/deepseekLab";
 import type { FileList, LabFile } from "../../services/deepseekLab";
 import { attachmentBlocks, validateAttachmentImage } from "../../services/deepseekAttachments";
 import type { Attachment, AttachmentDetail } from "../../services/deepseekAttachments";
 
 export interface MediaInputsProps { apiKey: string; attachments: Attachment[]; onChange: (attachments: Attachment[]) => void; disabled?: boolean; allowInline?: boolean; showFiles?: boolean }
+
+export const mediaDialogPaperSx = { backgroundColor: "var(--color-panel)", color: "var(--color-text)", border: "1px solid var(--color-border)" };
+const mediaMenuProps = { PaperProps: { sx: {
+  ...mediaDialogPaperSx,
+  "& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root:hover": { backgroundColor: "var(--color-sidebar)" },
+} } };
+const mediaControlsSx = {
+  minWidth: 0, containerType: "inline-size", color: "var(--color-text)",
+  "& .MuiInputBase-root, & .MuiSelect-icon, & .MuiIconButton-root:not(.Mui-disabled)": { color: "var(--color-text)" },
+  "& .MuiInputLabel-root, & .MuiFormHelperText-root": { color: "var(--color-subtext)" },
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-border)" },
+  "& .MuiButton-root": { textTransform: "none" },
+  "& .MuiButton-outlined": { color: "var(--color-text)", borderColor: "var(--color-border)" },
+  "& .MuiButton-contained": { backgroundColor: "var(--color-primary)", color: "#fff" },
+  "& .Mui-disabled": { color: "var(--color-subtext)", opacity: 0.5 },
+  "& .MuiButton-root.Mui-disabled": { color: "var(--color-subtext)", backgroundColor: "var(--color-sidebar)", borderColor: "var(--color-border)", opacity: 0.65 },
+};
 
 export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, defaultExpiry = "" }: { apiKey: string; disabled?: boolean; onSelect: (file: LabFile) => void; onDeleted?: (id: string) => void; defaultExpiry?: string }) {
   const [files, setFiles] = useState<LabFile[]>([]);
@@ -55,21 +73,46 @@ export function FilesManager({ apiKey, disabled = false, onSelect, onDeleted, de
     } catch (e) { if (token === epoch.current) setError(safe(e instanceof Error ? e.message : "File operation failed.")); }
     finally { if (token === epoch.current) setBusy(false); }
   }
-  return <Stack spacing={1.5} sx={{ minWidth: 0 }}>
-    <Stack direction="row" alignItems="center"><Typography variant="h6">Files</Typography><Tooltip title="Refresh files"><span><IconButton aria-label="Refresh files" disabled={locked || !apiKey.trim()} onClick={() => void action("list")}><Refresh /></IconButton></span></Tooltip></Stack>
-    {error && <Alert severity="error">{error}</Alert>}{notice && <Alert severity="success">{safe(notice)}</Alert>}
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-      <Button component="label" startIcon={<UploadFile />} disabled={locked}>Choose image<input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { setUpload(e.target.files?.[0]); e.target.value = ""; }} /></Button>
-      <TextField label="Expiry (seconds)" size="small" type="number" disabled={locked} value={expiry} onChange={e => setExpiry(e.target.value)} helperText="3600-2592000; blank = permanent" />
-      <Button startIcon={<UploadFile />} disabled={locked || !upload || !apiKey.trim()} onClick={() => void action("upload")}>Upload</Button>
-    </Stack>
-    {upload && <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>{safe(upload.name)} ({upload.size.toLocaleString()} bytes)</Typography>}
-    <Typography variant="caption">Files are hosted by DeepSeek, shared across your account, and remain until expiry or deletion. Images up to 64 MiB.</Typography>
-    {!files.length && <Typography variant="body2">{page ? "No files returned." : "Files not loaded."}</Typography>}
-    {files.map(file => <Stack key={file.id} direction="row" alignItems="center" spacing={1} sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}><Box sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}><Typography variant="body2">{safe(file.filename)}</Typography><Typography variant="caption">{safe(file.id)} / {file.bytes.toLocaleString()} bytes{file.expires_at ? ` / expires ${new Date(file.expires_at * 1000).toLocaleString()}` : " / permanent"}</Typography></Box><Tooltip title="Attach file"><span><IconButton aria-label={`Attach ${file.filename}`} disabled={locked} onClick={() => onSelect(file)}><Add /></IconButton></span></Tooltip><Tooltip title="Delete file"><span><IconButton aria-label={`Delete ${file.filename}`} disabled={locked || !apiKey.trim()} onClick={() => setPending(file)}><DeleteOutline /></IconButton></span></Tooltip></Stack>)}
+  return <Stack spacing={2} sx={mediaControlsSx}>
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Files</Typography>
+      <Tooltip title="Refresh files"><span><IconButton size="small" aria-label="Refresh files" disabled={locked || !apiKey.trim()} onClick={() => void action("list")}><Refresh fontSize="small" /></IconButton></span></Tooltip>
+    </Box>
+    {error && <Alert severity="error">{error}</Alert>}
+    {notice && <Alert severity="success">{safe(notice)}</Alert>}
+    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 1.5, alignItems: "start", "@container (min-width: 480px)": { gridTemplateColumns: "minmax(0, 1fr) 180px auto" } }}>
+      <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked}
+        sx={{ height: 40, minWidth: 0, justifyContent: "flex-start" }}>
+        <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{upload ? safe(upload.name) : "Choose image"}</Box>
+        <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { setUpload(e.target.files?.[0]); e.target.value = ""; }} />
+      </Button>
+      <TextField label="Expiry (seconds)" size="small" type="number" disabled={locked} value={expiry}
+        onChange={e => setExpiry(e.target.value)} helperText="3600-2592000; blank = permanent"
+        slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 3600, max: 2592000 } }} />
+      <Button variant="contained" startIcon={<UploadFile />} disabled={locked || !upload || !apiKey.trim()} onClick={() => void action("upload")} sx={{ height: 40 }}>Upload</Button>
+    </Box>
+    <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>Images up to 64 MiB. Hosted by DeepSeek until expiry or deletion.</Typography>
+    {!files.length && <Typography variant="body2" sx={{ color: "var(--color-subtext)", py: 1 }}>{page ? "No files returned." : "Files not loaded."}</Typography>}
+    {!!files.length && <Box>
+      {files.map(file => <Box key={file.id} sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 36px 36px", alignItems: "center", gap: 0.5, borderBottom: "1px solid var(--color-border)", py: 1 }}>
+        <Box sx={{ minWidth: 0, overflowWrap: "anywhere", pr: 1 }}>
+          <Typography variant="body2">{safe(file.filename)}</Typography>
+          <Typography variant="caption" sx={{ display: "block", color: "var(--color-subtext)" }}>{safe(file.id)} / {file.bytes.toLocaleString()} bytes{file.expires_at ? ` / expires ${new Date(file.expires_at * 1000).toLocaleString()}` : " / permanent"}</Typography>
+        </Box>
+        <Tooltip title="Attach file"><span><IconButton size="small" aria-label={`Attach ${file.filename}`} disabled={locked} onClick={() => onSelect(file)}><Add fontSize="small" /></IconButton></span></Tooltip>
+        <Tooltip title="Delete file"><span><IconButton size="small" aria-label={`Delete ${file.filename}`} disabled={locked || !apiKey.trim()} onClick={() => setPending(file)}><DeleteOutline fontSize="small" /></IconButton></span></Tooltip>
+      </Box>)}
+    </Box>}
     {page?.has_more && <Button disabled={locked || !page.last_id} onClick={() => void action("list", true)}>Load More</Button>}
-    {raw !== undefined && <Box component="details"><summary>Files response JSON</summary><Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 300, overflow: "auto", fontSize: 12 }}>{safe(JSON.stringify(raw, null, 2))}</Box></Box>}
-    <Dialog open={!!pending} onClose={() => { if (!locked) setPending(undefined); }}><DialogTitle>Delete Image?</DialogTitle><DialogContent sx={{ overflowWrap: "anywhere" }}>{safe(pending?.filename || "")} will be permanently deleted from your DeepSeek account. Existing references will stop working.</DialogContent><DialogActions><Button disabled={locked} onClick={() => setPending(undefined)}>Cancel</Button><Button color="error" startIcon={<DeleteOutline />} disabled={locked} onClick={() => void action("delete")}>Delete</Button></DialogActions></Dialog>
+    {raw !== undefined && <Box component="details" sx={{ fontSize: 12, color: "var(--color-subtext)" }}>
+      <Box component="summary" sx={{ cursor: "pointer" }}>Files response JSON</Box>
+      <Box component="pre" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 300, overflow: "auto" }}>{safe(JSON.stringify(raw, null, 2))}</Box>
+    </Box>}
+    <Dialog open={!!pending} PaperProps={{ sx: mediaDialogPaperSx }} onClose={() => { if (!locked) setPending(undefined); }}>
+      <DialogTitle>Delete Image?</DialogTitle>
+      <DialogContent sx={{ overflowWrap: "anywhere" }}>{safe(pending?.filename || "")} will be permanently deleted from your DeepSeek account. Existing references will stop working.</DialogContent>
+      <DialogActions><Button disabled={locked} onClick={() => setPending(undefined)} sx={{ color: "var(--color-text)" }}>Cancel</Button><Button color="error" startIcon={<DeleteOutline />} disabled={locked} onClick={() => void action("delete")}>Delete</Button></DialogActions>
+    </Dialog>
   </Stack>;
 }
 
@@ -105,12 +148,62 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
     } catch (e) { if (token === generation.current) setError(redactLab(e instanceof Error ? e.message : "Image upload failed.", apiKey)); }
     finally { if (token === generation.current) setBusy(false); }
   }
-  return <Stack spacing={2} sx={{ minWidth: 0 }}>
+  function attachReference() {
+    try {
+      if (mode === "url" && value.trim().startsWith("data:")) throw new Error("Use a public HTTP(S) image URL. Local images must be uploaded.");
+      attach({ id: crypto.randomUUID(), kind: mode === "file" ? "file" : "url", value: value.trim(), name: value.trim(), detail });
+      setValue(""); setError("");
+    } catch (e) {
+      setError(redactLab(e instanceof Error ? e.message : "Invalid image.", apiKey));
+    }
+  }
+
+  return <Stack spacing={2.5} sx={{ ...mediaControlsSx, pt: 1.5 }}>
     {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}><TextField select size="small" label="Image source" value={mode} disabled={locked} onChange={e => { setMode(e.target.value); setValue(""); }} sx={{ minWidth: 160 }}><MenuItem value="url">Public URL</MenuItem><MenuItem value="file">Uploaded file ID</MenuItem><MenuItem value="upload">Local upload</MenuItem>{allowInline && <MenuItem value="inline">Local inline image</MenuItem>}</TextField><TextField select size="small" label="Detail" value={detail} disabled={locked || mode === "file" || mode === "upload"} onChange={e => setDetail(e.target.value as AttachmentDetail)}>{["auto", "low", "high", "original"].map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}</TextField></Stack>
-    {mode === "upload" || mode === "inline" ? <Button component="label" startIcon={<UploadFile />} disabled={locked || (mode === "upload" && !apiKey.trim())}>Choose image<input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { void local(e.target.files?.[0]); e.target.value = ""; }} /></Button> : <Stack direction="row" spacing={1}><TextField fullWidth size="small" label={mode === "file" ? "File ID" : "Image URL"} disabled={locked} value={value} onChange={e => setValue(e.target.value)} /><Tooltip title="Attach image"><span><IconButton aria-label="Attach image" disabled={locked || !value.trim()} onClick={() => { try { if (mode === "url" && value.trim().startsWith("data:")) throw new Error("Use a public HTTP(S) image URL. Local images must be uploaded."); attach({ id: crypto.randomUUID(), kind: mode === "file" ? "file" : "url", value: value.trim(), name: value.trim(), detail }); setValue(""); setError(""); } catch (e) { setError(redactLab(e instanceof Error ? e.message : "Invalid image.", apiKey)); } }}><Add /></IconButton></span></Tooltip></Stack>}
-    {attachments.map((attachment, index) => <Stack key={`${attachment.id}-${index}`} spacing={1}><Stack direction="row" alignItems="center"><Box sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}><Typography variant="body2">{redactLab(attachment.name, apiKey)}</Typography>{attachment.kind === "file" && <Typography variant="caption">{attachment.value}</Typography>}</Box><Tooltip title="Remove attachment"><span><IconButton aria-label={`Remove ${attachment.name}`} disabled={locked} onClick={() => onChange(attachments.filter((_, i) => i !== index))}><DeleteOutline /></IconButton></span></Tooltip></Stack>{attachment.kind === "url" && <AttachmentPreview value={attachment.value} />}</Stack>)}
-    {showFiles && <FilesManager apiKey={apiKey} disabled={locked} onSelect={file => { try { attach({ id: file.id, kind: "file", value: file.id, name: file.filename }); } catch (e) { setError(e instanceof Error ? e.message : "Invalid file."); } }} onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))} />}
+    <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 2, "@container (min-width: 360px)": { gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)" } }}>
+      <TextField select fullWidth size="small" label="Image source" value={mode} disabled={locked}
+        slotProps={{ select: { MenuProps: mediaMenuProps } }}
+        onChange={e => { setMode(e.target.value); setValue(""); }}>
+        <MenuItem value="url">Public URL</MenuItem>
+        <MenuItem value="file">Uploaded file ID</MenuItem>
+        <MenuItem value="upload">Local upload</MenuItem>
+        {allowInline && <MenuItem value="inline">Local inline image</MenuItem>}
+      </TextField>
+      <TextField select fullWidth size="small" label="Detail" value={detail}
+        slotProps={{ select: { MenuProps: mediaMenuProps } }}
+        disabled={locked || mode === "file" || mode === "upload"}
+        onChange={e => setDetail(e.target.value as AttachmentDetail)}>
+        {["auto", "low", "high", "original"].map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+      </TextField>
+    </Box>
+    {mode === "upload" || mode === "inline" ? (
+      <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={locked || (mode === "upload" && !apiKey.trim())} sx={{ height: 40, alignSelf: "flex-start" }}>
+        {busy ? "Uploading..." : "Choose image"}
+        <input hidden type="file" accept={IMAGE_ACCEPT} onChange={e => { void local(e.target.files?.[0]); e.target.value = ""; }} />
+      </Button>
+    ) : (
+      <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 40px", gap: 1, alignItems: "center" }}>
+        <TextField fullWidth size="small" label={mode === "file" ? "File ID" : "Image URL"} disabled={locked} value={value} onChange={e => setValue(e.target.value)} />
+        <Tooltip title="Attach image"><span><IconButton aria-label="Attach image" disabled={locked || !value.trim()} onClick={attachReference}
+          sx={{ width: 40, height: 40, border: "1px solid var(--color-border)", borderRadius: 1 }}><Add /></IconButton></span></Tooltip>
+      </Box>
+    )}
+    {!!attachments.length && <Box>
+      {attachments.map((attachment, index) => <Box key={`${attachment.id}-${index}`} sx={{ display: "grid", gridTemplateColumns: "72px minmax(0, 1fr) 32px", alignItems: "center", gap: 1.5, py: 1, borderBottom: "1px solid var(--color-border)" }}>
+        {attachment.kind === "url" ? <AttachmentPreview value={attachment.value} /> : <Box sx={{ width: 72, height: 56, display: "grid", placeItems: "center", backgroundColor: "var(--color-sidebar)", borderRadius: 1 }}><InsertDriveFile sx={{ color: "var(--color-subtext)" }} /></Box>}
+        <Box sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
+          <Typography variant="body2">{redactLab(attachment.name, apiKey)}</Typography>
+          {attachment.kind === "file" && <Typography variant="caption" sx={{ color: "var(--color-subtext)" }}>{attachment.value}</Typography>}
+        </Box>
+        <Tooltip title="Remove attachment"><span><IconButton size="small" aria-label={`Remove ${attachment.name}`} disabled={locked} onClick={() => onChange(attachments.filter((_, i) => i !== index))}><DeleteOutline fontSize="small" /></IconButton></span></Tooltip>
+      </Box>)}
+    </Box>}
+    {showFiles && <Box sx={{ borderTop: "1px solid var(--color-border)", pt: 2 }}>
+      <FilesManager apiKey={apiKey} disabled={locked}
+        onSelect={file => { try { attach({ id: file.id, kind: "file", value: file.id, name: file.filename }); } catch (e) { setError(e instanceof Error ? e.message : "Invalid file."); } }}
+        onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))}
+      />
+    </Box>}
   </Stack>;
 }
 
@@ -118,7 +211,7 @@ function AttachmentPreview({ value }: { value: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [value]);
   try { attachmentBlocks([{ id: "preview", kind: "url", value, name: "preview" }]); } catch { return null; }
-  return failed ? <Typography variant="caption">Image preview unavailable.</Typography> : <Box component="img" src={value} alt="Selected image preview" referrerPolicy="no-referrer" onError={() => setFailed(true)} sx={{ width: "100%", height: 180, objectFit: "contain" }} />;
+  return failed ? <Box sx={{ width: 72, height: 56, display: "grid", placeItems: "center", backgroundColor: "var(--color-sidebar)", borderRadius: 1 }}><InsertDriveFile sx={{ color: "var(--color-subtext)" }} /></Box> : <Box component="img" src={value} alt="Selected image preview" referrerPolicy="no-referrer" onError={() => setFailed(true)} sx={{ width: 72, height: 56, objectFit: "contain", borderRadius: 1, backgroundColor: "var(--color-sidebar)" }} />;
 }
 
 export default MediaInputs;
