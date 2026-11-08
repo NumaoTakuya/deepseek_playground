@@ -36,6 +36,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import MediaInputs from "./MediaInputs";
+import ApiSettingsFields from "./ApiSettingsFields";
 import { buildDeepseekRequest } from "../../services/deepseek";
 import type { ChatCompletionMessageParam } from "../../services/deepseek";
 import { labCurl } from "../../services/deepseekLab";
@@ -667,7 +668,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
   }, [model, input, systemPrompt, isFirstTime, handleSend, settingsLoaded, attachments.length, autoSendRequested]);
 
   return (
-    <Box display="flex" height="100%" position="relative" overflow="hidden" sx={{ "& .MuiInputBase-root, & .MuiInputLabel-root, & .MuiFormLabel-root": { color: "var(--color-text)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-border)" } }}>
+    <Box display="flex" height="100%" position="relative" overflow="hidden" sx={{ "& .MuiInputBase-root, & .MuiInputLabel-root, & .MuiFormLabel-root": { color: "var(--color-text)" }, "& .MuiSelect-icon": { color: "var(--color-text)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-border)" } }}>
       <Box flex="1" display="flex" flexDirection="column" minWidth={0}>
         {errorMessage && (
           <Alert severity="error" sx={{ mx: 2, my: 1 }}>
@@ -926,39 +927,22 @@ for await (const chunk of response.body) process.stdout.write(chunk);
             <Box component="details" sx={{ mb: 2, border: "1px solid var(--color-border)", "&[open] .api-settings-chevron": { transform: "rotate(180deg)" } }}>
               <Box component="summary" sx={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", p: 1, backgroundColor: "var(--color-panel)", color: "var(--color-text)", listStyle: "none", "&::-webkit-details-marker": { display: "none" } }}>
                 <Typography component="span" variant="subtitle1" sx={{ fontWeight: 600 }}>API Settings</Typography>
-                <ExpandMoreIcon className="api-settings-chevron" fontSize="small" />
+                <ExpandMoreIcon className="api-settings-chevron" fontSize="small" sx={{ color: "var(--color-text)" }} />
               </Box>
               <Box sx={{ p: 2 }}>
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel id="thread-api-format-label">API Format</InputLabel>
-              <Select labelId="thread-api-format-label" label="API Format" value={apiFormat} disabled={assistantThinking} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>
-                <MenuItem value="chat">Chat Completions</MenuItem>
-                <MenuItem value="responses">Responses</MenuItem>
-                <MenuItem value="messages">Anthropic Messages</MenuItem>
-              </Select>
-            </FormControl>
-            <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}><Typography>Stream</Typography><Switch checked={isStreamEnabled} onChange={(_, checked) => setIsStreamEnabled(checked)} disabled={assistantThinking || fimActive} inputProps={{ "aria-label": "Stream" }} /></Box>
-            {isCurrentModel(model) && (
-              <Box sx={{ mb: 2 }}>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Typography>Thinking</Typography>
-                  <Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} />
+                <ApiSettingsFields
+                  apiFormat={apiFormat} onApiFormatChange={setApiFormat}
+                  streamEnabled={isStreamEnabled} onStreamChange={setIsStreamEnabled}
+                  thinkingEnabled={thinkingEnabled} onThinkingChange={setThinkingEnabled}
+                  reasoningEffort={reasoningEffort} onReasoningEffortChange={setReasoningEffort}
+                  requestOptionsJson={requestOptionsJson} onRequestOptionsChange={setRequestOptionsJson}
+                  showThinking={isCurrentModel(model)} disabled={assistantThinking} streamDisabled={fimActive}
+                />
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
+                  <Button onClick={() => setInspectorOpen(true)} startIcon={<CodeIcon />}>API Response</Button>
+                  <Button href="/api-lab" startIcon={<CodeIcon />}>API Lab</Button>
                 </Box>
-                <FormControl fullWidth size="small" disabled={!thinkingEnabled}>
-                  <InputLabel id="thread-effort-label">reasoning_effort</InputLabel>
-                  <Select labelId="thread-effort-label" label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>
-                    {["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
-            <Box sx={{ mb: 2 }}>
-              <Button onClick={() => setInspectorOpen(true)} startIcon={<CodeIcon />}>API Response</Button>
-              <Button href="/api-lab" startIcon={<CodeIcon />}>API Lab</Button>
-              <TextField label="Additional API Parameters (JSON)" slotProps={{ inputLabel: { shrink: true } }} value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)} disabled={assistantThinking} multiline minRows={2} fullWidth size="small" sx={{ my: 2 }} />
-              {chatRequest.error && <Alert severity="error" sx={{ mb: 2 }}>{chatRequest.error}</Alert>}
-
-              </Box>
+                {chatRequest.error && <Alert severity="error" sx={{ mt: 2 }}>{chatRequest.error}</Alert>}
               </Box>
             </Box>
             <Box sx={{ mb: 2 }}>
