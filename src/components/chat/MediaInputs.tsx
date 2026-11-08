@@ -216,8 +216,11 @@ export function MediaInputs({ apiKey, attachments, onChange, disabled = false, a
     </Box>}
 
       </Stack>
-      {showFiles && <Box component="section" aria-label="Files" sx={{ minWidth: 0, borderTop: "1px solid var(--color-border)", pt: 2,
-        "@container (min-width: 720px)": { borderTop: 0, pt: 0 } }}>
+      {showFiles && <Box component="section" aria-label="Files" sx={{ position: "relative", minWidth: 0, borderTop: "1px solid var(--color-border)", pt: 2,
+        "@container (min-width: 720px)": {
+          borderTop: 0, pt: 0,
+          "&::before": { content: '\"\"', position: "absolute", left: -12, top: 0, bottom: 0, width: "1px", backgroundColor: "var(--color-border)" },
+        } }}>
         <FilesManager apiKey={apiKey} disabled={locked}
           onSelect={file => { try { attach({ id: file.id, kind: "file", value: file.id, name: file.filename }); } catch (e) { setError(e instanceof Error ? e.message : "Invalid file."); } }}
           onDeleted={id => onChange(latest.current.attachments.filter(a => a.kind !== "file" || a.value !== id))}
