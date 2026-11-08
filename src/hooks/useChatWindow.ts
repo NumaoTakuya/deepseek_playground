@@ -26,7 +26,6 @@ import type { Message } from "../types/index";
 import { useTranslation } from "../contexts/LanguageContext";
 import { createThread } from "../services/thread";
 import { replayMessage, runToolConversation, parseRequestOptions, type ToolPass } from "./toolConversation";
-import { withSearchTools, searchHandlers } from "../services/deepseekSearch";
 import { attachmentBlocks, type Attachment } from "../services/deepseekAttachments";
 import { DEFAULT_MODEL, getModelLimits } from "../services/deepseekModels";
 
@@ -116,7 +115,6 @@ export function useChatWindow(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [apiFormat, setApiFormat] = useState<"chat" | "responses" | "messages">("chat");
   const [streamEnabled, setStreamEnabled] = useState(true);
-  const [searchEnabled, setSearchEnabled] = useState(false);
   const [requestOptionsJson, setRequestOptionsJson] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [settingsLoadedThread, setSettingsLoadedThread] = useState<string | null>(null);
@@ -137,7 +135,7 @@ export function useChatWindow(
   }, [defaultMaxTokens, maxTokens, maxTokensLimit]);
 
   const settingsRef = useRef({
-    apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+    apiFormat, streamEnabled, requestOptionsJson,
     model,
     frequencyPenalty,
     presencePenalty,
@@ -304,7 +302,7 @@ export function useChatWindow(
 
   useEffect(() => {
     settingsRef.current = {
-      apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+      apiFormat, streamEnabled, requestOptionsJson,
       model,
       frequencyPenalty,
       presencePenalty,
@@ -334,7 +332,7 @@ export function useChatWindow(
     }, 500);
     return () => clearTimeout(timeout);
   }, [
-    apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+    apiFormat, streamEnabled, requestOptionsJson,
     threadId,
     model,
     frequencyPenalty,
@@ -414,8 +412,7 @@ export function useChatWindow(
 
   const buildToolConfig = (
     rawJson: string,
-    strict: boolean,
-    enableSearch = searchEnabled
+    strict: boolean
   ): ToolingResult => {
     const parsed = parseToolsJson(rawJson);
     if (parsed.error) {
@@ -424,27 +421,18 @@ export function useChatWindow(
       return { error: parsed.error };
     }
     setToolsJsonError(null);
-    let tools: unknown[];
-    try {
-      tools = withSearchTools(parsed.tools, enableSearch);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setToolsJsonError(message);
-      setErrorMessage(message);
-      return { error: message };
-    }
-    if (tools.length === 0) {
+    if (!parsed.tools || parsed.tools.length === 0) {
       return { toolConfig: undefined };
     }
     return {
       toolConfig: {
-        tools: applyStrictToTools(tools, strict),
+        tools: applyStrictToTools(parsed.tools, strict),
         strict,
       },
     };
   };
 
-  const buildToolHandlers = (rawJson: string, enableSearch = searchEnabled) => {
+  const buildToolHandlers = (rawJson: string) => {
     const parsed = parseToolHandlersJson(rawJson);
     if (parsed.error) {
       setErrorMessage(parsed.error);
@@ -452,9 +440,7 @@ export function useChatWindow(
       return { error: parsed.error };
     }
     setToolHandlersJsonError(null);
-    return { handlers: enableSearch ? {
-      ...parsed.handlers, ...searchHandlers(apiKey, generationRef.current?.signal),
-    } : parsed.handlers };
+    return { handlers: parsed.handlers };
   };
 
   const parseStopSequences = (raw: string) => {
@@ -715,7 +701,6 @@ export function useChatWindow(
           title?: string;
           apiFormat?: "chat" | "responses" | "messages";
           streamEnabled?: boolean;
-          searchEnabled?: boolean;
           requestOptionsJson?: string;
           model?: string;
           thinkingEnabled?: boolean;
@@ -743,7 +728,6 @@ export function useChatWindow(
         setModel(data.model ?? "deepseek-chat");
         setApiFormat(data.apiFormat ?? "chat");
         setStreamEnabled(data.streamEnabled ?? true);
-        setSearchEnabled(data.searchEnabled ?? false);
         setRequestOptionsJson(data.requestOptionsJson ?? "");
         setSettingsLoadedThread(threadId);
         setThinkingEnabled(data.thinkingEnabled ?? false);
@@ -1032,7 +1016,7 @@ export function useChatWindow(
       ] as ChatCompletionMessageParam[];
 
       await updateDoc(doc(db, "threads", threadId), {
-        apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+        apiFormat, streamEnabled, requestOptionsJson,
         frequencyPenalty,
         presencePenalty,
         temperature,
@@ -1214,8 +1198,7 @@ export function useChatWindow(
         ? { toolConfig: undefined }
         : buildToolConfig(
             currentSettings.toolsJson,
-            currentSettings.toolsStrict,
-            currentSettings.searchEnabled
+            currentSettings.toolsStrict
           );
       if (!hasFim && tooling.error) {
         setAssistantThinking(false);
@@ -1224,7 +1207,7 @@ export function useChatWindow(
       }
       const handlersResult = hasFim
         ? { handlers: undefined }
-        : buildToolHandlers(currentSettings.toolHandlersJson, currentSettings.searchEnabled);
+        : buildToolHandlers(currentSettings.toolHandlersJson);
       if (!hasFim && handlersResult.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
@@ -1384,7 +1367,7 @@ export function useChatWindow(
     try {
       const newThreadId = await createThread(userId, branchTitle);
       await updateDoc(doc(db, "threads", newThreadId), {
-        apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+        apiFormat, streamEnabled, requestOptionsJson,
         parentThreadId: threadId,
         branchFromMessageId: messageId,
         branchFromTitle: threadTitle,
@@ -1505,15 +1488,14 @@ export function useChatWindow(
       validateGeneration(currentSettings);
       const tooling = buildToolConfig(
         currentSettings.toolsJson,
-        currentSettings.toolsStrict,
-        currentSettings.searchEnabled
+        currentSettings.toolsStrict
       );
       if (tooling.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
         return;
       }
-      const handlersResult = buildToolHandlers(currentSettings.toolHandlersJson, currentSettings.searchEnabled);
+      const handlersResult = buildToolHandlers(currentSettings.toolHandlersJson);
       if (handlersResult.error) {
         setAssistantThinking(false);
         setWaitingForFirstChunk(false);
@@ -1683,7 +1665,7 @@ export function useChatWindow(
       void ensureSystemPromptTokenCount(systemPrompt);
 
       await updateDoc(doc(db, "threads", threadId), {
-        apiFormat, streamEnabled, requestOptionsJson, searchEnabled,
+        apiFormat, streamEnabled, requestOptionsJson,
         model,
         frequencyPenalty,
         presencePenalty,
@@ -1773,7 +1755,6 @@ export function useChatWindow(
     settingsLoaded: settingsLoadedThread === threadId,
     apiFormat, setApiFormat,
     streamEnabled, setStreamEnabled,
-    searchEnabled, setSearchEnabled,
     requestOptionsJson, setRequestOptionsJson,
     attachments, setAttachments,
     messages,

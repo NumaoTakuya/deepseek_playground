@@ -27,7 +27,6 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import MediaInputs, { mediaDialogPaperSx } from "../../components/chat/MediaInputs";
 import ApiSettingsFields from "../../components/chat/ApiSettingsFields";
-import BuiltinTools from "../../components/chat/BuiltinTools";
 import type { Attachment } from "../../services/deepseekAttachments";
 import { parseDeepseekOptions } from "../../services/deepseekRequest";
 import { useRouter } from "next/router";
@@ -164,7 +163,6 @@ export default function ChatHomePage() {
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [apiFormat, setApiFormat] = useState<"chat" | "responses" | "messages">("chat");
   const [streamEnabled, setStreamEnabled] = useState(true);
-  const [searchEnabled, setSearchEnabled] = useState(false);
   const [requestOptionsJson, setRequestOptionsJson] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -404,7 +402,7 @@ export default function ChatHomePage() {
       localStorage.removeItem(DRAFT_FIM_MAX_TOKENS_KEY);
 
       await updateDoc(doc(db, "threads", newThreadId), {
-        model, apiFormat, streamEnabled, searchEnabled, requestOptionsJson, thinkingEnabled, reasoningEffort, frequencyPenalty, presencePenalty,
+        model, apiFormat, streamEnabled, requestOptionsJson, thinkingEnabled, reasoningEffort, frequencyPenalty, presencePenalty,
         temperature, topP, maxTokens, toolsJson, toolsStrict, toolHandlersJson,
         jsonOutput, fimPrefix, fimSuffix, fimMaxTokens,
       });
@@ -895,7 +893,6 @@ export default function ChatHomePage() {
                   </IconButton>
                 </Box>
                 <Collapse in={showToolsBox} timeout={200} unmountOnExit>
-                  <BuiltinTools searchEnabled={searchEnabled} onSearchChange={setSearchEnabled} disabled={loading || Boolean(fimPrefix.trim() || fimSuffix.trim())} />
                   <Box
                     sx={{
                       pl: 2,
