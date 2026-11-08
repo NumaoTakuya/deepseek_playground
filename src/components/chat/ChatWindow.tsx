@@ -1430,17 +1430,17 @@ for await (const chunk of response.body) process.stdout.write(chunk);
                         variant="body2"
                         sx={{ color: "var(--color-subtext)" }}
                       >
-                        {topP.toFixed(2)}
+                        {(model === "deepseek-flash" && thinkingEnabled ? Math.max(0.95, topP) : topP).toFixed(2)}
                       </Typography>
                     </Box>
                     <Slider
-                      value={topP}
+                      value={model === "deepseek-flash" && thinkingEnabled ? Math.max(0.95, topP) : topP}
                       onChange={(_, value) =>
                         setTopP(Array.isArray(value) ? value[0] : value)
                       }
-                      min={0}
+                      min={model === "deepseek-flash" && thinkingEnabled ? 0.95 : 0.01}
                       max={1}
-                      step={0.05}
+                      step={0.01}
                       sx={{ color: "var(--color-primary)" }}
                       aria-label="top p"
                       disabled={model === "deepseek-reasoner" || (model === "deepseek-flash" && !thinkingEnabled) || (model === "deepseek-v4-pro" && thinkingEnabled)}
