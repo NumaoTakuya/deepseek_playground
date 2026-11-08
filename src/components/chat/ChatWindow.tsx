@@ -152,7 +152,7 @@ export default function ChatWindow({ threadId }: Props) {
     setIsFirstTime(true);
     setAutoSendRequested(localStorage.getItem(`thread-${threadId}-inputValue`) !== null);
   }, [threadId]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showAdvancedBox, setShowAdvancedBox] = useState(false);
   const [showToolsBox, setShowToolsBox] = useState(false);
@@ -420,9 +420,9 @@ for await (const chunk of response.body) process.stdout.write(chunk);
     const toolsOpen = window.localStorage.getItem(toolsOpenKey);
     const prefixOpen = window.localStorage.getItem(prefixOpenKey);
     const fimOpen = window.localStorage.getItem(fimOpenKey);
-    if (sidebarOpen !== null) {
-      setIsSidebarOpen(sidebarOpen === "true");
-    }
+    setIsSidebarOpen(
+      !window.matchMedia("(max-width:900px)").matches && sidebarOpen !== "false"
+    );
     if (paramsOpen !== null) {
       setShowParametersBox(paramsOpen === "true");
     }
@@ -442,6 +442,7 @@ for await (const chunk of response.body) process.stdout.write(chunk);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width:900px)").matches) return;
     window.localStorage.setItem(
       `thread-${threadId}-ui-right-sidebar-open`,
       String(isSidebarOpen)
