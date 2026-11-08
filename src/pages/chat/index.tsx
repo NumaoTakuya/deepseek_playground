@@ -7,6 +7,7 @@ import {
   Alert,
   Typography,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -504,68 +505,54 @@ export default function ChatHomePage() {
           </Box>
         ) : (
           <Box width="100%" maxWidth="680px">
-            {/* モデル選択 */}
-            <Box mb={2}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
                 {t("chat.new.chooseModel")}
               </Typography>
-              <FormControl
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: { xs: 0, sm: 180 },
-                  backgroundColor: "transparent",
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": { borderColor: "var(--color-border)" },
-                    "&:hover fieldset": { borderColor: "var(--color-hover)" },
-                    "&.Mui-focused fieldset": { borderColor: "var(--color-hover)" },
-                    "& .MuiSelect-select": {
-                      color: "var(--color-text)",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    },
-                  },
-                  "& .MuiFormLabel-root": { color: "var(--color-subtext)" },
-                  "& .MuiFormLabel-root.Mui-focused": {
-                    color: "var(--color-text)",
-                  },
-                }}
-              >
-                <InputLabel shrink sx={{ color: "var(--color-subtext)" }}>
-                  {t("common.model")}
-                </InputLabel>
-                <Select
-                  label={t("common.model")}
-                  value={model}
-                  onChange={(e) => {
-                    const selectedModel = e.target.value as string;
-                    setModel(selectedModel);
-                    // if (selectedModel === "deepseek-reasoner") {
-                    //   setError(
-                    //     "Currently, due to attacks on Deepseek servers, the deepseek-reasoner API might be unstable. If it doesn't work, please switch back to deepseek-chat."
-                    //   );
-                    // } else {
-                    //   setError(""); // 他のモデル選択時はエラーをクリア
-                    // }
-                  }}
-                >
-                  <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
-                  {CURRENT_MODELS.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
-                  <MenuItem value="deepseek-reasoner">
-                    deepseek-reasoner
-                  </MenuItem>
-                </Select>
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}><InputLabel id="new-api-format-label">API Format</InputLabel><Select labelId="new-api-format-label" label="API Format" value={apiFormat} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}><MenuItem value="chat">Chat Completions</MenuItem><MenuItem value="responses">Responses</MenuItem><MenuItem value="messages">Anthropic Messages</MenuItem></Select></FormControl>
-                <Box display="flex" alignItems="center" justifyContent="space-between"><Typography>Stream</Typography><Switch checked={streamEnabled} onChange={(_, checked) => setStreamEnabled(checked)} inputProps={{ "aria-label": "Stream" }} /></Box>
-                <TextField label="Additional API Parameters (JSON)" slotProps={{ inputLabel: { shrink: true } }} value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)} multiline minRows={2} fullWidth size="small" sx={{ mt: 2 }} />
-                {isCurrentModel(model) && <Box sx={{ mt: 2 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between"><Typography>Thinking</Typography><Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} /></Box>
-                  <FormControl fullWidth size="small" disabled={!thinkingEnabled}><InputLabel id="new-effort-label">reasoning_effort</InputLabel><Select labelId="new-effort-label" label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>{["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}</Select></FormControl>
-                </Box>}
-              </FormControl>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="new-model-label">{t("common.model")}</InputLabel>
+                  <Select labelId="new-model-label" label={t("common.model")} value={model} onChange={(event) => setModel(event.target.value)}>
+                    {CURRENT_MODELS.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                    <MenuItem value="deepseek-chat">deepseek-chat</MenuItem>
+                    <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="new-api-format-label">API Format</InputLabel>
+                  <Select labelId="new-api-format-label" label="API Format" value={apiFormat} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>
+                    <MenuItem value="chat">Chat Completions</MenuItem>
+                    <MenuItem value="responses">Responses</MenuItem>
+                    <MenuItem value="messages">Anthropic Messages</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "minmax(0, 1fr) minmax(0, 1fr) minmax(160px, 1.3fr)" }, gap: 2, alignItems: "center", my: 2 }}>
+                <FormControlLabel
+                  sx={{ m: 0, minHeight: 40, justifyContent: "space-between", "& .MuiFormControlLabel-label": { fontSize: 14 } }}
+                  label="Stream" labelPlacement="start"
+                  control={<Switch checked={streamEnabled} onChange={(_, checked) => setStreamEnabled(checked)} inputProps={{ "aria-label": "Stream" }} />}
+                />
+                {isCurrentModel(model) && <>
+                  <FormControlLabel
+                    sx={{ m: 0, minHeight: 40, justifyContent: "space-between", "& .MuiFormControlLabel-label": { fontSize: 14 } }}
+                    label="Thinking" labelPlacement="start"
+                    control={<Switch checked={thinkingEnabled} onChange={(_, checked) => setThinkingEnabled(checked)} inputProps={{ "aria-label": "Thinking" }} />}
+                  />
+                  <FormControl fullWidth size="small" disabled={!thinkingEnabled} sx={{ gridColumn: { xs: "1 / -1", sm: "auto" } }}>
+                    <InputLabel id="new-effort-label">reasoning_effort</InputLabel>
+                    <Select labelId="new-effort-label" label="reasoning_effort" value={reasoningEffort} onChange={(event) => setReasoningEffort(event.target.value as "low" | "high" | "max")}>
+                      {["low", "high", "max"].map((effort) => <MenuItem key={effort} value={effort}>{effort}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </>}
+              </Box>
+              <TextField
+                label="Additional API Parameters (JSON)"
+                slotProps={{ inputLabel: { shrink: true }, input: { sx: { fontFamily: "monospace", fontSize: 13 } } }}
+                value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)}
+                multiline minRows={2} fullWidth size="small"
+              />
             </Box>
 
             {/* System Prompt */}
