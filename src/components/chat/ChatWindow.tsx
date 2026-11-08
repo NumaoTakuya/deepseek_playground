@@ -923,6 +923,12 @@ for await (const chunk of response.body) process.stdout.write(chunk);
               </FormControl>
             </Box>
 
+            <Box component="details" sx={{ mb: 2, borderBottom: "1px solid var(--color-border)", "&[open] .api-settings-chevron": { transform: "rotate(180deg)" } }}>
+              <Box component="summary" sx={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", py: 1, listStyle: "none", "&::-webkit-details-marker": { display: "none" } }}>
+                <Typography component="span" variant="subtitle2">API Settings</Typography>
+                <ExpandMoreIcon className="api-settings-chevron" fontSize="small" />
+              </Box>
+              <Box sx={{ pt: 1 }}>
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel id="thread-api-format-label">API Format</InputLabel>
               <Select labelId="thread-api-format-label" label="API Format" value={apiFormat} disabled={assistantThinking} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>
@@ -951,6 +957,11 @@ for await (const chunk of response.body) process.stdout.write(chunk);
               <Button href="/api-lab" startIcon={<CodeIcon />}>API Lab</Button>
               <TextField label="Additional API Parameters (JSON)" slotProps={{ inputLabel: { shrink: true } }} value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)} disabled={assistantThinking} multiline minRows={2} fullWidth size="small" sx={{ my: 2 }} />
               {chatRequest.error && <Alert severity="error" sx={{ mb: 2 }}>{chatRequest.error}</Alert>}
+
+              </Box>
+              </Box>
+            </Box>
+            <Box sx={{ mb: 2 }}>
               <SystemPromptSection
                 systemPrompt={systemPrompt}
                 setSystemPrompt={setSystemPrompt}

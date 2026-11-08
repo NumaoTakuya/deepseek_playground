@@ -176,6 +176,13 @@ export default function ChatHomePage() {
   const [showSystemBox, setShowSystemBox] = useState(false);
   const [showParametersBox, setShowParametersBox] = useState(false);
   const [showAdvancedBox, setShowAdvancedBox] = useState(false);
+  const [showApiBox, setShowApiBox] = useState(false);
+  const toggleSection = (section: "system" | "parameters" | "features" | "api") => {
+    setShowSystemBox(section === "system" ? !showSystemBox : false);
+    setShowParametersBox(section === "parameters" ? !showParametersBox : false);
+    setShowAdvancedBox(section === "features" ? !showAdvancedBox : false);
+    setShowApiBox(section === "api" ? !showApiBox : false);
+  };
   const [frequencyPenalty, setFrequencyPenalty] = useState(0);
   const [presencePenalty, setPresencePenalty] = useState(0);
   const [temperature, setTemperature] = useState(1);
@@ -203,15 +210,9 @@ export default function ChatHomePage() {
     const advancedOpen = window.localStorage.getItem(UI_ADVANCED_OPEN_KEY);
     const toolsOpen = window.localStorage.getItem(UI_TOOLS_OPEN_KEY);
     const fimOpen = window.localStorage.getItem(UI_FIM_OPEN_KEY);
-    if (systemOpen !== null) {
-      setShowSystemBox(systemOpen === "true");
-    }
-    if (paramsOpen !== null) {
-      setShowParametersBox(paramsOpen === "true");
-    }
-    if (advancedOpen !== null) {
-      setShowAdvancedBox(advancedOpen === "true");
-    }
+    setShowSystemBox(systemOpen === "true");
+    setShowParametersBox(systemOpen !== "true" && paramsOpen === "true");
+    setShowAdvancedBox(systemOpen !== "true" && paramsOpen !== "true" && advancedOpen === "true");
     if (toolsOpen !== null) {
       setShowToolsBox(toolsOpen === "true");
     }
@@ -505,11 +506,9 @@ export default function ChatHomePage() {
           </Box>
         ) : (
           <Box width="100%" maxWidth="680px">
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                {t("chat.new.chooseModel")}
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>{t("chat.new.chooseModel")}</Typography>
+              <Box sx={{ width: { xs: "100%", sm: 260 } }}>
                 <FormControl fullWidth size="small">
                   <InputLabel id="new-model-label">{t("common.model")}</InputLabel>
                   <Select labelId="new-model-label" label={t("common.model")} value={model} onChange={(event) => setModel(event.target.value)}>
@@ -518,6 +517,26 @@ export default function ChatHomePage() {
                     <MenuItem value="deepseek-reasoner">deepseek-reasoner</MenuItem>
                   </Select>
                 </FormControl>
+              </Box>
+            </Box>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(0, 1fr))" }, gap: 1, mb: 2 }}>
+              {([
+                { key: "system", label: t("common.systemPrompt"), open: showSystemBox },
+                { key: "parameters", label: t("common.parameters"), open: showParametersBox },
+                { key: "features", label: t("common.advancedSettings"), open: showAdvancedBox },
+                { key: "api", label: "API Settings", open: showApiBox },
+              ] as const).map(({ key, label, open }) => (
+                <Button key={key} variant="outlined" onClick={() => toggleSection(key)}
+                  aria-expanded={open} aria-controls={`new-${key}-panel`}
+                  endIcon={open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  sx={{ minWidth: 0, minHeight: 42, px: 1.25, justifyContent: "space-between", textTransform: "none", fontSize: 13, lineHeight: 1.3, color: "var(--color-text)", borderColor: open ? "var(--color-primary)" : "var(--color-border)", backgroundColor: open ? "var(--color-panel)" : "transparent", "& .MuiButton-endIcon": { ml: 0.5, flexShrink: 0 } }}>
+                  {label}
+                </Button>
+              ))}
+            </Box>
+            <Collapse id="new-api-panel" in={showApiBox} timeout={200} unmountOnExit>
+              <Box sx={{ pb: 2 }}>
+                <Box sx={{ maxWidth: { sm: 332 } }}>
                 <FormControl fullWidth size="small">
                   <InputLabel id="new-api-format-label">API Format</InputLabel>
                   <Select labelId="new-api-format-label" label="API Format" value={apiFormat} onChange={(event) => setApiFormat(event.target.value as "chat" | "responses" | "messages")}>
@@ -526,7 +545,7 @@ export default function ChatHomePage() {
                     <MenuItem value="messages">Anthropic Messages</MenuItem>
                   </Select>
                 </FormControl>
-              </Box>
+                </Box>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "minmax(0, 1fr) minmax(0, 1fr) minmax(160px, 1.3fr)" }, gap: 2, alignItems: "center", my: 2 }}>
                 <FormControlLabel
                   sx={{ m: 0, minHeight: 40, justifyContent: "space-between", "& .MuiFormControlLabel-label": { fontSize: 14 } }}
@@ -553,32 +572,11 @@ export default function ChatHomePage() {
                 value={requestOptionsJson} onChange={(event) => setRequestOptionsJson(event.target.value)}
                 multiline minRows={2} fullWidth size="small"
               />
-            </Box>
+              </Box>
+            </Collapse>
 
-            {/* System Prompt */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                backgroundColor: "var(--color-panel)",
-                color: "var(--color-text)",
-                p: 1,
-                mb: 2,
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {t("common.systemPrompt")}
-              </Typography>
-              <IconButton
-                onClick={() => setShowSystemBox(!showSystemBox)}
-                sx={{ color: "var(--color-text)", ml: "auto" }}
-              >
-                {showSystemBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              </IconButton>
-            </Box>
 
-            <Collapse in={showSystemBox} timeout={200} unmountOnExit>
+            <Collapse id="new-system-panel" in={showSystemBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
                   backgroundColor: "var(--color-panel)",
@@ -610,31 +608,14 @@ export default function ChatHomePage() {
               </Box>
             </Collapse>
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                backgroundColor: "var(--color-panel)",
-                color: "var(--color-text)",
-                p: 1,
-                mb: 2,
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {t("common.parameters")}
-              </Typography>
-              <IconButton
-                onClick={() => setShowParametersBox(!showParametersBox)}
-                sx={{ color: "var(--color-text)", ml: "auto" }}
-              >
-                {showParametersBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              </IconButton>
-            </Box>
 
-            <Collapse in={showParametersBox} timeout={200} unmountOnExit>
+            <Collapse id="new-parameters-panel" in={showParametersBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" },
+                  columnGap: 3,
+                  "& > .MuiBox-root:last-child": { gridColumn: "1 / -1" },
                   backgroundColor: "var(--color-panel)",
                   p: 2,
                   borderRadius: 1,
@@ -874,29 +855,8 @@ export default function ChatHomePage() {
               </Box>
             </Collapse>
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                backgroundColor: "var(--color-panel)",
-                color: "var(--color-text)",
-                p: 1,
-                mb: 2,
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {t("common.advancedSettings")}
-              </Typography>
-              <IconButton
-                onClick={() => setShowAdvancedBox(!showAdvancedBox)}
-                sx={{ color: "var(--color-text)", ml: "auto" }}
-              >
-                {showAdvancedBox ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              </IconButton>
-            </Box>
 
-            <Collapse in={showAdvancedBox} timeout={200} unmountOnExit>
+            <Collapse id="new-features-panel" in={showAdvancedBox} timeout={200} unmountOnExit>
               <Box
                 sx={{
                   backgroundColor: "var(--color-panel)",
