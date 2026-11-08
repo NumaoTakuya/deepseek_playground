@@ -178,20 +178,6 @@ export function createDeepseekClient(
   });
 }
 
-/** v6向け: camelCase → snake_case 変換（外部型は不変） */
-function mapParams(p?: DeepseekParameters) {
-  if (!p) return {};
-  const o: Record<string, number> = {};
-  if (typeof p.frequencyPenalty === "number")
-    o.frequency_penalty = p.frequencyPenalty;
-  if (typeof p.presencePenalty === "number")
-    o.presence_penalty = p.presencePenalty;
-  if (typeof p.temperature === "number") o.temperature = p.temperature;
-  if (typeof p.topP === "number") o.top_p = p.topP;
-  if (typeof p.maxTokens === "number") o.max_tokens = p.maxTokens;
-  return o;
-}
-
 const CALL_ENDPOINT = "/api/deepseek/call";
 const STREAM_ENDPOINT = "/api/deepseek/stream";
 

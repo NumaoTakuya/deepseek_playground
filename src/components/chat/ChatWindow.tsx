@@ -395,7 +395,8 @@ export default function ChatWindow({ threadId }: Props) {
     const endpoint = fimActive
       ? `${baseUrl}/completions`
       : `${baseUrl}/chat/completions`;
-    return `curl ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer \${DEEPSEEK_API_KEY}" \\\n  -d '${payloadJson}'`;
+    const escapedPayload = payloadJson.replace(/'/g, "'\"'\"'");
+    return `curl ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer \${DEEPSEEK_API_KEY}" \\\n  -d '${escapedPayload}'`;
   }, [payloadJson, fimActive, useBeta]);
 
   const pythonSnippet = useMemo(() => {
